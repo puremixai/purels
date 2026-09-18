@@ -103,18 +103,35 @@ services:
       HEALTH_CHECK_ENABLED: "false"
       HEALTH_CHECK_INTERVAL: 24h
       # TOTP two-factor authentication. Off by default. Turning it on needs
-      # TOTP_ENCRYPTION_KEY below: the secret is stored encrypted (verifying a
+      # SECRET_ENCRYPTION_KEY below: the secret is stored encrypted (verifying a
       # code needs the original value), and without a key enrolment is refused
       # so the deployment cannot accumulate secrets it cannot read back.
       TOTP_ENABLED: "false"
-      # 32 raw bytes, 64 hex characters, or base64 for 32 bytes
-      # (`openssl rand -base64 32`). LOSING OR CHANGING IT INVALIDATES EVERY
-      # ENROLMENT — the stored secrets become undecryptable and the only way
-      # back in is an administrator reset from the user list.
-      TOTP_ENCRYPTION_KEY: ""
       # How long the half-session between a correct password and a correct code
       # stays usable.
       TOTP_CHALLENGE_TTL: 5m
+      # 32 raw bytes, 64 hex characters, or base64 for 32 bytes
+      # (`openssl rand -base64 32`). LOSING OR CHANGING IT INVALIDATES EVERY
+      # STORED SECRET — TOTP enrolment secrets become undecryptable and the only
+      # way back in is an administrator reset from the user list, and OIDC client
+      # secrets have to be pasted in again.
+      SECRET_ENCRYPTION_KEY: ""
+      # Deprecated name for the same key, still read when SECRET_ENCRYPTION_KEY
+      # is empty. Must hold the same value: the ciphertext records nothing about
+      # which name wrote it.
+      # TOTP_ENCRYPTION_KEY: ""
+      # OIDC sign-in providers are configured in the console and stored in the
+      # database; these are the deployment-wide settings. Password login stays
+      # the primary path either way.
+      # Origin the IdP sends the browser back to. Empty means the origin of
+      # PUBLIC_URL. Registered verbatim at the IdP, so it must be the real one
+      # when the console lives on a different domain from the short links.
+      OIDC_REDIRECT_BASE: ""
+      OIDC_REQUEST_TTL: 10m
+      # Permits an http:// issuer, for a self-hosted IdP on a private network.
+      # It widens what oidc:manage can reach; leave it off unless the issuer is
+      # one you control.
+      OIDC_ALLOW_INSECURE_ISSUERS: "false"
       RATE_LIMIT_ENABLED: "true"
       RATE_LIMIT_LOGIN: "10"
       RATE_LIMIT_API: "120"
@@ -124,6 +141,8 @@ services:
       # brute-force bound is the attempt counter stored with the challenge,
       # because the limiter is fail-open when Redis is unavailable.
       RATE_LIMIT_2FA: "10"
+      # Guards the sign-in provider list and the OIDC start/callback endpoints.
+      RATE_LIMIT_OIDC: "60"
     ports:
       - "8080:8080"
 

@@ -98,6 +98,28 @@ type DisableMFARequest struct {
 	Code     string `json:"code"`
 }
 
+// OIDCProviderInput creates or updates a sign-in provider.
+//
+// Every field is a pointer so that an omitted one means "leave unchanged", which
+// is what lets the console PATCH a single toggle without restating the issuer
+// and the client id. The important case is ClientSecret: omitted and empty both
+// mean "keep the stored secret", never "clear it", because clearing it would
+// silently break every sign-in through that provider. Creating a public client
+// is expressed by leaving it empty on create, where there is nothing to keep.
+//
+// Decode runs with DisallowUnknownFields, so this struct and the TypeScript type
+// on the other side are a single contract: one extra key is a 400.
+type OIDCProviderInput struct {
+	Slug          *string   `json:"slug"`
+	DisplayName   *string   `json:"display_name"`
+	Issuer        *string   `json:"issuer"`
+	ClientID      *string   `json:"client_id"`
+	ClientSecret  *string   `json:"client_secret"`
+	Scopes        *[]string `json:"scopes"`
+	AutoProvision *bool     `json:"auto_provision"`
+	Enabled       *bool     `json:"enabled"`
+}
+
 // ListFilter describes how the link list should be queried. OwnerID narrows the
 // result to one account; nil means no restriction, which is the administrator's
 // view. It is filled in from the request context, not from the query string.

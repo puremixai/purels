@@ -48,11 +48,11 @@ func main() {
 
 	// Built once and shared: the login path and the enrolment path have to
 	// agree on the key, and a box that failed to build stays unusable so
-	// enrolment is refused rather than silently storing a secret nothing can
-	// read back. The error is not fatal — 2FA is off by default.
-	box, err := security.NewSecretBox(cfg.TOTPEncryptionKey)
+	// storing a secret is refused rather than silently writing one nothing can
+	// read back. The error is not fatal — both features are optional.
+	box, err := security.NewSecretBox(cfg.SecretEncryptionKey)
 	if err != nil {
-		logger.Warn("two-factor authentication is unavailable", "error", err)
+		logger.Warn("storing encrypted secrets is unavailable", "error", err)
 	}
 
 	authService := &service.AuthService{Store: store, Config: cfg, Hasher: hasher, Box: box}
@@ -81,6 +81,7 @@ func main() {
 		Users:  &service.UserService{Store: store},
 		Roles:  &service.RoleService{Store: store},
 		MFA:    &service.TwoFactorService{Store: store, Config: cfg, Box: box},
+		OIDC:   &service.OIDCService{Store: store, Config: cfg, Box: box},
 		// Built here rather than in the service so the SSRF guard is part of
 		// the wiring: a checker without it must never be constructed.
 		Probe: &service.HealthChecker{Store: store, Client: security.NewProbeClient()},

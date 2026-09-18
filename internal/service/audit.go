@@ -30,6 +30,11 @@ const (
 	ActionUserMFAEnroll  = "user.2fa_enroll"
 	ActionUserMFADisable = "user.2fa_disable"
 	ActionUserMFAReset   = "user.2fa_reset"
+	// Sign-in method changes. These decide who can get in, so they belong in the
+	// trail next to the account and role edits.
+	ActionOIDCProviderCreate = "oidc.create"
+	ActionOIDCProviderUpdate = "oidc.update"
+	ActionOIDCProviderDelete = "oidc.delete"
 )
 
 type AuditService struct {

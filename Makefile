@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-.PHONY: dev test fmt build migrate-up compose-up smoke-api smoke-users smoke-lifecycle smoke-pages smoke-all
+.PHONY: dev test fmt build migrate-up compose-up smoke-api smoke-users smoke-lifecycle smoke-totp smoke-oidc smoke-pages smoke-all
 
 dev:
 	go run ./cmd/purels-api
@@ -18,6 +18,16 @@ smoke-users:
 smoke-lifecycle:
 	node scripts/smoke-lifecycle.mjs
 
+# Runs against the default configuration too, where it asserts that enrolment is
+# refused rather than failing; the full run needs deploy/.totp-check.yaml.
+smoke-totp:
+	node scripts/smoke-totp.mjs
+
+# Picks its own branch by probing whether a client secret can be stored, so the
+# default configuration is verified rather than skipped.
+smoke-oidc:
+	node scripts/smoke-oidc.mjs
+
 # Browser checks. Requires headless Chrome with the DevTools protocol enabled:
 #   chrome --headless=new --disable-gpu --remote-debugging-port=9222 \
 #          --user-data-dir=/tmp/purels-chrome about:blank
@@ -27,7 +37,7 @@ smoke-pages:
 # Every suite, one at a time. They share the API rate-limit bucket, so running
 # them back to back (or in parallel) makes them fail each other's limits.
 smoke-all:
-	@for suite in smoke-api smoke-users smoke-lifecycle smoke-pages; do \
+	@for suite in smoke-api smoke-users smoke-lifecycle smoke-totp smoke-oidc smoke-pages; do \
 		echo "===================== $$suite ====================="; \
 		node scripts/$$suite.mjs || exit 1; \
 		[ "$$suite" = smoke-pages ] || sleep 65; \

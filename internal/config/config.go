@@ -102,13 +102,31 @@ type Config struct {
 	// enforces MFA on the OIDC side turn the local one off without unbinding
 	// every account.
 	TOTPEnabled bool
-	// TOTPEncryptionKey is the AES-256-GCM key the TOTP secrets are stored
-	// under. Empty means enrolment is refused, because a secret the server
-	// cannot read back is worse than no secret.
-	TOTPEncryptionKey string
+	// SecretEncryptionKey is the AES-256-GCM key stored secrets are kept under:
+	// TOTP enrolment secrets, and OIDC client secrets. Empty means storing one
+	// is refused, because a secret the server cannot read back is worse than no
+	// secret. It was called TOTPEncryptionKey when TOTP was all it covered.
+	SecretEncryptionKey string
 	// TOTPChallengeTTL is how long the half-session between a correct password
 	// and a correct second factor stays usable.
 	TOTPChallengeTTL time.Duration
+
+	// OIDC sign-in providers are rows in the database, configured in the
+	// console; these are the deployment-wide settings the flow needs.
+	//
+	// OIDCRedirectBase is the origin the IdP sends the browser back to, and the
+	// value registered verbatim at the IdP. It is deliberately not taken from
+	// the request's Host header: that would let the caller choose where the
+	// authorization code is delivered. Empty means it could not be derived from
+	// PUBLIC_URL, and starting a sign-in is refused rather than guessed.
+	OIDCRedirectBase string
+	// OIDCRequestTTL is how long an authorization request stays usable — the
+	// window between leaving for the IdP and the callback arriving.
+	OIDCRequestTTL time.Duration
+	// OIDCAllowInsecureIssuers permits an http:// issuer. It exists for a
+	// self-hosted IdP on a private network and for the test stack. It widens
+	// what oidc:manage can reach, so it is off by default.
+	OIDCAllowInsecureIssuers bool
 
 	// Rate limiting (per client IP, per minute).
 	RateLimitEnabled  bool
@@ -120,6 +138,9 @@ type Config struct {
 	// only: the real brute-force bound is the attempt counter stored with the
 	// challenge, because the limiter is fail-open when Redis is unavailable.
 	RateLimit2FA int
+	// RateLimitOIDC guards the sign-in provider list and, later, the start and
+	// callback endpoints.
+	RateLimitOIDC int
 }
 
 // SequentialAliases reports whether generated short codes should be drawn from
@@ -131,8 +152,14 @@ func (c Config) SequentialAliases() bool { return c.AliasMode == "sequential" }
 // this: a switch-on without a key would otherwise start challenging accounts
 // whose secrets can no longer be decrypted, locking out everyone who enrolled.
 func (c Config) TwoFactorAvailable() bool {
-	return c.TOTPEnabled && c.TOTPEncryptionKey != ""
+	return c.TOTPEnabled && c.SecretsAvailable()
 }
+
+// SecretsAvailable reports whether stored secrets can be encrypted at all. Both
+// TOTP enrolment and OIDC client secrets need it, and both refuse to store
+// anything without it, so this is the one place the fail-closed posture is
+// expressed.
+func (c Config) SecretsAvailable() bool { return c.SecretEncryptionKey != "" }
 
 // Location is the statistics timezone, never nil so callers can use it directly.
 func (c Config) Location() *time.Location {
@@ -180,6 +207,7 @@ func Load() Config {
 		maxLinksPerUser = 0
 	}
 	ipHashMode := ipHashModeEnv()
+	publicURL := env("PUBLIC_URL", "http://localhost:8080")
 	// A zero or negative TTL would make every challenge expire before the
 	// operator could type a code, so it is clamped rather than trusted.
 	totpChallengeTTL := durationEnv("TOTP_CHALLENGE_TTL", 5*time.Minute)
@@ -187,11 +215,18 @@ func Load() Config {
 		slog.Warn("ignoring non-positive TOTP_CHALLENGE_TTL", "totp_challenge_ttl", totpChallengeTTL)
 		totpChallengeTTL = 5 * time.Minute
 	}
+	// Same reasoning: an authorization request that expires immediately would
+	// make the callback fail every time, which reads as a broken IdP.
+	oidcRequestTTL := durationEnv("OIDC_REQUEST_TTL", 10*time.Minute)
+	if oidcRequestTTL <= 0 {
+		slog.Warn("ignoring non-positive OIDC_REQUEST_TTL", "oidc_request_ttl", oidcRequestTTL)
+		oidcRequestTTL = 10 * time.Minute
+	}
 	return Config{
 		Addr:              env("API_ADDR", ":8080"),
 		DatabaseURL:       env("DATABASE_URL", "postgres://purels:purels@localhost:5432/purels?sslmode=disable"),
 		RedisURL:          env("REDIS_URL", "redis://localhost:6379/0"),
-		PublicURL:         env("PUBLIC_URL", "http://localhost:8080"),
+		PublicURL:         publicURL,
 		AdminOrigin:       origins[0],
 		AdminOrigins:      origins,
 		CookieSecure:      boolEnv("COOKIE_SECURE", false),
@@ -218,9 +253,13 @@ func Load() Config {
 		HealthCheckEnabled:  boolEnv("HEALTH_CHECK_ENABLED", false),
 		HealthCheckInterval: durationEnv("HEALTH_CHECK_INTERVAL", 24*time.Hour),
 
-		TOTPEnabled:       boolEnv("TOTP_ENABLED", false),
-		TOTPEncryptionKey: totpEncryptionKey(),
-		TOTPChallengeTTL:  totpChallengeTTL,
+		TOTPEnabled:         boolEnv("TOTP_ENABLED", false),
+		SecretEncryptionKey: secretEncryptionKey(),
+		TOTPChallengeTTL:    totpChallengeTTL,
+
+		OIDCRedirectBase:         oidcRedirectBase(publicURL),
+		OIDCRequestTTL:           oidcRequestTTL,
+		OIDCAllowInsecureIssuers: boolEnv("OIDC_ALLOW_INSECURE_ISSUERS", false),
 
 		RateLimitEnabled:  boolEnv("RATE_LIMIT_ENABLED", true),
 		RateLimitLogin:    intEnv("RATE_LIMIT_LOGIN", 10),
@@ -230,27 +269,58 @@ func Load() Config {
 		// tightest bucket of the lot.
 		RateLimitRegister: intEnv("RATE_LIMIT_REGISTER", 5),
 		RateLimit2FA:      intEnv("RATE_LIMIT_2FA", 10),
+		RateLimitOIDC:     intEnv("RATE_LIMIT_OIDC", 60),
 	}
 }
 
-// totpEncryptionKey reads TOTP_ENCRYPTION_KEY and warns about the two ways the
-// second factor can end up unusable. Neither warning is fatal: 2FA is off by
-// default, and refusing to boot over an optional feature would take a working
-// service down.
-func totpEncryptionKey() string {
-	key := strings.TrimSpace(os.Getenv("TOTP_ENCRYPTION_KEY"))
-	enabled := boolEnv("TOTP_ENABLED", false)
+// oidcRedirectBase resolves the origin the IdP sends the browser back to.
+//
+// The default is the origin of PUBLIC_URL, which is correct whenever the console
+// and the API are served from the same host — the usual deployment. It is a
+// separate setting because PUBLIC_URL is the *short link* domain and need not be
+// the console's, and because the redirect URI is registered verbatim at the IdP,
+// so it must be a value the operator chose rather than one derived from the
+// request.
+func oidcRedirectBase(publicURL string) string {
+	if override := strings.TrimSpace(os.Getenv("OIDC_REDIRECT_BASE")); override != "" {
+		return strings.TrimRight(override, "/")
+	}
+	parsed, err := url.Parse(publicURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		slog.Warn("cannot derive the OIDC redirect base from PUBLIC_URL; set OIDC_REDIRECT_BASE", "public_url", publicURL)
+		return ""
+	}
+	return parsed.Scheme + "://" + parsed.Host
+}
+
+// secretEncryptionKey reads the key stored secrets are encrypted under.
+//
+// SECRET_ENCRYPTION_KEY is the name to use. TOTP_ENCRYPTION_KEY is the name it
+// had while TOTP was all it covered, and is still read so an existing deployment
+// keeps decrypting its enrolments: the ciphertext records nothing about which
+// name wrote it, so the two names must hold the same bytes. Neither warning
+// below is fatal — refusing to boot over an optional feature would take a
+// working service down.
+func secretEncryptionKey() string {
+	key := strings.TrimSpace(os.Getenv("SECRET_ENCRYPTION_KEY"))
+	if key == "" {
+		if legacy := strings.TrimSpace(os.Getenv("TOTP_ENCRYPTION_KEY")); legacy != "" {
+			slog.Warn("TOTP_ENCRYPTION_KEY is deprecated; use SECRET_ENCRYPTION_KEY")
+			key = legacy
+		}
+	}
+	totpEnabled := boolEnv("TOTP_ENABLED", false)
 	switch {
-	case enabled && key == "":
-		slog.Warn("TOTP_ENABLED is set but TOTP_ENCRYPTION_KEY is empty: the second factor stays off and enrolment is refused")
-	case !enabled && key != "":
-		slog.Warn("TOTP_ENCRYPTION_KEY is set but TOTP_ENABLED is false: nobody will be challenged")
+	case totpEnabled && key == "":
+		slog.Warn("TOTP_ENABLED is set but SECRET_ENCRYPTION_KEY is empty: the second factor stays off and enrolment is refused")
+	case !totpEnabled && key != "":
+		slog.Warn("an encryption key is configured but TOTP_ENABLED is false: nobody will be challenged")
 	}
 	if key != "" {
 		// Validated here rather than at first use, so a wrong key is a boot-time
 		// warning instead of a failed enrolment an operator has to decode.
 		if _, err := security.NewSecretBox(key); err != nil {
-			slog.Warn("TOTP_ENCRYPTION_KEY is not usable", "err", err)
+			slog.Warn("SECRET_ENCRYPTION_KEY is not usable", "err", err)
 		}
 	}
 	return key

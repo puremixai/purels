@@ -95,7 +95,53 @@ export const allScopes: Array<{ value: string; label: string }> = [
   { value: "tokens:manage", label: "管理自己的 API 令牌" },
   { value: "users:manage", label: "管理用户" },
   { value: "roles:manage", label: "管理角色权限" },
+  { value: "oidc:manage", label: "管理登录方式" },
 ];
+
+/** One configured sign-in provider, as the console sees it. */
+export type OIDCProvider = {
+  id: string;
+  /** The path segment of the callback URL. Fixed once created. */
+  slug: string;
+  display_name: string;
+  issuer: string;
+  client_id: string;
+  /** Whether a secret is stored. The secret itself is never returned. */
+  has_secret: boolean;
+  scopes: string[];
+  /** Whether a first sign-in may create an account. */
+  auto_provision: boolean;
+  enabled: boolean;
+  /** Accounts bound to this provider. Deleting it strands every one of them. */
+  identity_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+/** What a visitor who is not signed in may see: a slug and a label. */
+export type PublicProvider = {
+  slug: string;
+  display_name: string;
+};
+
+/**
+ * A create or edit. An update leaves every omitted field alone.
+ *
+ * An omitted or empty `client_secret` keeps the stored one and never clears it:
+ * reading "empty" as "clear" would break every sign-in through the provider
+ * without saying so. On create there is nothing to keep, so an empty secret
+ * means a public client.
+ */
+export type OIDCProviderInput = {
+  slug?: string;
+  display_name?: string;
+  issuer?: string;
+  client_id?: string;
+  client_secret?: string;
+  scopes?: string[];
+  auto_provision?: boolean;
+  enabled?: boolean;
+};
 
 /** A divert rule: send a matching visitor somewhere else. */
 export type LinkRule = {
@@ -559,6 +605,37 @@ export const api = {
     },
     update(name: string, input: { scopes: string[]; unrestricted: boolean }) {
       return request<void>(`/api/v1/roles/${encodeURIComponent(name)}`, { method: "PATCH", body: input });
+    },
+  },
+  /** Sign-in methods. Password login stays the primary path; these are extra doors. */
+  oidc: {
+    /** What the login page renders. Reachable before a session exists. */
+    async publicProviders() {
+      const payload = await request<{ providers: PublicProvider[] } | PublicProvider[]>("/api/v1/auth/oidc/providers");
+      return unwrapKey<PublicProvider[]>(payload, "providers") || [];
+    },
+    /**
+     * Every provider, with the origin the callback URL is built from. The base
+     * comes from the server rather than from `window.location` because it is not
+     * always the console's origin — PUBLIC_URL is the short link domain, and the
+     * operator has to register the URL the API will actually send.
+     */
+    list() {
+      return request<{ providers: OIDCProvider[]; redirect_base: string }>("/api/v1/oidc/providers");
+    },
+    async create(input: OIDCProviderInput) {
+      const payload = await request<{ provider: OIDCProvider }>("/api/v1/oidc/providers", { method: "POST", body: input });
+      return unwrapKey<OIDCProvider>(payload, "provider");
+    },
+    async update(id: string, input: OIDCProviderInput) {
+      const payload = await request<{ provider: OIDCProvider }>(`/api/v1/oidc/providers/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: input,
+      });
+      return unwrapKey<OIDCProvider>(payload, "provider");
+    },
+    remove(id: string) {
+      return request<void>(`/api/v1/oidc/providers/${encodeURIComponent(id)}`, { method: "DELETE" });
     },
   },
   tags: {

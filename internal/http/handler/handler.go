@@ -47,6 +47,7 @@ type Handler struct {
 	Users  *service.UserService
 	Roles  *service.RoleService
 	MFA    *service.TwoFactorService
+	OIDC   *service.OIDCService
 	Probe  *service.HealthChecker
 }
 
@@ -201,7 +202,7 @@ func (h *Handler) DisableMFA(w http.ResponseWriter, r *http.Request) {
 
 // ResetUserMFA removes another account's second factor. Requires users:manage.
 //
-// It is the only way back in after TOTP_ENCRYPTION_KEY is lost or changed, so it
+// It is the only way back in after SECRET_ENCRYPTION_KEY is lost or changed, so it
 // deliberately asks the target for nothing.
 func (h *Handler) ResetUserMFA(w http.ResponseWriter, r *http.Request) {
 	target := chi.URLParam(r, "id")
@@ -835,6 +836,8 @@ func (h *Handler) writeServiceError(w http.ResponseWriter, err error) {
 	case errors.Is(err, service.ErrInvalidSecondFactor):
 		Error(w, 401, err.Error())
 	case errors.Is(err, service.ErrTwoFactorUnavailable), errors.Is(err, service.ErrNoEnrolment):
+		Error(w, 409, err.Error())
+	case errors.Is(err, service.ErrSecretsUnavailable), errors.Is(err, service.ErrOIDCSlugImmutable):
 		Error(w, 409, err.Error())
 	default:
 		Error(w, 400, err.Error())

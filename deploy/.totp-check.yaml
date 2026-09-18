@@ -12,5 +12,5 @@ services:
     environment:
       TOTP_ENABLED: "true"
       # 32 raw bytes. In a real deployment: openssl rand -base64 32
-      TOTP_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
+      SECRET_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
       RATE_LIMIT_2FA: "60"

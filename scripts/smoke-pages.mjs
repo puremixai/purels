@@ -28,6 +28,7 @@ const PAGES = [
   { name: "audit", path: "/admin/audit", expect: ["操作日志", "操作人", "动作"] },
   { name: "users", path: "/admin/users", expect: ["用户管理", "用户名", "角色"] },
   { name: "roles", path: "/admin/settings/roles", expect: ["角色权限", "管理用户", "管理角色权限", "管理全部链接"] },
+  { name: "oidc", path: "/admin/settings/oidc", expect: ["登录方式", "新增登录方式", "Issuer", "Client ID", "Scopes"] },
   { name: "security", path: "/admin/settings/security", expect: ["两步验证", "API Token", "创建 Token"] },
 ];
 

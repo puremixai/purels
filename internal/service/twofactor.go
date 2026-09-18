@@ -160,7 +160,7 @@ func (s *TwoFactorService) Disable(ctx context.Context, user domain.User, passwo
 
 // Reset removes another account's second factor.
 //
-// It is the only way back in after TOTP_ENCRYPTION_KEY is lost or changed, so it
+// It is the only way back in after SECRET_ENCRYPTION_KEY is lost or changed, so it
 // deliberately asks the target for nothing — the administrator acting on it
 // cannot produce the code either.
 func (s *TwoFactorService) Reset(ctx context.Context, userID string) error {

@@ -18,6 +18,7 @@ const navItems: Array<{ href: string; label: string; icon: IconName; scope?: str
   { href: "/admin/audit", label: "操作日志", icon: "list", scope: "audit:read" },
   { href: "/admin/users", label: "用户管理", icon: "user", scope: "users:manage" },
   { href: "/admin/settings/roles", label: "角色权限", icon: "key", scope: "roles:manage" },
+  { href: "/admin/settings/oidc", label: "登录方式", icon: "lock", scope: "oidc:manage" },
   { href: "/admin/settings/security", label: "安全设置", icon: "shield" },
 ];
 

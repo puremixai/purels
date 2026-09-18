@@ -308,6 +308,11 @@ async function main() {
   const rolesDenied = await call(alice, "/api/v1/roles");
   record("a regular user cannot read the role list", rolesDenied.status === 403, `status=${rolesDenied.status}`);
 
+  // Configuring a sign-in method is its own capability, so it does not ride on
+  // roles:manage. A regular account must not reach the list either.
+  const oidcDenied = await call(alice, "/api/v1/oidc/providers");
+  record("a regular user cannot read the sign-in methods", oidcDenied.status === 403, `status=${oidcDenied.status}`);
+
   const roles = await json(await call(admin, "/api/v1/roles"));
   const roleList = roles.roles || [];
   const roleNames = roleList.map((r) => r.name);
@@ -406,6 +411,9 @@ async function main() {
 
     const tokenUsers = await call(newSession(), "/api/v1/users", { headers: bearer });
     record("an administrator's token does not carry users:manage", tokenUsers.status === 403, `status=${tokenUsers.status}`);
+
+    const tokenOidc = await call(newSession(), "/api/v1/oidc/providers", { headers: bearer });
+    record("an administrator's token does not carry oidc:manage", tokenOidc.status === 403, `status=${tokenOidc.status}`);
 
     const revoked = await call(admin, `/api/v1/auth/tokens/${adminToken.token?.id}`, { method: "DELETE" });
     record("the administrator's test token is revoked", revoked.status === 204, `status=${revoked.status}`);

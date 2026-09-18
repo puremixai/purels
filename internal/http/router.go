@@ -57,6 +57,9 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 	// with the challenge is the limit that actually holds.
 	r.With(limit("2fa", h.Config.RateLimit2FA)).Post("/api/v1/auth/2fa/verify", h.VerifySecondFactor)
 	r.Get("/api/v1/auth/csrf", h.CSRF)
+	// The sign-in buttons on the login page, for a visitor who has no session
+	// yet. It reveals only the enabled providers' slug and label.
+	r.With(limit("oidc", h.Config.RateLimitOIDC)).Get("/api/v1/auth/oidc/providers", h.PublicOIDCProviders)
 
 	auth := httpmw.Auth{Store: h.Auth.Store}
 	r.Route("/api/v1", func(api chi.Router) {
@@ -114,6 +117,15 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 		// Role definitions are editable, so they need their own capability.
 		api.With(httpmw.RequireScope(domain.ScopeRolesManage)).Get("/roles", h.ListRoles)
 		api.With(httpmw.RequireScope(domain.ScopeRolesManage)).Patch("/roles/{name}", h.UpdateRole)
+
+		// Sign-in methods are configuration rather than credentials, but editing
+		// one is effectively "who may sign in" — and the issuer is a URL the API
+		// will fetch — so they get their own capability rather than riding on
+		// roles:manage.
+		api.With(httpmw.RequireScope(domain.ScopeOIDCManage)).Get("/oidc/providers", h.ListOIDCProviders)
+		api.With(httpmw.RequireScope(domain.ScopeOIDCManage)).Post("/oidc/providers", h.CreateOIDCProvider)
+		api.With(httpmw.RequireScope(domain.ScopeOIDCManage)).Patch("/oidc/providers/{id}", h.UpdateOIDCProvider)
+		api.With(httpmw.RequireScope(domain.ScopeOIDCManage)).Delete("/oidc/providers/{id}", h.DeleteOIDCProvider)
 
 		// Token management is intentionally not reachable with an API token.
 		api.With(httpmw.RequireScope(domain.ScopeTokensManage)).Get("/auth/tokens", h.ListTokens)

@@ -10,7 +10,7 @@
 // The suite needs the feature switched on to be meaningful:
 //
 //   TOTP_ENABLED=true
-//   TOTP_ENCRYPTION_KEY=<32 raw bytes, 64 hex, or base64 for 32 bytes>
+//   SECRET_ENCRYPTION_KEY=<32 raw bytes, 64 hex, or base64 for 32 bytes>
 //   RATE_LIMIT_2FA=60
 //
 // The rate limit matters: a full run makes about a dozen verify calls, and the
@@ -414,6 +414,6 @@ main()
     }
     const ran = results.length - skipped;
     console.log(`\n${ran - failed}/${ran} checks passed${skipped ? `, ${skipped} skipped` : ""}`);
-    if (skipped) console.log("Set TOTP_ENABLED=true and TOTP_ENCRYPTION_KEY to run the full suite.");
+    if (skipped) console.log("Set TOTP_ENABLED=true and SECRET_ENCRYPTION_KEY to run the full suite.");
     process.exit(failed ? 1 : 0);
   });

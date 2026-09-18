@@ -17,6 +17,9 @@ const ACTION_LABELS: Record<string, string> = {
   "session.logout": "退出登录",
   "user.register": "注册账号",
   "user.update": "更新用户",
+  "oidc.create": "新增登录方式",
+  "oidc.update": "修改登录方式",
+  "oidc.delete": "删除登录方式",
 };
 
 function actionLabel(action: string) {

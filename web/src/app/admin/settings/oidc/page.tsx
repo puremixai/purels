@@ -1,0 +1,404 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { api, ApiError, OIDCProvider, OIDCProviderInput } from "@/lib/api-client";
+
+const DEFAULT_SCOPES = "openid profile email";
+
+/** The editable fields of one provider. The slug is not among them. */
+type Draft = {
+  display_name: string;
+  issuer: string;
+  client_id: string;
+  /** Write-only. Empty means "keep the stored one", never "clear it". */
+  client_secret: string;
+  scopes: string;
+  auto_provision: boolean;
+  enabled: boolean;
+};
+
+type NewProvider = Draft & { slug: string };
+
+function toDraft(provider: OIDCProvider): Draft {
+  return {
+    display_name: provider.display_name,
+    issuer: provider.issuer,
+    client_id: provider.client_id,
+    client_secret: "",
+    scopes: provider.scopes.join(" "),
+    auto_provision: provider.auto_provision,
+    enabled: provider.enabled,
+  };
+}
+
+const emptyNew: NewProvider = {
+  slug: "",
+  display_name: "",
+  issuer: "",
+  client_id: "",
+  client_secret: "",
+  scopes: DEFAULT_SCOPES,
+  auto_provision: true,
+  enabled: true,
+};
+
+/** The scope field is free text, so both separators an operator might use work. */
+function parseScopes(value: string) {
+  return value.split(/[\s,]+/).filter(Boolean);
+}
+
+/**
+ * An account without oidc:manage gets a 403 here. It is rendered as a permission
+ * boundary rather than as the API's own wording, so a page that is merely out of
+ * reach does not look like a page that broke.
+ */
+function describeError(e: unknown, fallback: string) {
+  if (e instanceof ApiError) return e.status === 403 ? "没有权限管理登录方式。" : e.message;
+  return fallback;
+}
+
+export default function OIDCSettingsPage() {
+  const [providers, setProviders] = useState<OIDCProvider[]>([]);
+  const [redirectBase, setRedirectBase] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const [creating, setCreating] = useState<NewProvider>(emptyNew);
+  const [confirming, setConfirming] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await api.oidc.list();
+      const list = result.providers || [];
+      setProviders(list);
+      setRedirectBase(result.redirect_base || "");
+      setDrafts(Object.fromEntries(list.map((provider) => [provider.id, toDraft(provider)])));
+      setError("");
+    } catch (e) {
+      setError(describeError(e, "加载失败"));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function edit(id: string, change: (draft: Draft) => Draft) {
+    setNotice("");
+    setDrafts((current) => ({ ...current, [id]: change(current[id]) }));
+  }
+
+  function dirty(provider: OIDCProvider) {
+    const draft = drafts[provider.id];
+    if (!draft) return false;
+    const current = toDraft(provider);
+    return (
+      draft.display_name !== current.display_name ||
+      draft.issuer !== current.issuer ||
+      draft.client_id !== current.client_id ||
+      draft.scopes !== current.scopes ||
+      draft.auto_provision !== current.auto_provision ||
+      draft.enabled !== current.enabled ||
+      draft.client_secret !== ""
+    );
+  }
+
+  async function save(provider: OIDCProvider) {
+    const draft = drafts[provider.id];
+    if (!draft) return;
+    setBusy(provider.id);
+    setError("");
+    setNotice("");
+    try {
+      // The slug is deliberately absent: the API refuses to move a provider,
+      // because the callback URL registered at the IdP names it.
+      const input: OIDCProviderInput = {
+        display_name: draft.display_name,
+        issuer: draft.issuer,
+        client_id: draft.client_id,
+        scopes: parseScopes(draft.scopes),
+        auto_provision: draft.auto_provision,
+        enabled: draft.enabled,
+      };
+      // Omitted entirely when nothing was typed, so an edit that does not touch
+      // the secret cannot clear it.
+      if (draft.client_secret !== "") input.client_secret = draft.client_secret;
+      await api.oidc.update(provider.id, input);
+      await load();
+      setNotice(`已保存 ${draft.display_name || provider.slug}`);
+    } catch (e) {
+      setError(describeError(e, "保存失败"));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function remove(provider: OIDCProvider) {
+    setBusy(provider.id);
+    setError("");
+    setNotice("");
+    try {
+      await api.oidc.remove(provider.id);
+      setConfirming("");
+      await load();
+      setNotice(`已删除 ${provider.display_name || provider.slug}`);
+    } catch (e) {
+      setError(describeError(e, "保存失败"));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function create() {
+    setBusy("new");
+    setError("");
+    setNotice("");
+    try {
+      const input: OIDCProviderInput = {
+        slug: creating.slug,
+        display_name: creating.display_name,
+        issuer: creating.issuer,
+        client_id: creating.client_id,
+        scopes: parseScopes(creating.scopes),
+        auto_provision: creating.auto_provision,
+        enabled: creating.enabled,
+      };
+      if (creating.client_secret !== "") input.client_secret = creating.client_secret;
+      await api.oidc.create(input);
+      setCreating(emptyNew);
+      await load();
+      setNotice("已新增登录方式");
+    } catch (e) {
+      setError(describeError(e, "创建失败"));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  const canCreate = creating.slug !== "" && creating.display_name !== "" && creating.issuer !== "" && creating.client_id !== "";
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm text-[var(--muted)]">工作台 / 登录方式</p>
+        <h1 className="mt-1 text-2xl font-bold">登录方式</h1>
+      </div>
+
+      {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}
+      {notice && <p className="rounded-lg bg-emerald-50 px-4 py-3 text-emerald-800">{notice}</p>}
+      {!loading && !redirectBase && (
+        <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          未确定回调地址前缀，请设置 OIDC_REDIRECT_BASE 后再配置登录方式。
+        </p>
+      )}
+
+      {loading && !providers.length && <p className="text-sm text-[var(--muted)]">正在加载...</p>}
+
+      {providers.map((provider) => {
+        const draft = drafts[provider.id] || toDraft(provider);
+        const callback = redirectBase ? `${redirectBase}/api/v1/auth/oidc/${provider.slug}/callback` : "";
+        return (
+          <section className="panel space-y-4 p-6" key={provider.id}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <h2 className="font-semibold">{provider.display_name}</h2>
+                <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{provider.slug}</code>
+                <span className={`rounded-full px-2.5 py-1 text-xs ${provider.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                  {provider.enabled ? "已启用" : "已停用"}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button className="btn-primary" disabled={!dirty(provider) || busy === provider.id} onClick={() => save(provider)}>
+                  {busy === provider.id ? "正在保存..." : "保存"}
+                </button>
+                {confirming === provider.id ? (
+                  <>
+                    <button className="btn-danger" disabled={busy === provider.id} onClick={() => remove(provider)}>
+                      确认删除
+                    </button>
+                    <button className="btn-secondary" disabled={busy === provider.id} onClick={() => setConfirming("")}>
+                      取消
+                    </button>
+                  </>
+                ) : (
+                  <button className="btn-secondary" disabled={busy === provider.id} onClick={() => setConfirming(provider.id)}>
+                    删除
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {confirming === provider.id && (
+              <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                删除后绑定该登录方式的账号将无法登录，且应用内无法为它们设置密码。
+                {provider.identity_count > 0 ? ` 当前已绑定 ${provider.identity_count} 个账号。` : ""}
+              </p>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-1 text-sm">
+                <span className="text-[var(--muted)]">名称</span>
+                <input
+                  className="field-control"
+                  value={draft.display_name}
+                  onChange={(e) => edit(provider.id, (current) => ({ ...current, display_name: e.target.value }))}
+                />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="text-[var(--muted)]">Issuer</span>
+                <input
+                  className="field-control"
+                  value={draft.issuer}
+                  onChange={(e) => edit(provider.id, (current) => ({ ...current, issuer: e.target.value }))}
+                />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="text-[var(--muted)]">Client ID</span>
+                <input
+                  className="field-control"
+                  value={draft.client_id}
+                  onChange={(e) => edit(provider.id, (current) => ({ ...current, client_id: e.target.value }))}
+                />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="text-[var(--muted)]">Client Secret{provider.has_secret ? "（留空保持不变）" : ""}</span>
+                <input
+                  className="field-control"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder={provider.has_secret ? "已设置" : "未设置"}
+                  value={draft.client_secret}
+                  onChange={(e) => edit(provider.id, (current) => ({ ...current, client_secret: e.target.value }))}
+                />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="text-[var(--muted)]">Scopes</span>
+                <input
+                  className="field-control"
+                  value={draft.scopes}
+                  onChange={(e) => edit(provider.id, (current) => ({ ...current, scopes: e.target.value }))}
+                />
+              </label>
+              <div className="space-y-2 text-sm">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={draft.auto_provision}
+                    onChange={() => edit(provider.id, (current) => ({ ...current, auto_provision: !current.auto_provision }))}
+                  />
+                  首次登录自动创建账号
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={draft.enabled}
+                    onChange={() => edit(provider.id, (current) => ({ ...current, enabled: !current.enabled }))}
+                  />
+                  启用
+                </label>
+              </div>
+            </div>
+
+            {callback && (
+              <div className="space-y-1 border-t border-[var(--line)] pt-4 text-sm">
+                <p className="text-[var(--muted)]">回调地址</p>
+                <code className="block break-all rounded bg-slate-50 px-3 py-2 font-mono text-xs">{callback}</code>
+              </div>
+            )}
+          </section>
+        );
+      })}
+
+      <section className="panel space-y-4 p-6">
+        <h2 className="font-semibold">新增登录方式</h2>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="space-y-1 text-sm">
+            <span className="text-[var(--muted)]">标识（用于回调地址，创建后不可改）</span>
+            <input
+              className="field-control"
+              placeholder="dex"
+              value={creating.slug}
+              onChange={(e) => setCreating((current) => ({ ...current, slug: e.target.value }))}
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="text-[var(--muted)]">名称</span>
+            <input
+              className="field-control"
+              placeholder="公司账号"
+              value={creating.display_name}
+              onChange={(e) => setCreating((current) => ({ ...current, display_name: e.target.value }))}
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="text-[var(--muted)]">Issuer</span>
+            <input
+              className="field-control"
+              placeholder="https://idp.example.com"
+              value={creating.issuer}
+              onChange={(e) => setCreating((current) => ({ ...current, issuer: e.target.value }))}
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="text-[var(--muted)]">Client ID</span>
+            <input
+              className="field-control"
+              value={creating.client_id}
+              onChange={(e) => setCreating((current) => ({ ...current, client_id: e.target.value }))}
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="text-[var(--muted)]">Client Secret（公开客户端可留空）</span>
+            <input
+              className="field-control"
+              type="password"
+              autoComplete="new-password"
+              value={creating.client_secret}
+              onChange={(e) => setCreating((current) => ({ ...current, client_secret: e.target.value }))}
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="text-[var(--muted)]">Scopes</span>
+            <input
+              className="field-control"
+              value={creating.scopes}
+              onChange={(e) => setCreating((current) => ({ ...current, scopes: e.target.value }))}
+            />
+          </label>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 text-sm">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={creating.auto_provision}
+              onChange={() => setCreating((current) => ({ ...current, auto_provision: !current.auto_provision }))}
+            />
+            首次登录自动创建账号
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={creating.enabled}
+              onChange={() => setCreating((current) => ({ ...current, enabled: !current.enabled }))}
+            />
+            启用
+          </label>
+          <button className="btn-primary ml-auto" disabled={!canCreate || busy === "new"} onClick={create}>
+            {busy === "new" ? "正在新增..." : "新增"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}

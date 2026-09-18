@@ -36,3 +36,93 @@ func TestLocationIsNeverNil(t *testing.T) {
 		t.Fatal("Location must return the configured zone")
 	}
 }
+
+// The key was renamed when it stopped being TOTP-only. The old name still has to
+// work, because the stored ciphertext records nothing about which name wrote it:
+// an operator who renames the variable without carrying the value over would
+// make every existing enrolment undecryptable.
+func TestSecretEncryptionKeyAcceptsBothNames(t *testing.T) {
+	const current, legacy = "0123456789abcdef0123456789abcdef", "fedcba9876543210fedcba9876543210"
+	cases := []struct {
+		name    string
+		current string
+		legacy  string
+		want    string
+	}{
+		{"the new name wins when both are set", current, legacy, current},
+		{"the old name is read when the new one is empty", "", legacy, legacy},
+		{"neither set leaves the feature off", "", "", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("TOTP_ENABLED", "false")
+			t.Setenv("SECRET_ENCRYPTION_KEY", tc.current)
+			t.Setenv("TOTP_ENCRYPTION_KEY", tc.legacy)
+			if got := secretEncryptionKey(); got != tc.want {
+				t.Fatalf("secretEncryptionKey() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// Both features are fail-closed on the same key, and the second factor needs its
+// own switch on top of it.
+func TestSecretsAvailable(t *testing.T) {
+	if (Config{}).SecretsAvailable() {
+		t.Fatal("a key-less deployment must not report secrets as available")
+	}
+	withKey := Config{SecretEncryptionKey: "0123456789abcdef0123456789abcdef"}
+	if !withKey.SecretsAvailable() {
+		t.Fatal("a configured key must report secrets as available")
+	}
+	// A key alone is not enough: TOTP_ENABLED is the master switch, and off
+	// means nobody is challenged even for an account with a stored secret.
+	if withKey.TwoFactorAvailable() {
+		t.Fatal("the second factor must stay off while TOTP_ENABLED is false")
+	}
+	if !(&Config{TOTPEnabled: true, SecretEncryptionKey: "0123456789abcdef0123456789abcdef"}).TwoFactorAvailable() {
+		t.Fatal("TOTP_ENABLED with a key must make the second factor available")
+	}
+}
+
+// The redirect URI is registered verbatim at the IdP, so it is taken from
+// configuration and never from the request. The default is the origin of
+// PUBLIC_URL, which is right when the console shares a host with the API.
+func TestOIDCRedirectBase(t *testing.T) {
+	cases := []struct {
+		name      string
+		override  string
+		publicURL string
+		want      string
+	}{
+		{"an explicit base wins", "https://console.example.com", "http://links.example.com", "https://console.example.com"},
+		{"a trailing slash is trimmed", "https://console.example.com/", "", "https://console.example.com"},
+		{"otherwise the origin of PUBLIC_URL", "", "http://localhost", "http://localhost"},
+		{"a port is kept", "", "http://localhost:8080", "http://localhost:8080"},
+		{"a path is dropped", "", "https://links.example.com/some/path", "https://links.example.com"},
+		{"an unusable PUBLIC_URL yields nothing", "", "not-a-url", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("OIDC_REDIRECT_BASE", tc.override)
+			if got := oidcRedirectBase(tc.publicURL); got != tc.want {
+				t.Fatalf("oidcRedirectBase(%q) = %q, want %q", tc.publicURL, got, tc.want)
+			}
+		})
+	}
+}
+
+// A non-positive TTL would expire every authorization request before the browser
+// could come back, which reads as a broken IdP rather than a bad setting.
+func TestOIDCRequestTTLIsClamped(t *testing.T) {
+	for _, bad := range []string{"0s", "-5m"} {
+		t.Setenv("OIDC_REQUEST_TTL", bad)
+		if got := Load().OIDCRequestTTL; got != 10*time.Minute {
+			t.Fatalf("OIDC_REQUEST_TTL=%s produced %v, want 10m", bad, got)
+		}
+	}
+	t.Setenv("OIDC_REQUEST_TTL", "3m")
+	if got := Load().OIDCRequestTTL; got != 3*time.Minute {
+		t.Fatalf("OIDC_REQUEST_TTL=3m produced %v, want 3m", got)
+	}
+}

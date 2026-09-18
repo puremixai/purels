@@ -169,6 +169,50 @@ type Role struct {
 	Unrestricted bool `json:"unrestricted"`
 }
 
+// OIDCProvider is one configured identity provider, as the console sees it.
+//
+// The client secret is deliberately absent: HasSecret says whether one is
+// stored, which is all the form needs to render, and it is the only fact about
+// the secret that can be returned without handing a credential back to every
+// holder of oidc:manage.
+type OIDCProvider struct {
+	ID            string   `json:"id"`
+	Slug          string   `json:"slug"`
+	DisplayName   string   `json:"display_name"`
+	Issuer        string   `json:"issuer"`
+	ClientID      string   `json:"client_id"`
+	HasSecret     bool     `json:"has_secret"`
+	Scopes        []string `json:"scopes"`
+	AutoProvision bool     `json:"auto_provision"`
+	Enabled       bool     `json:"enabled"`
+	// IdentityCount is how many accounts are bound to this provider. The console
+	// shows it next to the delete button, because deleting a provider strands
+	// the accounts it provisioned: they keep a password hash no password can
+	// match, and the application has no password-change screen to rescue them.
+	IdentityCount int       `json:"identity_count"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// PublicProvider is what an unauthenticated visitor may see: something to link
+// to and something to label the button with. Issuer and client id are left out
+// on purpose — the login page has no use for them, and they describe the
+// deployment's internals to anyone who asks.
+type PublicProvider struct {
+	Slug        string `json:"slug"`
+	DisplayName string `json:"display_name"`
+}
+
+// OIDCIdentity binds one external subject to one account.
+type OIDCIdentity struct {
+	ID          string     `json:"id"`
+	ProviderID  string     `json:"provider_id"`
+	UserID      string     `json:"user_id"`
+	Subject     string     `json:"subject"`
+	Email       string     `json:"email,omitempty"`
+	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
+}
+
 type DailyStat struct {
 	Day    time.Time `json:"day"`
 	Clicks int64     `json:"clicks"`
