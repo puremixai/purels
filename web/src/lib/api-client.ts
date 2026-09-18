@@ -97,6 +97,7 @@ export const allScopes: Array<{ value: string; label: string }> = [
   { value: "roles:manage", label: "管理角色权限" },
   { value: "oidc:manage", label: "管理登录方式" },
   { value: "analytics:manage", label: "管理埋点" },
+  { value: "captcha:manage", label: "管理注册保护" },
 ];
 
 /** One configured sign-in provider, as the console sees it. */
@@ -249,6 +250,33 @@ export type AnalyticsInput = {
   gtm_container_id: string;
   matomo_url: string;
   matomo_site_id: string;
+};
+
+/** Administrative registration CAPTCHA configuration. The secret is write-only. */
+export type CaptchaSettings = {
+  provider: string;
+  enabled: boolean;
+  site_key: string;
+  has_secret: boolean;
+  expected_hostname: string;
+  expected_action: string;
+  updated_at: string;
+};
+
+/** Public registration-page CAPTCHA configuration. */
+export type PublicCaptchaSettings = {
+  enabled: boolean;
+  provider: string;
+  site_key: string;
+};
+
+/** Fields accepted by the administrative CAPTCHA settings endpoint. */
+export type CaptchaInput = {
+  enabled?: boolean;
+  site_key?: string;
+  secret?: string;
+  expected_hostname?: string;
+  expected_action?: string;
 };
 
 export type TagStat = {
@@ -490,10 +518,10 @@ export const api = {
       return result;
     },
     /** Creates a regular account and signs it in. */
-    async register(username: string, password: string) {
+    async register(username: string, password: string, captchaToken = "") {
       const result = await request<LoginResponse>("/api/v1/auth/register", {
         method: "POST",
-        body: { username, password },
+        body: { username, password, ...(captchaToken ? { captcha_token: captchaToken } : {}) },
       });
       csrfToken = result.csrf_token || "";
       return result;
@@ -661,6 +689,24 @@ export const api = {
     },
     remove(id: string) {
       return request<void>(`/api/v1/oidc/providers/${encodeURIComponent(id)}`, { method: "DELETE" });
+    },
+  },
+  /** Registration CAPTCHA settings. The public read contains no secret. */
+  captcha: {
+    async publicSettings() {
+      const payload = await request<{ captcha: PublicCaptchaSettings } | PublicCaptchaSettings>("/api/v1/auth/captcha");
+      return unwrapKey<PublicCaptchaSettings>(payload, "captcha");
+    },
+    async get() {
+      const payload = await request<{ captcha: CaptchaSettings } | CaptchaSettings>("/api/v1/captcha");
+      return unwrapKey<CaptchaSettings>(payload, "captcha");
+    },
+    async update(input: CaptchaInput) {
+      const payload = await request<{ captcha: CaptchaSettings } | CaptchaSettings>("/api/v1/captcha", {
+        method: "PATCH",
+        body: input,
+      });
+      return unwrapKey<CaptchaSettings>(payload, "captcha");
     },
   },
   /**

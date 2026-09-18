@@ -1,0 +1,20 @@
+# Temporary override used to verify registration CAPTCHA without contacting
+# Cloudflare. Not part of the deployment: the shipped default keeps CAPTCHA
+# disabled, and the verifier endpoint is always the fixed Turnstile URL in code.
+# No verification URL is configurable here (or in the database).
+#
+#   docker compose -f deploy/compose.yaml -f deploy/.captcha-check.yaml up -d --force-recreate api
+#   node scripts/smoke-users.mjs
+#
+# The deterministic verifier accepts CAPTCHA_TEST_TOKEN only while
+# CAPTCHA_TEST_MODE is enabled. Keep this file local to smoke runs; never carry
+# the test switch into a production deployment.
+services:
+  api:
+    environment:
+      CAPTCHA_TEST_MODE: "true"
+      CAPTCHA_TEST_TOKEN: "purels-captcha-pass"
+      SECRET_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
+      # Registration smoke checks deliberately exercise rejected and accepted
+      # attempts; keep the bucket from masking those checks with 429 responses.
+      RATE_LIMIT_REGISTER: "60"

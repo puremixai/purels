@@ -21,6 +21,7 @@ const navItems: Array<{ href: string; label: string; icon: IconName; scope?: str
   { href: "/admin/settings/oidc", label: "登录方式", icon: "lock", scope: "oidc:manage" },
   { href: "/admin/settings/analytics", label: "埋点统计", icon: "pulse", scope: "analytics:manage" },
   { href: "/admin/settings/security", label: "安全设置", icon: "shield" },
+  { href: "/admin/settings/captcha", label: "注册保护", icon: "shield", scope: "captcha:manage" },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

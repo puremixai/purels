@@ -49,6 +49,16 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+// RegisterRequest is separate from LoginRequest on purpose: CAPTCHA protects
+// registration only, so a login body containing captcha_token remains an
+// unknown-field error instead of silently accepting a field the login path does
+// not use.
+type RegisterRequest struct {
+	Username     string `json:"username"`
+	Password     string `json:"password"`
+	CaptchaToken string `json:"captcha_token"`
+}
+
 // BulkLinkRequest applies one edit to many links at once. Which fields are
 // meaningful depends on Action: Tags for tag/untag, ExpiresAt for set_expiry
 // (where an empty string clears the expiry).
@@ -134,6 +144,17 @@ type AnalyticsSettingsInput struct {
 	GTMContainerID   string `json:"gtm_container_id"`
 	MatomoURL        string `json:"matomo_url"`
 	MatomoSiteID     string `json:"matomo_site_id"`
+}
+
+// CaptchaSettingsInput uses pointers so an omitted field means "leave it
+// unchanged". Secret is write-only: omitted or empty retains the ciphertext;
+// there is deliberately no clear-secret operation in this batch.
+type CaptchaSettingsInput struct {
+	Enabled          *bool   `json:"enabled"`
+	SiteKey          *string `json:"site_key"`
+	Secret           *string `json:"secret"`
+	ExpectedHostname *string `json:"expected_hostname"`
+	ExpectedAction   *string `json:"expected_action"`
 }
 
 // ListFilter describes how the link list should be queried. OwnerID narrows the

@@ -30,6 +30,7 @@ const PAGES = [
   { name: "roles", path: "/admin/settings/roles", expect: ["角色权限", "管理用户", "管理角色权限", "管理全部链接"] },
   { name: "oidc", path: "/admin/settings/oidc", expect: ["登录方式", "新增登录方式", "Issuer", "Client ID", "Scopes"] },
   { name: "analytics", path: "/admin/settings/analytics", expect: ["埋点统计", "GA4 衡量 ID", "GTM 容器 ID", "Matomo 地址", "Matomo 站点 ID"] },
+  { name: "captcha", path: "/admin/settings/captcha", expect: ["注册保护", "Cloudflare Turnstile", "站点密钥", "预期主机名", "预期动作"] },
   { name: "security", path: "/admin/settings/security", expect: ["两步验证", "API Token", "创建 Token"] },
 ];
 
@@ -336,6 +337,31 @@ async function main() {
     `inputs=${loginShape.inputs} autocomplete=${loginShape.autoComplete.join(",")} button=${loginShape.button} providerLinks=${loginShape.providerLinks}`,
   );
 
+  // Registration owns CAPTCHA; the login form must remain untouched. The
+  // widget is adaptive, so its fixed script is present only when the public
+  // settings endpoint reports an enabled site key.
+  await go("/register", 1800);
+  const registerShape = await evaluate(`(() => {
+    const inputs = [...document.querySelectorAll("form input")];
+    return {
+      inputs: inputs.length,
+      autoComplete: inputs.map(i => i.getAttribute("autocomplete") || ""),
+      button: document.querySelector("form button")?.textContent.trim() || "",
+      turnstile: [...document.querySelectorAll('script[src*="challenges.cloudflare.com/turnstile/"]')].length,
+      captchaError: [...document.querySelectorAll("p")].some(p => p.textContent.includes("验证加载失败")),
+    };
+  })()`);
+  record(
+    "the registration page keeps credentials first and CAPTCHA adaptive",
+    registerShape.inputs === 2
+      && registerShape.autoComplete[0] === "username"
+      && registerShape.autoComplete[1] === "new-password"
+      && registerShape.button === "注册"
+      && registerShape.turnstile >= 0,
+    `inputs=${registerShape.inputs} autocomplete=${registerShape.autoComplete.join(",")} button=${registerShape.button} turnstile=${registerShape.turnstile} captchaError=${registerShape.captchaError}`,
+  );
+
+  await go("/login");
   const submitted = await evaluate(`(() => {
     const setVal = (el, v) => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, v);

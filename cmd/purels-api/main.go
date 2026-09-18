@@ -55,7 +55,14 @@ func main() {
 		logger.Warn("storing encrypted secrets is unavailable", "error", err)
 	}
 
-	authService := &service.AuthService{Store: store, Config: cfg, Hasher: hasher, Box: box}
+	turnstile := service.NewTurnstileVerifier()
+	captchaService := &service.CaptchaService{
+		Store:    store,
+		Config:   cfg,
+		Box:      box,
+		Verifier: turnstile,
+	}
+	authService := &service.AuthService{Store: store, Config: cfg, Hasher: hasher, Box: box, Captcha: captchaService}
 	if err := authService.Bootstrap(ctx); err != nil {
 		logger.Error("bootstrap failed", "error", err)
 		os.Exit(1)
@@ -95,6 +102,7 @@ func main() {
 		Analytics: &service.AnalyticsService{
 			Store: store,
 		},
+		Captcha: captchaService,
 	}
 	router := httpapi.NewRouter(h, httpmw.RateLimiter{Cache: cache})
 	server := &http.Server{Addr: cfg.Addr, Handler: router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}

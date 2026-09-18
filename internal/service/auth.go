@@ -13,9 +13,17 @@ import (
 	"github.com/purels/purels/internal/store/postgres"
 )
 
+// RegistrationCaptcha is the narrow seam the auth flow needs. Keeping it off
+// CompleteLogin ensures OIDC and the second-factor handoff do not accidentally
+// inherit a registration-only anti-abuse check.
+type RegistrationCaptcha interface {
+	VerifyRegistration(context.Context, string, string) error
+}
+
 type AuthService struct {
-	Store  *postgres.Store
-	Config config.Config
+	Store   *postgres.Store
+	Config  config.Config
+	Captcha RegistrationCaptcha
 	// Hasher turns the caller's address into the digest stored on the session.
 	// Its zero value is the default mode, so an unconfigured service still
 	// records one.
@@ -183,13 +191,18 @@ func (a *AuthService) codeAccepted(ctx context.Context, userID string, sealed []
 // the console instead of being sent back to the login form. The role is always
 // the plain user role: administrator accounts only ever come from the bootstrap
 // step or from an existing administrator promoting someone.
-func (a *AuthService) Register(ctx context.Context, username, password, userAgent, ip string) (LoginResult, error) {
+func (a *AuthService) Register(ctx context.Context, username, password, captchaToken, userAgent, ip string) (LoginResult, error) {
 	normalized, err := security.NormalizeUsername(username)
 	if err != nil {
 		return LoginResult{}, err
 	}
 	if err := security.ValidatePassword(password); err != nil {
 		return LoginResult{}, err
+	}
+	if a.Captcha != nil {
+		if err := a.Captcha.VerifyRegistration(ctx, captchaToken, ip); err != nil {
+			return LoginResult{}, err
+		}
 	}
 	hash, err := security.HashPassword(password)
 	if err != nil {

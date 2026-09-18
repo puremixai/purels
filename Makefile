@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-.PHONY: dev test fmt build migrate-up compose-up smoke-api smoke-users smoke-lifecycle smoke-totp smoke-oidc smoke-analytics smoke-pages smoke-all
+.PHONY: dev test fmt build migrate-up compose-up smoke-api smoke-users smoke-lifecycle smoke-totp smoke-oidc smoke-analytics smoke-captcha smoke-pages smoke-all
 
 dev:
 	go run ./cmd/purels-api
@@ -34,6 +34,11 @@ smoke-oidc:
 smoke-analytics:
 	node scripts/smoke-analytics.mjs
 
+# Registration CAPTCHA API checks. The default deployment keeps this disabled;
+# the full deterministic branch uses deploy/.captcha-check.yaml.
+smoke-captcha:
+	node scripts/smoke-captcha.mjs
+
 # Browser checks. Requires headless Chrome with the DevTools protocol enabled:
 #   chrome --headless=new --disable-gpu --remote-debugging-port=9222 \
 #          --user-data-dir=/tmp/purels-chrome about:blank
@@ -43,7 +48,7 @@ smoke-pages:
 # Every suite, one at a time. They share the API rate-limit bucket, so running
 # them back to back (or in parallel) makes them fail each other's limits.
 smoke-all:
-	@for suite in smoke-api smoke-users smoke-lifecycle smoke-totp smoke-oidc smoke-analytics smoke-pages; do \
+	@for suite in smoke-api smoke-users smoke-lifecycle smoke-totp smoke-oidc smoke-analytics smoke-captcha smoke-pages; do \
 		echo "===================== $$suite ====================="; \
 		node scripts/$$suite.mjs || exit 1; \
 		[ "$$suite" = smoke-pages ] || sleep 65; \

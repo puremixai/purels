@@ -128,6 +128,12 @@ type Config struct {
 	// what oidc:manage can reach, so it is off by default.
 	OIDCAllowInsecureIssuers bool
 
+	// CaptchaTestMode is a test-only deterministic verifier switch. It is not
+	// documented as deployment configuration and must never be used to select a
+	// production verification endpoint.
+	CaptchaTestMode  bool
+	CaptchaTestToken string
+
 	// Rate limiting (per client IP, per minute).
 	RateLimitEnabled  bool
 	RateLimitLogin    int
@@ -260,6 +266,8 @@ func Load() Config {
 		OIDCRedirectBase:         oidcRedirectBase(publicURL),
 		OIDCRequestTTL:           oidcRequestTTL,
 		OIDCAllowInsecureIssuers: boolEnv("OIDC_ALLOW_INSECURE_ISSUERS", false),
+		CaptchaTestMode:          boolEnv("CAPTCHA_TEST_MODE", false),
+		CaptchaTestToken:         os.Getenv("CAPTCHA_TEST_TOKEN"),
 
 		RateLimitEnabled:  boolEnv("RATE_LIMIT_ENABLED", true),
 		RateLimitLogin:    intEnv("RATE_LIMIT_LOGIN", 10),

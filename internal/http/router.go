@@ -65,6 +65,9 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 	// bucket with the list above, which is what the name is for.
 	r.With(limit("oidc", h.Config.RateLimitOIDC)).Get("/api/v1/auth/oidc/{slug}/start", h.OIDCStart)
 	r.With(limit("oidc", h.Config.RateLimitOIDC)).Get("/api/v1/auth/oidc/{slug}/callback", h.OIDCCallback)
+	// Registration CAPTCHA metadata is public by design: the browser needs the
+	// site key before it has a session. The route returns no secret.
+	r.With(limit("oidc", h.Config.RateLimitOIDC)).Get("/api/v1/auth/captcha", h.PublicCaptcha)
 
 	auth := httpmw.Auth{Store: h.Auth.Store}
 	r.Route("/api/v1", func(api chi.Router) {
@@ -140,6 +143,11 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 		// write that needs the capability.
 		api.Get("/analytics", h.GetAnalyticsSettings)
 		api.With(httpmw.RequireScope(domain.ScopeAnalyticsManage)).Put("/analytics", h.UpdateAnalyticsSettings)
+
+		// CAPTCHA administration is separate from analytics: it changes whether
+		// public registration is allowed through, and its secret is encrypted.
+		api.With(httpmw.RequireScope(domain.ScopeCaptchaManage)).Get("/captcha", h.GetCaptchaSettings)
+		api.With(httpmw.RequireScope(domain.ScopeCaptchaManage)).Patch("/captcha", h.UpdateCaptchaSettings)
 
 		// Token management is intentionally not reachable with an API token.
 		api.With(httpmw.RequireScope(domain.ScopeTokensManage)).Get("/auth/tokens", h.ListTokens)

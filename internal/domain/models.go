@@ -239,6 +239,28 @@ type AnalyticsSettings struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
+// CaptchaSettings is the administrative view of registration CAPTCHA settings.
+// The provider secret is deliberately absent; HasSecret is the only fact about
+// it that a console needs, and a separate store method is the only path that
+// reads the ciphertext for verification.
+type CaptchaSettings struct {
+	Provider         string    `json:"provider"`
+	Enabled          bool      `json:"enabled"`
+	SiteKey          string    `json:"site_key"`
+	HasSecret        bool      `json:"has_secret"`
+	ExpectedHostname string    `json:"expected_hostname"`
+	ExpectedAction   string    `json:"expected_action"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+// PublicCaptchaSettings is the unauthenticated registration-page view. It
+// contains only values that are intended to be sent to the browser.
+type PublicCaptchaSettings struct {
+	Enabled  bool   `json:"enabled"`
+	Provider string `json:"provider"`
+	SiteKey  string `json:"site_key"`
+}
+
 type DailyStat struct {
 	Day    time.Time `json:"day"`
 	Clicks int64     `json:"clicks"`

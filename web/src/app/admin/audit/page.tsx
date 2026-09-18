@@ -20,6 +20,7 @@ const ACTION_LABELS: Record<string, string> = {
   "oidc.create": "新增登录方式",
   "oidc.update": "修改登录方式",
   "oidc.delete": "删除登录方式",
+  "captcha.update": "修改注册保护",
 };
 
 function actionLabel(action: string) {

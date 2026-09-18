@@ -50,6 +50,7 @@ type Handler struct {
 	OIDC   *service.OIDCService
 	// Analytics holds the tracking ids the console injects into its own pages.
 	Analytics *service.AnalyticsService
+	Captcha   *service.CaptchaService
 	Probe     *service.HealthChecker
 }
 
@@ -143,12 +144,12 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusForbidden, "registration is disabled")
 		return
 	}
-	var req domain.LoginRequest
+	var req domain.RegisterRequest
 	if err := Decode(r, &req); err != nil {
 		Error(w, 400, "invalid request")
 		return
 	}
-	result, err := h.Auth.Register(r.Context(), req.Username, req.Password, r.UserAgent(), clientIP(r))
+	result, err := h.Auth.Register(r.Context(), req.Username, req.Password, req.CaptchaToken, r.UserAgent(), clientIP(r))
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -859,8 +860,14 @@ func (h *Handler) writeServiceError(w http.ResponseWriter, err error) {
 		Error(w, 401, err.Error())
 	case errors.Is(err, service.ErrTwoFactorUnavailable), errors.Is(err, service.ErrNoEnrolment):
 		Error(w, 409, err.Error())
-	case errors.Is(err, service.ErrSecretsUnavailable), errors.Is(err, service.ErrOIDCSlugImmutable):
+	case errors.Is(err, service.ErrSecretsUnavailable), errors.Is(err, service.ErrOIDCSlugImmutable), errors.Is(err, service.ErrCaptchaSecretsUnavailable):
 		Error(w, 409, err.Error())
+	case errors.Is(err, service.ErrCaptchaUnavailable):
+		Error(w, 503, err.Error())
+	case errors.Is(err, service.ErrCaptchaInvalid):
+		Error(w, 400, err.Error())
+	case errors.Is(err, service.ErrCaptchaInvalidSettings):
+		Error(w, 400, err.Error())
 	default:
 		Error(w, 400, err.Error())
 	}

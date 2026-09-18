@@ -22,7 +22,9 @@
 // With TOTP_ENABLED=false — the default — the suite still runs, asserting that
 // enrolment is refused, and skips the rest rather than reporting a failure.
 //
-// Env: API_BASE (http://localhost:8080), ADMIN_USER, ADMIN_PASS
+// Env: API_BASE (http://localhost:8080), ADMIN_USER, ADMIN_PASS, CAPTCHA_TOKEN
+// For deterministic mode, pass CAPTCHA_TEST_MODE=true and CAPTCHA_TEST_TOKEN
+// to this process as well as the API container override.
 
 import { createHmac } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -32,6 +34,10 @@ import { fileURLToPath } from "node:url";
 const BASE = (process.env.API_BASE || "http://localhost:8080").replace(/\/$/, "");
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "change-me-now";
+// Registration CAPTCHA is adaptive: the default deployment is off, while an
+// enabled deployment needs a real token. CAPTCHA_TOKEN supports live runs; the
+// deterministic token is used only when the caller explicitly enables test mode.
+const CAPTCHA_TOKEN = process.env.CAPTCHA_TOKEN || (process.env.CAPTCHA_TEST_MODE === "true" ? (process.env.CAPTCHA_TEST_TOKEN || "purels-captcha-pass") : "");
 const STAMP = Date.now().toString(36);
 
 const ACCOUNT = `mfa${STAMP}`;
@@ -172,8 +178,15 @@ async function signIn(session, username, password) {
   return { response, payload };
 }
 
-async function register(session, username, password) {
-  const response = await call(session, "/api/v1/auth/register", { method: "POST", ip: REG_IP, body: { username, password } });
+async function publicCaptcha() {
+  const response = await call(newSession(), "/api/v1/auth/captcha");
+  return { response, payload: await json(response) };
+}
+
+async function register(session, username, password, captchaToken = CAPTCHA_TOKEN) {
+  const body = { username, password };
+  if (captchaToken) body.captcha_token = captchaToken;
+  const response = await call(session, "/api/v1/auth/register", { method: "POST", ip: REG_IP, body });
   const payload = await readLogin(session, response);
   return { response, payload };
 }
@@ -203,6 +216,20 @@ async function loginWithPassword(session, username, password) {
 
 async function main() {
   const account = newSession();
+
+  const captcha = await publicCaptcha();
+  const captchaEnabled = captcha.response.status === 200 && captcha.payload?.enabled === true;
+  record(
+    "the public registration CAPTCHA settings are readable",
+    captcha.response.status === 200 && typeof captcha.payload?.enabled === "boolean" && typeof captcha.payload?.provider === "string",
+    `status=${captcha.response.status} enabled=${captcha.payload?.enabled}`,
+  );
+  const missingCaptcha = await register(newSession(), ADMIN_USER, PASSWORD, "");
+  record(
+    "registration handles a missing CAPTCHA token",
+    captchaEnabled ? missingCaptcha.response.status === 400 : missingCaptcha.response.status === 409,
+    `enabled=${captchaEnabled} status=${missingCaptcha.response.status}`,
+  );
 
   const registered = await register(account, ACCOUNT, PASSWORD);
   record("the test account is created", registered.response.status === 201, `status=${registered.response.status}`);
