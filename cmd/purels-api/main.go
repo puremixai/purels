@@ -70,6 +70,7 @@ func main() {
 		Tokens: &service.TokenService{Store: store},
 		Audit:  &service.AuditService{Store: store, Hasher: hasher},
 		Users:  &service.UserService{Store: store},
+		Roles:  &service.RoleService{Store: store},
 		// Built here rather than in the service so the SSRF guard is part of
 		// the wiring: a checker without it must never be constructed.
 		Probe: &service.HealthChecker{Store: store, Client: security.NewProbeClient()},

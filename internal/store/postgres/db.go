@@ -48,3 +48,9 @@ func (s *Store) Close() { s.Pool.Close() }
 
 var ErrNotFound = errors.New("not found")
 var ErrConflict = errors.New("conflict")
+
+// ErrLastCapabilityHolder is returned when a change would leave no enabled
+// account holding a permission the console itself needs — administering users
+// or editing roles. There is no way back from that through the application, so
+// the change is refused rather than applied.
+var ErrLastCapabilityHolder = errors.New("at least one enabled account must keep this permission")

@@ -34,12 +34,12 @@ func ClientIPFromContext(ctx context.Context) (string, bool) {
 }
 
 // OwnerIDFromContext is the visibility scope for link reads and writes: nil for
-// an administrator, who is not restricted, and the actor's own id for everyone
+// an account whose role is unrestricted, and the actor's own id for everyone
 // else. Services read it here so no handler has to pass it down, which keeps
 // every existing call site unchanged.
 func OwnerIDFromContext(ctx context.Context) *string {
 	user, ok := UserFromContext(ctx)
-	if !ok || user.ID == "" || user.IsAdmin() {
+	if !ok || user.ID == "" || user.Unrestricted {
 		return nil
 	}
 	id := user.ID

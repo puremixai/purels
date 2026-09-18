@@ -6,10 +6,19 @@ type User struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
 	Role     string `json:"role"`
+	// Scopes are the permissions the credential holds: the account's role for a
+	// session, the token's own set for a bearer token. They travel with the user
+	// so the console can hide what it cannot use, and so the middleware does not
+	// have to look the role up a second time. Neither field is omitted when
+	// empty: a client cannot tell "false" from "absent" on a boolean, and an
+	// account with no permissions is exactly when it matters.
+	Scopes []string `json:"scopes"`
+	// Unrestricted reports whether the account sees and manages every link
+	// rather than only its own. It is deliberately not a scope: capability
+	// ("what may I do") and visibility ("whose links may I see") are different
+	// questions, and one flag cannot answer both.
+	Unrestricted bool `json:"unrestricted"`
 }
-
-// IsAdmin reports whether the account may see and manage every link.
-func (u User) IsAdmin() bool { return u.Role == RoleAdmin }
 
 type Link struct {
 	ID             string     `json:"id"`
@@ -101,6 +110,18 @@ type Account struct {
 	Role      string    `json:"role"`
 	Disabled  bool      `json:"disabled"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// Role is a named bundle of scopes plus a visibility flag, stored in the roles
+// table so the console can adjust what a preset role may do.
+type Role struct {
+	Name string `json:"name"`
+	// Scopes are the permissions this role grants. A role edit replaces the
+	// whole set, so the console sends the complete list.
+	Scopes []string `json:"scopes"`
+	// Unrestricted means the role sees and manages every link rather than only
+	// its owner's.
+	Unrestricted bool `json:"unrestricted"`
 }
 
 type DailyStat struct {

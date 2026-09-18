@@ -116,24 +116,31 @@ func (s *Store) ListUsers(ctx context.Context) ([]domain.Account, error) {
 
 // UpdateUser changes a role and/or the disabled flag. A nil field is left
 // untouched, so the caller can flip one without restating the other.
+//
+// The capability guard lives here rather than in the service because it has to
+// run in the same transaction as the write. Losing the last account able to
+// administer users — or to edit roles — has no recovery path through the
+// console, so the whole update is rolled back instead.
 func (s *Store) UpdateUser(ctx context.Context, id string, role *string, disabled *bool) error {
-	result, err := s.Pool.Exec(ctx, `UPDATE admin_users SET role=COALESCE($2, role), disabled=COALESCE($3, disabled), updated_at=now() WHERE id=$1`, id, role, disabled)
+	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := lockAuthz(ctx, tx); err != nil {
+		return err
+	}
+	result, err := tx.Exec(ctx, `UPDATE admin_users SET role=COALESCE($2, role), disabled=COALESCE($3, disabled), updated_at=now() WHERE id=$1`, id, role, disabled)
+	if err != nil {
+		return normalizeDBError(err)
 	}
 	if result.RowsAffected() == 0 {
 		return ErrNotFound
 	}
-	return nil
-}
-
-// CountEnabledAdmins counts administrators who can still sign in, ignoring one
-// account. It is what keeps the last administrator from being demoted or
-// disabled and locking everybody out.
-func (s *Store) CountEnabledAdmins(ctx context.Context, excludingID string) (int64, error) {
-	var total int64
-	err := s.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM admin_users WHERE role=$1 AND disabled=false AND id <> $2`, domain.RoleAdmin, excludingID).Scan(&total)
-	return total, err
+	if err := requireCapabilityHolders(ctx, tx); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Store) FindUser(ctx context.Context, username string) (domain.User, string, bool, error) {
@@ -152,21 +159,33 @@ func (s *Store) CreateSession(ctx context.Context, userID string, tokenHash, csr
 	return err
 }
 
+// GetSession resolves a session token to its session and account.
+//
+// The account's role is joined rather than looked up separately: the scopes and
+// the visibility flag are what authorize every request, and reading them here
+// means a role edit takes effect on the account's next request instead of at
+// its next sign-in. It also means the role row must exist — which the foreign
+// key on admin_users.role guarantees, because an inner join that found nothing
+// would read as "no session" and silently sign the account out.
 func (s *Store) GetSession(ctx context.Context, tokenHash []byte) (domain.Session, bool, error) {
 	var session domain.Session
 	var userID, username, role string
+	var rawScopes []byte
+	var unrestricted bool
 	err := s.Pool.QueryRow(ctx, `
-		SELECT s.id, s.csrf_hash, s.expires_at, u.id, u.username, u.role
-		FROM sessions s JOIN admin_users u ON u.id=s.user_id
+		SELECT s.id, s.csrf_hash, s.expires_at, u.id, u.username, u.role, r.scopes, r.unrestricted
+		FROM sessions s
+		JOIN admin_users u ON u.id=s.user_id
+		JOIN roles r ON r.name=u.role
 		WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at > now() AND u.disabled=false`, tokenHash).
-		Scan(&session.ID, &session.CSRFHash, &session.ExpiresAt, &userID, &username, &role)
+		Scan(&session.ID, &session.CSRFHash, &session.ExpiresAt, &userID, &username, &role, &rawScopes, &unrestricted)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return session, false, nil
 	}
 	if err != nil {
 		return session, false, err
 	}
-	session.User = domain.User{ID: userID, Username: username, Role: role}
+	session.User = domain.User{ID: userID, Username: username, Role: role, Scopes: parseScopes(rawScopes), Unrestricted: unrestricted}
 	_, _ = s.Pool.Exec(ctx, `UPDATE sessions SET last_seen_at=now() WHERE id=$1`, session.ID)
 	return session, true, nil
 }
@@ -908,20 +927,34 @@ func (s *Store) RevokeToken(ctx context.Context, userID, tokenID string) error {
 	return nil
 }
 
-// AuthenticateToken resolves a bearer token to its owner and the scopes
-// granted to that token.
+// AuthenticateToken resolves a bearer token to its owner, the scopes granted to
+// that token, and the owner's visibility.
+//
+// The role join is not decoration: the owner's Unrestricted flag is what decides
+// whose links the token can see, and an administrator's token that came back
+// restricted would silently see only its owner's links. The token's own scopes
+// still come from api_tokens, not from the role.
 func (s *Store) AuthenticateToken(ctx context.Context, tokenHash []byte) (domain.User, []string, bool, error) {
 	var user domain.User
 	var rawScopes []byte
-	err := s.Pool.QueryRow(ctx, `SELECT u.id, u.username, u.role, t.scopes FROM api_tokens t JOIN admin_users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.revoked_at IS NULL AND u.disabled=false`, tokenHash).Scan(&user.ID, &user.Username, &user.Role, &rawScopes)
+	err := s.Pool.QueryRow(ctx, `SELECT u.id, u.username, u.role, t.scopes, r.unrestricted
+		FROM api_tokens t
+		JOIN admin_users u ON u.id=t.user_id
+		JOIN roles r ON r.name=u.role
+		WHERE t.token_hash=$1 AND t.revoked_at IS NULL AND u.disabled=false`, tokenHash).
+		Scan(&user.ID, &user.Username, &user.Role, &rawScopes, &user.Unrestricted)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return user, nil, false, nil
 	}
 	if err != nil {
 		return user, nil, false, err
 	}
+	// The user object reports the credential's effective scopes, so /auth/me
+	// describes what the caller can actually do: for a bearer token that is the
+	// token's own set, not the account's.
+	user.Scopes = parseScopes(rawScopes)
 	_, _ = s.Pool.Exec(ctx, `UPDATE api_tokens SET last_used_at=now() WHERE token_hash=$1`, tokenHash)
-	return user, parseScopes(rawScopes), true, nil
+	return user, user.Scopes, true, nil
 }
 
 // parseScopes decodes the scopes jsonb column. A missing, null or malformed
@@ -995,8 +1028,18 @@ func normalizeDBError(err error) error {
 		return nil
 	}
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		return ErrConflict
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case "23505":
+			return ErrConflict
+		case "23503":
+			// A foreign key violation means a field points at a row that does
+			// not exist — in practice a role name. Services validate the role
+			// before writing, so this is a backstop for a race; it must still
+			// read as a bad request rather than a server fault, and it must not
+			// leak the constraint name.
+			return errors.New("referenced record does not exist")
+		}
 	}
 	return err
 }

@@ -296,6 +296,121 @@ async function main() {
   const aliceNarrowed = await json(await call(alice, `/api/v1/links?search=${STAMP}&limit=100`));
   record("a demoted account sees only its own links again", !(aliceNarrowed.links || []).some((l) => l.alias === BOB_ALIAS), `${aliceNarrowed.links?.length} rows`);
 
+  // ---------- capability-driven access ----------
+  const aliceMeScopes = await json(await call(alice, "/api/v1/auth/me"));
+  record(
+    "a session reports the scopes its role grants",
+    Array.isArray(aliceMeScopes.user?.scopes) && aliceMeScopes.user.scopes.includes("links:read") && !aliceMeScopes.user.scopes.includes("audit:read"),
+    (aliceMeScopes.user?.scopes || []).join(","),
+  );
+  record("a session reports whether the account is unrestricted", aliceMeScopes.user?.unrestricted === false, `unrestricted=${aliceMeScopes.user?.unrestricted}`);
+
+  const rolesDenied = await call(alice, "/api/v1/roles");
+  record("a regular user cannot read the role list", rolesDenied.status === 403, `status=${rolesDenied.status}`);
+
+  const roles = await json(await call(admin, "/api/v1/roles"));
+  const roleList = roles.roles || [];
+  const roleNames = roleList.map((r) => r.name);
+  record("the administrator lists the roles", ["admin", "operator", "readonly", "user"].every((n) => roleNames.includes(n)), roleNames.join(","));
+
+  const unknownRole = await call(admin, `/api/v1/users/${bob.userId}`, { method: "PATCH", body: { role: "superuser" } });
+  record("an unknown role is rejected", unknownRole.status === 400, `status=${unknownRole.status}`);
+
+  // Stripping the capability that guards an endpoint would lock everybody out
+  // of it, so the edit is refused rather than applied.
+  const adminRole = roleList.find((r) => r.name === "admin");
+  const stripUsers = await call(admin, "/api/v1/roles/admin", {
+    method: "PATCH",
+    body: { scopes: (adminRole?.scopes || []).filter((scope) => scope !== "users:manage"), unrestricted: true },
+  });
+  record("an edit that would remove the last users:manage holder is refused", stripUsers.status === 409, `status=${stripUsers.status}`);
+
+  const stripAll = await call(admin, "/api/v1/roles/admin", { method: "PATCH", body: { scopes: [], unrestricted: true } });
+  record("an edit that would strip every permission is refused", stripAll.status === 409, `status=${stripAll.status}`);
+
+  const adminRoleAfter = (await json(await call(admin, "/api/v1/roles"))).roles || [];
+  record(
+    "a refused edit leaves the role untouched",
+    adminRoleAfter.find((r) => r.name === "admin")?.scopes?.includes("users:manage") === true,
+    (adminRoleAfter.find((r) => r.name === "admin")?.scopes || []).join(","),
+  );
+
+  const unknownScope = await call(admin, "/api/v1/roles/readonly", { method: "PATCH", body: { scopes: ["links:read", "links:delete"], unrestricted: true } });
+  record("an unknown scope is rejected", unknownScope.status === 400, `status=${unknownScope.status}`);
+
+  // readonly is the scratch role: no account holds it, so editing it cannot
+  // lock anybody out, and it is restored before the suite ends.
+  const readonlyBefore = roleList.find((r) => r.name === "readonly") || { scopes: [], unrestricted: true };
+  const readonlyEdited = await call(admin, "/api/v1/roles/readonly", {
+    method: "PATCH",
+    body: { scopes: [...readonlyBefore.scopes, "tokens:manage"], unrestricted: readonlyBefore.unrestricted },
+  });
+  record("an administrator can edit a role", readonlyEdited.status === 204, `status=${readonlyEdited.status}`);
+
+  const readonlyAfter = ((await json(await call(admin, "/api/v1/roles"))).roles || []).find((r) => r.name === "readonly");
+  record("the edited role is stored and read back", readonlyAfter?.scopes?.includes("tokens:manage") === true, (readonlyAfter?.scopes || []).join(","));
+
+  const readonlyRestored = await call(admin, "/api/v1/roles/readonly", {
+    method: "PATCH",
+    body: { scopes: readonlyBefore.scopes, unrestricted: readonlyBefore.unrestricted },
+  });
+  record("the scratch role is restored", readonlyRestored.status === 204, `status=${readonlyRestored.status}`);
+
+  // operator holds audit:read and is unrestricted, a different combination
+  // from the regular-user role.
+  const toOperator = await call(admin, `/api/v1/users/${alice.userId}`, { method: "PATCH", body: { role: "operator" } });
+  record("an administrator can assign a non-admin role", toOperator.status === 204, `status=${toOperator.status}`);
+
+  const aliceAudit = await call(alice, "/api/v1/audit");
+  record("the operator role grants the audit scope", aliceAudit.status === 200, `status=${aliceAudit.status}`);
+
+  const aliceUsersDenied = await call(alice, "/api/v1/users");
+  record("the operator role does not grant user administration", aliceUsersDenied.status === 403, `status=${aliceUsersDenied.status}`);
+
+  const aliceOperatorList = await json(await call(alice, `/api/v1/links?search=${STAMP}&limit=100`));
+  record("an unrestricted role sees every account's links", (aliceOperatorList.links || []).some((l) => l.alias === BOB_ALIAS), `${aliceOperatorList.links?.length} rows`);
+
+  const backToUser = await call(admin, `/api/v1/users/${alice.userId}`, { method: "PATCH", body: { role: "user" } });
+  record("the account is returned to the regular-user role", backToUser.status === 204, `status=${backToUser.status}`);
+
+  // readonly reads the audit trail and every account's links but cannot write
+  // at all — a combination no role could express before.
+  const toReadonly = await call(admin, `/api/v1/users/${bob.userId}`, { method: "PATCH", body: { role: "readonly" } });
+  record("an administrator can assign the readonly role", toReadonly.status === 204, `status=${toReadonly.status}`);
+
+  const readonlyCreate = await call(bob, "/api/v1/links", {
+    method: "POST",
+    body: { destination_url: `https://example.org/readonly-${STAMP}`, alias: `ro${STAMP}` },
+  });
+  record("the readonly role cannot create links", readonlyCreate.status === 403, `status=${readonlyCreate.status}`);
+
+  const readonlyUsers = await call(bob, "/api/v1/users");
+  record("the readonly role cannot list accounts", readonlyUsers.status === 403, `status=${readonlyUsers.status}`);
+
+  const readonlyAudit = await call(bob, "/api/v1/audit");
+  record("the readonly role can read the audit log", readonlyAudit.status === 200, `status=${readonlyAudit.status}`);
+
+  const readonlyList = await json(await call(bob, `/api/v1/links?search=${STAMP}&limit=100`));
+  record("the readonly role sees every account's links", (readonlyList.links || []).some((l) => l.alias === ALICE_ALIAS), `${readonlyList.links?.length} rows`);
+
+  const bobBackToUser = await call(admin, `/api/v1/users/${bob.userId}`, { method: "PATCH", body: { role: "user" } });
+  record("the second account is returned to the regular-user role", bobBackToUser.status === 204, `status=${bobBackToUser.status}`);
+
+  // A token carries the scopes it was minted with, which never include the
+  // administration scopes, so account management is session-only by design.
+  const adminToken = await json(await call(admin, "/api/v1/auth/tokens", { method: "POST", body: { name: `roles-${STAMP}` } }));
+  if (adminToken.secret) {
+    const bearer = { Authorization: `Bearer ${adminToken.secret}` };
+    const tokenRoles = await call(newSession(), "/api/v1/roles", { headers: bearer });
+    record("an administrator's token does not carry roles:manage", tokenRoles.status === 403, `status=${tokenRoles.status}`);
+
+    const tokenUsers = await call(newSession(), "/api/v1/users", { headers: bearer });
+    record("an administrator's token does not carry users:manage", tokenUsers.status === 403, `status=${tokenUsers.status}`);
+
+    const revoked = await call(admin, `/api/v1/auth/tokens/${adminToken.token?.id}`, { method: "DELETE" });
+    record("the administrator's test token is revoked", revoked.status === 204, `status=${revoked.status}`);
+  }
+
   // ---------- cleanup ----------
   const purged = purgeAccounts([ALICE, BOB]);
   record("test accounts are removed", purged, purged ? `${ALICE}, ${BOB}` : "psql unavailable — remove them by hand");

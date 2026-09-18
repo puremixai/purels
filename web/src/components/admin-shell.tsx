@@ -3,15 +3,21 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { api, type AdminUser } from "@/lib/api-client";
+import { api, roleLabels, type AdminUser } from "@/lib/api-client";
 import { Icon, type IconName } from "./icon";
 
-const navItems: Array<{ href: string; label: string; icon: IconName; adminOnly?: boolean }> = [
+/**
+ * Each entry names the scope that unlocks it, or none when every signed-in
+ * account may use it. The API enforces the same scopes, so this only decides
+ * what is worth showing.
+ */
+const navItems: Array<{ href: string; label: string; icon: IconName; scope?: string }> = [
   { href: "/admin", label: "概览", icon: "grid" },
   { href: "/admin/links", label: "链接管理", icon: "link" },
   { href: "/admin/stats", label: "数据统计", icon: "chart" },
-  { href: "/admin/audit", label: "操作日志", icon: "list", adminOnly: true },
-  { href: "/admin/users", label: "用户管理", icon: "user", adminOnly: true },
+  { href: "/admin/audit", label: "操作日志", icon: "list", scope: "audit:read" },
+  { href: "/admin/users", label: "用户管理", icon: "user", scope: "users:manage" },
+  { href: "/admin/settings/roles", label: "角色权限", icon: "key", scope: "roles:manage" },
   { href: "/admin/settings/security", label: "安全设置", icon: "shield" },
 ];
 
@@ -23,16 +29,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AdminUser | null>(null);
 
   useEffect(() => {
-    // The role decides which sections this account can use. Until it is known
-    // the administrator-only entries stay hidden rather than showing and then
+    // The scopes decide which sections this account can use. Until they are
+    // known the gated entries stay hidden rather than showing and then
     // disappearing.
     api.auth.me().then(setUser).catch(() => setUser(null));
   }, []);
 
-  const isAdmin = user?.role === "admin";
-  const items = navItems.filter((item) => !item.adminOnly || isAdmin);
+  const scopes = user?.scopes || [];
+  const items = navItems.filter((item) => !item.scope || scopes.includes(item.scope));
   const username = user?.username || "";
   const avatar = (username || "P").slice(0, 1).toUpperCase();
+  const roleLabel = user?.role ? roleLabels[user.role] || user.role : "";
 
   async function logout() {
     setLoggingOut(true);
@@ -70,7 +77,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[var(--line)] bg-white/90 px-5 backdrop-blur md:px-8">
           <button className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 md:hidden" onClick={() => setMobileNav(true)} aria-label="打开菜单"><Icon name="menu" size={20} /></button>
           <div className="hidden text-sm text-slate-500 md:block">欢迎回来{username ? `，${username}` : ""}</div>
-          <div className="ml-auto flex items-center gap-3"><div className="hidden text-right sm:block"><div className="text-xs font-semibold">{username || "—"}</div><div className="text-[11px] text-slate-400">{isAdmin ? "管理员" : "用户"}</div></div><div className="grid h-9 w-9 place-items-center rounded-full bg-[#dfe5ff] text-xs font-bold text-[var(--brand)]">{avatar}</div></div>
+          <div className="ml-auto flex items-center gap-3"><div className="hidden text-right sm:block"><div className="text-xs font-semibold">{username || "—"}</div><div className="text-[11px] text-slate-400">{roleLabel}</div></div><div className="grid h-9 w-9 place-items-center rounded-full bg-[#dfe5ff] text-xs font-bold text-[var(--brand)]">{avatar}</div></div>
         </header>
         <main className="mx-auto max-w-[1250px] px-5 py-7 md:px-8 md:py-9">{children}</main>
       </div>

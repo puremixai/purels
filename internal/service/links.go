@@ -189,7 +189,7 @@ func (l *LinkService) checkQuota(ctx context.Context) error {
 		return nil
 	}
 	user, ok := domain.UserFromContext(ctx)
-	if !ok || user.ID == "" || user.IsAdmin() {
+	if !ok || user.ID == "" || user.Unrestricted {
 		return nil
 	}
 	total, err := l.Store.CountLinksByOwner(ctx, user.ID)

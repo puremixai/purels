@@ -13,10 +13,29 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * A preset role name. Roles are rows in the database, so this list is the
+ * shipped set, not a closed one: the console always renders whatever the API
+ * returns and treats an unrecognised name as "show the raw value".
+ */
+export type RoleName = "admin" | "operator" | "readonly" | "user";
+
+/** Human labels for the shipped roles. */
+export const roleLabels: Record<string, string> = {
+  admin: "管理员",
+  operator: "运营",
+  readonly: "只读",
+  user: "用户",
+};
+
 export type AdminUser = {
   id?: string;
   username: string;
-  role?: "admin" | "user";
+  role?: RoleName;
+  /** The permissions this account's role grants, as the API reports them. */
+  scopes?: string[];
+  /** True when the account sees every link rather than only its own. */
+  unrestricted?: boolean;
   displayName?: string;
 };
 
@@ -24,10 +43,28 @@ export type AdminUser = {
 export type AccountRecord = {
   id: string;
   username: string;
-  role: "admin" | "user";
+  role: RoleName;
   disabled: boolean;
   created_at: string;
 };
+
+/** One row of the role editor: a named bundle of permissions. */
+export type RoleRecord = {
+  name: string;
+  scopes: string[];
+  unrestricted: boolean;
+};
+
+/** Every scope the API recognises, in the order the role editor shows them. */
+export const allScopes: Array<{ value: string; label: string }> = [
+  { value: "links:read", label: "查看链接" },
+  { value: "links:write", label: "创建和修改链接" },
+  { value: "stats:read", label: "查看统计" },
+  { value: "audit:read", label: "查看操作日志" },
+  { value: "tokens:manage", label: "管理自己的 API 令牌" },
+  { value: "users:manage", label: "管理用户" },
+  { value: "roles:manage", label: "管理角色权限" },
+];
 
 /** A divert rule: send a matching visitor somewhere else. */
 export type LinkRule = {
@@ -439,8 +476,17 @@ export const api = {
       const payload = await request<{ users: AccountRecord[] } | AccountRecord[]>("/api/v1/users");
       return unwrapKey<AccountRecord[]>(payload, "users") || [];
     },
-    update(id: string, input: { role?: "admin" | "user"; disabled?: boolean }) {
+    update(id: string, input: { role?: string; disabled?: boolean }) {
       return request<void>(`/api/v1/users/${encodeURIComponent(id)}`, { method: "PATCH", body: input });
+    },
+  },
+  roles: {
+    async list() {
+      const payload = await request<{ roles: RoleRecord[] } | RoleRecord[]>("/api/v1/roles");
+      return unwrapKey<RoleRecord[]>(payload, "roles") || [];
+    },
+    update(name: string, input: { scopes: string[]; unrestricted: boolean }) {
+      return request<void>(`/api/v1/roles/${encodeURIComponent(name)}`, { method: "PATCH", body: input });
     },
   },
   tags: {

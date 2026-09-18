@@ -26,6 +26,8 @@ const PAGES = [
   { name: "new-link", path: "/admin/links/new", expect: ["创建链接", "目标 URL"] },
   { name: "stats", path: "/admin/stats", expect: ["数据统计", "区间点击", "独立访客", "全局点击趋势", "点击排行", "来源分布", "设备分布", "单链接明细", "最近点击"] },
   { name: "audit", path: "/admin/audit", expect: ["操作日志", "操作人", "动作"] },
+  { name: "users", path: "/admin/users", expect: ["用户管理", "用户名", "角色"] },
+  { name: "roles", path: "/admin/settings/roles", expect: ["角色权限", "管理用户", "管理角色权限", "管理全部链接"] },
   { name: "security", path: "/admin/settings/security", expect: ["API Token", "创建 Token"] },
 ];
 
@@ -313,6 +315,19 @@ async function main() {
     ].filter(Boolean).join(" | ");
     record(`page ${page.path}`, missing.length === 0 && markers.length === 0 && pageErrors.length === 0, detail || "rendered");
   }
+
+  // The role dropdown is built from the API's role list, so it has to offer all
+  // four presets rather than the two the console used to hard-code.
+  await go("/admin/users", 1800);
+  const roleOptions = await evaluate(`(() => {
+    const select = document.querySelector("tbody select");
+    return select ? [...select.options].map(o => o.value) : [];
+  })()`);
+  record(
+    "the user list offers every role",
+    ["admin", "operator", "readonly", "user"].every((role) => roleOptions.includes(role)),
+    roleOptions.join(",") || "no role select",
+  );
 
   // ---------- phase 2: create a link ----------
   const alias = `smoke${STAMP}`;

@@ -45,6 +45,7 @@ type Handler struct {
 	Tokens *service.TokenService
 	Audit  *service.AuditService
 	Users  *service.UserService
+	Roles  *service.RoleService
 	Probe  *service.HealthChecker
 }
 
@@ -645,7 +646,7 @@ func (h *Handler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 	JSON(w, 200, page)
 }
 
-// ListUsers returns every account. Administrator only.
+// ListUsers returns every account. Requires the users:manage capability.
 func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	accounts, err := h.Users.List(r.Context())
 	if err != nil {
@@ -655,7 +656,8 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	JSON(w, 200, map[string]any{"users": accounts})
 }
 
-// UpdateUser changes an account's role and/or disabled flag. Administrator only.
+// UpdateUser changes an account's role and/or disabled flag. Requires the
+// users:manage capability.
 func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	var req domain.UpdateUserRequest
 	if err := Decode(r, &req); err != nil {
@@ -681,12 +683,45 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// ListRoles returns every role and the permissions it grants. Requires the
+// roles:manage capability.
+func (h *Handler) ListRoles(w http.ResponseWriter, r *http.Request) {
+	roles, err := h.Roles.List(r.Context())
+	if err != nil {
+		Error(w, 500, "could not load roles")
+		return
+	}
+	JSON(w, 200, map[string]any{"roles": roles})
+}
+
+// UpdateRole replaces a role's permissions. Requires the roles:manage
+// capability.
+func (h *Handler) UpdateRole(w http.ResponseWriter, r *http.Request) {
+	var req domain.UpdateRoleRequest
+	if err := Decode(r, &req); err != nil {
+		Error(w, 400, "invalid request")
+		return
+	}
+	name := chi.URLParam(r, "name")
+	if err := h.Roles.Update(r.Context(), name, req); err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	h.Audit.Record(r.Context(), service.ActionRoleUpdate, "role", name, map[string]any{
+		"scopes":       req.Scopes,
+		"unrestricted": req.Unrestricted,
+	})
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *Handler) writeServiceError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, postgres.ErrNotFound):
 		Error(w, 404, "resource not found")
 	case errors.Is(err, postgres.ErrConflict):
 		Error(w, 409, "resource already exists")
+	case errors.Is(err, postgres.ErrLastCapabilityHolder):
+		Error(w, 409, err.Error())
 	case errors.Is(err, service.ErrQuotaExceeded):
 		Error(w, 429, err.Error())
 	default:

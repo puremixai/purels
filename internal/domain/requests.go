@@ -70,6 +70,14 @@ type UpdateUserRequest struct {
 	Disabled *bool   `json:"disabled"`
 }
 
+// UpdateRoleRequest replaces a role's permissions. The scope list is the whole
+// set, not a delta, and Unrestricted is always stated because the console
+// always knows the current value.
+type UpdateRoleRequest struct {
+	Scopes       []string `json:"scopes"`
+	Unrestricted bool     `json:"unrestricted"`
+}
+
 // ListFilter describes how the link list should be queried. OwnerID narrows the
 // result to one account; nil means no restriction, which is the administrator's
 // view. It is filled in from the request context, not from the query string.

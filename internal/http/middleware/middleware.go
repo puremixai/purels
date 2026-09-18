@@ -47,8 +47,8 @@ func (a Auth) Require(next http.Handler) http.Handler {
 		ctx := domain.WithUser(r.Context(), session.User)
 		ctx = domain.WithSession(ctx, session)
 		// Interactive sessions are not scope-limited by a token, but they are
-		// still bounded by the account's role.
-		ctx = domain.WithScopes(ctx, domain.ScopesForRole(session.User.Role))
+		// still bounded by the scopes their role grants.
+		ctx = domain.WithScopes(ctx, session.User.Scopes)
 		ctx = domain.WithClientIP(ctx, ClientIP(r))
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -66,23 +66,6 @@ func RequireScope(scope string) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-// RequireAdmin restricts a route to administrator accounts.
-//
-// It is deliberately separate from RequireScope: a scope describes what a
-// credential may do, a role describes who the actor is. Routes that only make
-// sense for an administrator check the role rather than relying on a scope
-// happening to be missing from the regular-user set.
-func RequireAdmin(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, ok := domain.UserFromContext(r.Context())
-		if !ok || !user.IsAdmin() {
-			writeJSONError(w, http.StatusForbidden, "administrator access required")
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
 }
 
 func (a Auth) CSRF(next http.Handler) http.Handler {

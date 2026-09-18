@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, AccountRecord, ApiError } from "@/lib/api-client";
+import { api, AccountRecord, ApiError, roleLabels, RoleRecord } from "@/lib/api-client";
 
 function formatTime(value: string) {
   const date = new Date(value);
@@ -10,6 +10,7 @@ function formatTime(value: string) {
 
 export default function UsersPage() {
   const [accounts, setAccounts] = useState<AccountRecord[]>([]);
+  const [roles, setRoles] = useState<RoleRecord[]>([]);
   const [currentId, setCurrentId] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -18,9 +19,16 @@ export default function UsersPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [users, me] = await Promise.all([api.users.list(), api.auth.me().catch(() => null)]);
+      const [users, me, roleList] = await Promise.all([
+        api.users.list(),
+        api.auth.me().catch(() => null),
+        // A role list is only reachable with roles:manage, so a user
+        // administrator without it still gets a working page.
+        api.roles.list().catch(() => [] as RoleRecord[]),
+      ]);
       setAccounts(users);
       setCurrentId(me?.id || "");
+      setRoles(roleList);
       setError("");
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "加载失败");
@@ -33,7 +41,7 @@ export default function UsersPage() {
     load();
   }, [load]);
 
-  async function update(id: string, input: { role?: "admin" | "user"; disabled?: boolean }) {
+  async function update(id: string, input: { role?: string; disabled?: boolean }) {
     setBusy(id);
     setError("");
     try {
@@ -82,10 +90,11 @@ export default function UsersPage() {
                         className="field-control w-auto"
                         value={account.role}
                         disabled={isSelf || disabled}
-                        onChange={(event) => update(account.id, { role: event.target.value as "admin" | "user" })}
+                        onChange={(event) => update(account.id, { role: event.target.value })}
                       >
-                        <option value="user">用户</option>
-                        <option value="admin">管理员</option>
+                        {(roles.length ? roles : [{ name: account.role, scopes: [], unrestricted: false }]).map((role) => (
+                          <option key={role.name} value={role.name}>{roleLabels[role.name] || role.name}</option>
+                        ))}
                       </select>
                     </td>
                     <td className="px-5 py-4">

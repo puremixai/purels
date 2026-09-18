@@ -38,57 +38,17 @@ func TestRequireScopeRejectsTokenWithNoScopes(t *testing.T) {
 	}
 }
 
-func serveAsAdmin(user *domain.User) int {
-	handler := RequireAdmin(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
-	if user != nil {
-		request = request.WithContext(domain.WithUser(request.Context(), *user))
+// With the role-name check gone, these two scopes are the only gate on account
+// and role administration, so they must be granted explicitly and separately.
+func TestRequireScopeGatesAdministration(t *testing.T) {
+	if code := serveWithScopes(domain.ScopeUsersManage, []string{domain.ScopeUsersManage}); code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", code)
 	}
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, request)
-	return recorder.Code
-}
-
-func TestRequireAdmin(t *testing.T) {
-	if code := serveAsAdmin(&domain.User{ID: "1", Username: "admin", Role: domain.RoleAdmin}); code != http.StatusOK {
-		t.Fatalf("expected an administrator to pass, got %d", code)
+	if code := serveWithScopes(domain.ScopeUsersManage, domain.DefaultTokenScopes); code != http.StatusForbidden {
+		t.Fatalf("expected a default token to be rejected, got %d", code)
 	}
-	if code := serveAsAdmin(&domain.User{ID: "2", Username: "alice", Role: domain.RoleUser}); code != http.StatusForbidden {
-		t.Fatalf("expected a regular user to be rejected, got %d", code)
-	}
-	// An unauthenticated request never reaches this middleware in the router,
-	// but it must not be treated as an administrator if it somehow does.
-	if code := serveAsAdmin(nil); code != http.StatusForbidden {
-		t.Fatalf("expected an anonymous request to be rejected, got %d", code)
-	}
-}
-
-func TestScopesForRole(t *testing.T) {
-	if len(domain.ScopesForRole(domain.RoleAdmin)) != len(domain.AllScopes) {
-		t.Fatal("an administrator must hold every scope")
-	}
-	userScopes := domain.ScopesForRole(domain.RoleUser)
-	for _, scope := range userScopes {
-		if scope == domain.ScopeAuditRead {
-			t.Fatal("a regular user must not hold the audit scope")
-		}
-	}
-	// The security page mints and revokes API tokens, so the scope that guards
-	// it has to be in the regular-user set.
-	found := false
-	for _, scope := range userScopes {
-		if scope == domain.ScopeTokensManage {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatal("a regular user must be able to manage their own tokens")
-	}
-	// An unknown role gets the narrow set rather than the wide one.
-	if len(domain.ScopesForRole("")) != len(userScopes) {
-		t.Fatal("an unknown role must fall back to the regular-user scopes")
+	if code := serveWithScopes(domain.ScopeRolesManage, []string{domain.ScopeUsersManage}); code != http.StatusForbidden {
+		t.Fatalf("expected users:manage not to imply roles:manage, got %d", code)
 	}
 }
 

@@ -88,15 +88,17 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 		api.With(httpmw.RequireScope(domain.ScopeStatsRead)).Get("/stats/top", h.TopLinks)
 		api.With(httpmw.RequireScope(domain.ScopeStatsRead)).Get("/stats/overview", h.Overview)
 
-		// The audit trail is administrator-only: the scope keeps API tokens out,
-		// the role keeps regular accounts out.
-		api.With(httpmw.RequireAdmin, httpmw.RequireScope(domain.ScopeAuditRead)).Get("/audit", h.ListAuditLogs)
+		// The audit trail is readable by whoever holds the scope.
+		api.With(httpmw.RequireScope(domain.ScopeAuditRead)).Get("/audit", h.ListAuditLogs)
 
-		// Account administration is gated by role, not by scope: it is the
-		// administrator's own authority, so it is reachable with their session
-		// and with their token alike.
-		api.With(httpmw.RequireAdmin).Get("/users", h.ListUsers)
-		api.With(httpmw.RequireAdmin).Patch("/users/{id}", h.UpdateUser)
+		// Account administration is gated by capability: any role granted
+		// users:manage may reach it, with a session or a token alike.
+		api.With(httpmw.RequireScope(domain.ScopeUsersManage)).Get("/users", h.ListUsers)
+		api.With(httpmw.RequireScope(domain.ScopeUsersManage)).Patch("/users/{id}", h.UpdateUser)
+
+		// Role definitions are editable, so they need their own capability.
+		api.With(httpmw.RequireScope(domain.ScopeRolesManage)).Get("/roles", h.ListRoles)
+		api.With(httpmw.RequireScope(domain.ScopeRolesManage)).Patch("/roles/{name}", h.UpdateRole)
 
 		// Token management is intentionally not reachable with an API token.
 		api.With(httpmw.RequireScope(domain.ScopeTokensManage)).Get("/auth/tokens", h.ListTokens)

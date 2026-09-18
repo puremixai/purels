@@ -23,6 +23,7 @@ const (
 	ActionSessionEnd   = "session.logout"
 	ActionUserRegister = "user.register"
 	ActionUserUpdate   = "user.update"
+	ActionRoleUpdate   = "role.update"
 )
 
 type AuditService struct {
