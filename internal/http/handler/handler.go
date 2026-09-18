@@ -98,7 +98,19 @@ func (h *Handler) VerifySecondFactor(w http.ResponseWriter, r *http.Request) {
 		Error(w, 400, "invalid request")
 		return
 	}
-	result, err := h.Auth.VerifySecondFactor(r.Context(), req.Challenge, req.Code, r.UserAgent(), clientIP(r))
+	challenge := strings.TrimSpace(req.Challenge)
+	if challenge == "" {
+		// The OIDC handoff arrives as a redirect, so it cannot return the
+		// challenge in a response body the way a password login does; it parks
+		// it in a cookie instead. That cookie is HttpOnly, so only the server
+		// can read it back — which is why the fallback is here and not in the
+		// page. Everything downstream is unchanged, so this route to the
+		// attempt counter cannot skip it.
+		if cookie, err := r.Cookie("purels_mfa"); err == nil {
+			challenge = cookie.Value
+		}
+	}
+	result, err := h.Auth.VerifySecondFactor(r.Context(), challenge, req.Code, r.UserAgent(), clientIP(r))
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -114,6 +126,10 @@ func (h *Handler) VerifySecondFactor(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) finishLogin(w http.ResponseWriter, status int, result service.LoginResult) {
 	setCookie(w, "purels_session", result.SessionToken, true, h.Config)
 	setCookie(w, "purels_csrf", result.CSRFToken, false, h.Config)
+	// Cleared unconditionally: the password path never set it, and a completed
+	// second factor must not leave a spent half-session handle behind in the
+	// browser for as long as the session TTL.
+	expireCookie(w, "purels_mfa", h.Config)
 	JSON(w, status, map[string]any{"user": result.User, "csrf_token": result.CSRFToken})
 }
 
@@ -219,6 +235,10 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	h.Audit.Record(r.Context(), service.ActionSessionEnd, "session", "", nil)
 	expireCookie(w, "purels_session", h.Config)
 	expireCookie(w, "purels_csrf", h.Config)
+	// The two sign-in handles are cleared as well: a half-finished sign-in must
+	// not survive the session it belongs to.
+	expireCookie(w, "purels_oidc", h.Config)
+	expireCookie(w, "purels_mfa", h.Config)
 	JSON(w, 200, map[string]string{"status": "ok"})
 }
 
@@ -847,6 +867,18 @@ func (h *Handler) writeServiceError(w http.ResponseWriter, err error) {
 func setCookie(w http.ResponseWriter, name, value string, httpOnly bool, cfg config.Config) {
 	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/", HttpOnly: httpOnly, Secure: cfg.CookieSecure, SameSite: http.SameSiteLaxMode, MaxAge: int(cfg.SessionTTL.Seconds())})
 }
+
+// setShortCookie sets a cookie with a lifetime of its own.
+//
+// setCookie's MaxAge is the session TTL, which is right for the session pair
+// and wrong for the handles a sign-in passes around: a half-session that
+// outlives the window it can be spent in is a credential with no purpose. Both
+// new cookies take Path=/ so that expireCookie, which deletes on that path, can
+// actually remove them.
+func setShortCookie(w http.ResponseWriter, name, value string, httpOnly bool, maxAge int, cfg config.Config) {
+	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/", HttpOnly: httpOnly, Secure: cfg.CookieSecure, SameSite: http.SameSiteLaxMode, MaxAge: maxAge})
+}
+
 func expireCookie(w http.ResponseWriter, name string, cfg config.Config) {
 	http.SetCookie(w, &http.Cookie{Name: name, Value: "", Path: "/", HttpOnly: name == "purels_session", Secure: cfg.CookieSecure, SameSite: http.SameSiteLaxMode, MaxAge: -1})
 }

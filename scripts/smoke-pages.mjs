@@ -296,6 +296,30 @@ async function main() {
 
   // ---------- phase 1: every page renders ----------
   await go("/login");
+  // The login form is driven by position below — the first two inputs are the
+  // credentials and the first button in the form submits it. Sign-in provider
+  // links belong after the form's closing tag for exactly this reason, so this
+  // guards the shape they must not disturb.
+  const loginShape = await evaluate(`(() => {
+    const inputs = [...document.querySelectorAll("form input")];
+    const button = document.querySelector("form button");
+    return {
+      inputs: inputs.length,
+      autoComplete: inputs.map(i => i.getAttribute("autocomplete") || ""),
+      button: button ? button.textContent.trim() : "",
+      providerLinks: [...document.querySelectorAll("a[href*='/auth/oidc/']")].length,
+    };
+  })()`);
+  record(
+    "the login page keeps its credentials-first shape",
+    loginShape.inputs === 2
+      && loginShape.autoComplete[0] === "username"
+      && loginShape.autoComplete[1] === "current-password"
+      && loginShape.button === "登录"
+      && loginShape.providerLinks === 0,
+    `inputs=${loginShape.inputs} autocomplete=${loginShape.autoComplete.join(",")} button=${loginShape.button} providerLinks=${loginShape.providerLinks}`,
+  );
+
   const submitted = await evaluate(`(() => {
     const setVal = (el, v) => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, v);
@@ -723,6 +747,48 @@ async function main() {
 
   const csvButtons = await evaluate(`[...document.querySelectorAll("button")].filter(b => b.textContent.includes("导出")).length`);
   record("stats csv export buttons", csvButtons >= 2, `${csvButtons} buttons`);
+
+  // ---------- phase 7b: a sign-in button appears only once a provider exists ----------
+  //
+  // The login page renders its provider links from the API, so the only way to
+  // see one is to configure one. It is put in and taken out through the API from
+  // inside the page: what has to be protected here is the login page's shape,
+  // which the suite drives by position, and the provider's own screen is
+  // smoke-oidc.mjs's business.
+  const providerSlug = `page${STAMP}`;
+  const apiCall = (expression) => evaluate(`(async () => {
+    const csrf = document.cookie.split("; ").find((c) => c.startsWith("purels_csrf="))?.split("=")[1] || "";
+    ${expression}
+  })()`);
+
+  const providerCreated = await apiCall(`const response = await fetch("/api/v1/oidc/providers", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+      body: JSON.stringify({ slug: ${JSON.stringify(providerSlug)}, display_name: "冒烟登录", issuer: "https://idp.example.com", client_id: "purels" }),
+    });
+    return response.status;`);
+  record("a sign-in provider can be configured", providerCreated === 201, `status=${providerCreated}`);
+
+  await go("/login");
+  const withProvider = await evaluate(`(() => {
+    const inputs = [...document.querySelectorAll("form input")];
+    const button = document.querySelector("form button");
+    const link = document.querySelector("a[href='/api/v1/auth/oidc/${providerSlug}/start']");
+    return { inputs: inputs.length, button: button ? button.textContent.trim() : "", link: link ? link.textContent.trim() : "" };
+  })()`);
+  record(
+    "a configured provider adds a sign-in link without disturbing the form",
+    withProvider.inputs === 2 && withProvider.button === "登录" && withProvider.link === "冒烟登录",
+    `inputs=${withProvider.inputs} button=${withProvider.button} link=${withProvider.link || "none"}`,
+  );
+
+  const providerRemoved = await apiCall(`const list = await (await fetch("/api/v1/oidc/providers", { credentials: "include" })).json();
+    const row = (list.providers || []).find((provider) => provider.slug === ${JSON.stringify(providerSlug)});
+    if (!row) return 0;
+    const response = await fetch("/api/v1/oidc/providers/" + row.id, { method: "DELETE", credentials: "include", headers: { "X-CSRF-Token": csrf } });
+    return response.status;`);
+  record("the sign-in provider is removed again", providerRemoved === 204, `status=${providerRemoved}`);
 
   // ---------- phase 8: logout, then an expired session redirects to /login ----------
   await go("/admin");

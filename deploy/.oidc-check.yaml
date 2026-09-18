@@ -1,0 +1,96 @@
+# Temporary override used to verify the OIDC sign-in flow against a real
+# identity provider. Not part of the deployment: the shipped default has no
+# provider configured, and password login is the primary path either way.
+#
+#   docker compose -f deploy/compose.yaml -f deploy/.oidc-check.yaml up -d --force-recreate
+#   node scripts/smoke-oidc.mjs
+#
+# --force-recreate matters when this file's Dex configuration changes: Compose
+# does not treat edited config content as a reason to rebuild the container, so
+# without it Dex keeps serving the previous users.
+#
+# What the pieces are for:
+#
+# SECRET_ENCRYPTION_KEY is required rather than optional. A sign-in seals its
+# PKCE verifier with it, so without a key the start endpoint refuses — the same
+# fail-closed posture as storing a client secret.
+#
+# OIDC_ALLOW_INSECURE_ISSUERS is what lets the issuer below be http://. Dex is
+# on the host, reached over a published port, and it has no certificate.
+#
+# The issuer is http://host.docker.internal:5556/dex and not a compose service
+# name, because three parties have to resolve it: the API container, the host
+# browser and the Node script. host.docker.internal is the only name that all
+# three agree on — a service name is invisible to the browser, and localhost
+# resolves to ::1 inside the API container.
+#
+# The rate limits are raised because one full run walks the whole flow several
+# times. The real brute-force bound on the second factor is the attempt counter
+# stored with the challenge, not this bucket.
+services:
+  api:
+    environment:
+      SECRET_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
+      # The suite also drives the second factor across an external sign-in: an
+      # account that has a code bound must be handed to the code form rather
+      # than signed straight in.
+      TOTP_ENABLED: "true"
+      OIDC_ALLOW_INSECURE_ISSUERS: "true"
+      OIDC_REDIRECT_BASE: "http://localhost"
+      RATE_LIMIT_OIDC: "600"
+      RATE_LIMIT_2FA: "120"
+      RATE_LIMIT_API: "600"
+
+  dex:
+    image: dexidp/dex:v2.42.0
+    # The image's entrypoint execs its arguments, so the binary has to be named:
+    # a bare "serve" is looked up on PATH and not found.
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    configs:
+      - source: dex-config
+        target: /etc/dex/config.yaml
+    ports:
+      # Published on the host so the browser and the API both reach it. The
+      # API goes through host.docker.internal; the browser goes through the
+      # same name, which the Docker Desktop hosts entry also resolves.
+      - "5556:5556"
+
+configs:
+  dex-config:
+    # The hash is bcrypt because Dex does not accept anything else — this
+    # repository uses argon2id, which Dex rejects. It is the hash of
+    # "purels-dex-pass", shared by both test users. Every "$" is doubled so
+    # Compose does not read the cost factor as a variable reference.
+    content: |
+      issuer: http://host.docker.internal:5556/dex
+      storage:
+        type: memory
+      web:
+        http: 0.0.0.0:5556
+      logger:
+        level: error
+      oauth2:
+        # The flow under test is the login form; an approval page between it
+        # and the callback would only add a second page to drive.
+        skipApprovalScreen: true
+      staticClients:
+        - id: purels
+          name: Purels
+          secret: purels-dex-secret
+          redirectURIs:
+            - http://localhost/api/v1/auth/oidc/dex/callback
+      enablePasswordDB: true
+      staticPasswords:
+        # dexuser is the identity that gets bound to a local account, and the
+        # one the second factor is enrolled on.
+        - email: dexuser@example.com
+          hash: "$$2a$$10$$49aoSfUvAsjTUPWq.VDsa.YsoHlhgA66gdcaq7kaU8YEMvln2TICG"
+          username: dexuser
+          userID: 4e9f1c62-8f2b-4d5a-9c31-7a0e5b6d8f24
+        # dexother is never bound to anything, which is what makes it the way
+        # to show that a provider with auto_provision off refuses a stranger
+        # rather than quietly creating an account.
+        - email: dexother@example.com
+          hash: "$$2a$$10$$49aoSfUvAsjTUPWq.VDsa.YsoHlhgA66gdcaq7kaU8YEMvln2TICG"
+          username: dexother
+          userID: 7b1d3f45-2c08-4e6a-8d19-5f3a9c2b6e70

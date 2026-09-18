@@ -213,6 +213,16 @@ type OIDCIdentity struct {
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
 }
 
+// OIDCRequest is an authorization request that has been claimed: what the
+// callback needs to finish the exchange. CodeVerifier is the decrypted PKCE
+// verifier, because only the service holds the key.
+type OIDCRequest struct {
+	ID           string
+	ProviderID   string
+	Nonce        string
+	CodeVerifier []byte
+}
+
 type DailyStat struct {
 	Day    time.Time `json:"day"`
 	Clicks int64     `json:"clicks"`

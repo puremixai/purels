@@ -61,6 +61,23 @@ func (a *AuthService) Login(ctx context.Context, username, password, userAgent, 
 	if !enabled || user.Username == "" || !security.CheckPassword(password, passwordHash) {
 		return LoginResult{}, ErrInvalidCredentials
 	}
+	return a.CompleteLogin(ctx, user, userAgent, ip)
+}
+
+// CompleteLogin finishes a sign-in for an account that has already been
+// authenticated somehow.
+//
+// Both entries end here — the password path and OIDC — so the second-factor
+// decision, the token lengths, the TTL and the client-address hash cannot drift
+// apart between them. Rewriting createSession inside the OIDC path would
+// eventually miss one of those, and the difference would show up in exactly the
+// place that is hardest to notice: a login that works but leaves a weaker
+// session behind.
+//
+// Register and VerifySecondFactor deliberately do not come through here. A
+// registration has no second factor bound yet, and a completed second factor
+// must not be asked for again.
+func (a *AuthService) CompleteLogin(ctx context.Context, user domain.User, userAgent, ip string) (LoginResult, error) {
 	if challenge, ok, err := a.startSecondFactor(ctx, user.ID); err != nil {
 		return LoginResult{}, err
 	} else if ok {

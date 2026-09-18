@@ -60,6 +60,11 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 	// The sign-in buttons on the login page, for a visitor who has no session
 	// yet. It reveals only the enabled providers' slug and label.
 	r.With(limit("oidc", h.Config.RateLimitOIDC)).Get("/api/v1/auth/oidc/providers", h.PublicOIDCProviders)
+	// The two legs of an external sign-in, for the same reason: the caller is a
+	// browser with no session, arriving by navigation. They share the oidc
+	// bucket with the list above, which is what the name is for.
+	r.With(limit("oidc", h.Config.RateLimitOIDC)).Get("/api/v1/auth/oidc/{slug}/start", h.OIDCStart)
+	r.With(limit("oidc", h.Config.RateLimitOIDC)).Get("/api/v1/auth/oidc/{slug}/callback", h.OIDCCallback)
 
 	auth := httpmw.Auth{Store: h.Auth.Store}
 	r.Route("/api/v1", func(api chi.Router) {

@@ -81,7 +81,14 @@ func main() {
 		Users:  &service.UserService{Store: store},
 		Roles:  &service.RoleService{Store: store},
 		MFA:    &service.TwoFactorService{Store: store, Config: cfg, Box: box},
-		OIDC:   &service.OIDCService{Store: store, Config: cfg, Box: box},
+		OIDC: &service.OIDCService{
+			Store: store, Config: cfg, Box: box,
+			// Built by the service so the timeout that bounds a call to an
+			// identity provider has one definition. It is deliberately not
+			// security.NewProbeClient: that one refuses private addresses, and
+			// a self-hosted IdP is a private address.
+			Client: service.NewOIDCHTTPClient(),
+		},
 		// Built here rather than in the service so the SSRF guard is part of
 		// the wiring: a checker without it must never be constructed.
 		Probe: &service.HealthChecker{Store: store, Client: security.NewProbeClient()},
