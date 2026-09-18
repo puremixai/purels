@@ -92,6 +92,9 @@ func main() {
 		// Built here rather than in the service so the SSRF guard is part of
 		// the wiring: a checker without it must never be constructed.
 		Probe: &service.HealthChecker{Store: store, Client: security.NewProbeClient()},
+		Analytics: &service.AnalyticsService{
+			Store: store,
+		},
 	}
 	router := httpapi.NewRouter(h, httpmw.RateLimiter{Cache: cache})
 	server := &http.Server{Addr: cfg.Addr, Handler: router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}

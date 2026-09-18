@@ -223,6 +223,22 @@ type OIDCRequest struct {
 	CodeVerifier []byte
 }
 
+// AnalyticsSettings is the deployment's tracking configuration, as the console
+// sees it. An empty field means that provider is off, so there is no separate
+// enabled flag to disagree with it.
+//
+// The console reads this on every admin page to decide what to inject, which
+// makes the json tags a contract with web/src/lib/analytics-config.ts. The
+// values end up inside an inline script, so they are validated on write by the
+// service and validated again by the console before anything is interpolated.
+type AnalyticsSettings struct {
+	GA4MeasurementID string    `json:"ga4_measurement_id"`
+	GTMContainerID   string    `json:"gtm_container_id"`
+	MatomoURL        string    `json:"matomo_url"`
+	MatomoSiteID     string    `json:"matomo_site_id"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
 type DailyStat struct {
 	Day    time.Time `json:"day"`
 	Clicks int64     `json:"clicks"`

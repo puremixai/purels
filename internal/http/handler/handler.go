@@ -48,7 +48,9 @@ type Handler struct {
 	Roles  *service.RoleService
 	MFA    *service.TwoFactorService
 	OIDC   *service.OIDCService
-	Probe  *service.HealthChecker
+	// Analytics holds the tracking ids the console injects into its own pages.
+	Analytics *service.AnalyticsService
+	Probe     *service.HealthChecker
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {

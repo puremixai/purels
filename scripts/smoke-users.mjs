@@ -401,6 +401,20 @@ async function main() {
   const bobBackToUser = await call(admin, `/api/v1/users/${bob.userId}`, { method: "PATCH", body: { role: "user" } });
   record("the second account is returned to the regular-user role", bobBackToUser.status === 204, `status=${bobBackToUser.status}`);
 
+  // The tracking ids are fetched by every console page for every signed-in
+  // account, because the script they decide on is injected for all of them. So
+  // the read deliberately carries no scope while the write carries one — gating
+  // the read would silently switch tracking off for everyone without the
+  // capability.
+  const userAnalyticsRead = await call(bob, "/api/v1/analytics");
+  record("a regular account can read the tracking ids", userAnalyticsRead.status === 200, `status=${userAnalyticsRead.status}`);
+
+  const userAnalyticsWrite = await call(bob, "/api/v1/analytics", {
+    method: "PUT",
+    body: { ga4_measurement_id: "", gtm_container_id: "", matomo_url: "", matomo_site_id: "" },
+  });
+  record("a regular account cannot change the tracking ids", userAnalyticsWrite.status === 403, `status=${userAnalyticsWrite.status}`);
+
   // A token carries the scopes it was minted with, which never include the
   // administration scopes, so account management is session-only by design.
   const adminToken = await json(await call(admin, "/api/v1/auth/tokens", { method: "POST", body: { name: `roles-${STAMP}` } }));
@@ -414,6 +428,13 @@ async function main() {
 
     const tokenOidc = await call(newSession(), "/api/v1/oidc/providers", { headers: bearer });
     record("an administrator's token does not carry oidc:manage", tokenOidc.status === 403, `status=${tokenOidc.status}`);
+
+    const tokenAnalytics = await call(newSession(), "/api/v1/analytics", {
+      method: "PUT",
+      headers: bearer,
+      body: { ga4_measurement_id: "", gtm_container_id: "", matomo_url: "", matomo_site_id: "" },
+    });
+    record("an administrator's token does not carry analytics:manage", tokenAnalytics.status === 403, `status=${tokenAnalytics.status}`);
 
     const revoked = await call(admin, `/api/v1/auth/tokens/${adminToken.token?.id}`, { method: "DELETE" });
     record("the administrator's test token is revoked", revoked.status === 204, `status=${revoked.status}`);

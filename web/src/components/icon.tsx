@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-export type IconName = "grid" | "link" | "chart" | "shield" | "logout" | "plus" | "search" | "external" | "trash" | "arrow" | "check" | "menu" | "close" | "lock" | "refresh" | "list" | "user" | "key";
+export type IconName = "grid" | "link" | "chart" | "shield" | "logout" | "plus" | "search" | "external" | "trash" | "arrow" | "check" | "menu" | "close" | "lock" | "refresh" | "list" | "user" | "key" | "pulse";
 
 const paths: Record<IconName, React.ReactNode> = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
@@ -21,6 +21,7 @@ const paths: Record<IconName, React.ReactNode> = {
   refresh: <><path d="M20 11a8.1 8.1 0 0 0-14.5-3L4 10" /><path d="M4 5v5h5" /><path d="M4 13a8.1 8.1 0 0 0 14.5 3L20 14" /><path d="M20 19v-5h-5" /></>,
   user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
   key: <><circle cx="8" cy="15" r="4" /><path d="m10.8 12.2 8.2-8.2" /><path d="m17 6 2 2" /><path d="m14 9 2 2" /></>,
+  pulse: <><path d="M3 12h4l2.5-6 4 12 2.5-6h5" /></>,
 };
 
 export function Icon({ name, size = 18, strokeWidth = 1.8, ...props }: SVGProps<SVGSVGElement> & { name: IconName; size?: number }) {

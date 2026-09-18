@@ -96,6 +96,7 @@ export const allScopes: Array<{ value: string; label: string }> = [
   { value: "users:manage", label: "管理用户" },
   { value: "roles:manage", label: "管理角色权限" },
   { value: "oidc:manage", label: "管理登录方式" },
+  { value: "analytics:manage", label: "管理埋点" },
 ];
 
 /** One configured sign-in provider, as the console sees it. */
@@ -224,6 +225,30 @@ export type LinkInput = {
 export type AppConfig = {
   short_domains: string[];
   default_domain: string;
+};
+
+/**
+ * The tracking ids the console injects into its own pages. An empty field means
+ * that provider is off.
+ *
+ * The console does not trust these values: lib/analytics-config.ts validates
+ * every one of them before it builds the script, because a value that got
+ * through would run as code in every administrator's browser.
+ */
+export type AnalyticsSettings = {
+  ga4_measurement_id: string;
+  gtm_container_id: string;
+  matomo_url: string;
+  matomo_site_id: string;
+  updated_at: string;
+};
+
+/** The four editable fields, which is the whole of what a save replaces. */
+export type AnalyticsInput = {
+  ga4_measurement_id: string;
+  gtm_container_id: string;
+  matomo_url: string;
+  matomo_site_id: string;
 };
 
 export type TagStat = {
@@ -636,6 +661,26 @@ export const api = {
     },
     remove(id: string) {
       return request<void>(`/api/v1/oidc/providers/${encodeURIComponent(id)}`, { method: "DELETE" });
+    },
+  },
+  /**
+   * The tracking ids the console injects into its own pages.
+   *
+   * The read is open to every signed-in account, because the console fetches it
+   * on every admin page for all of them; only the write needs a capability. A
+   * save replaces all four fields, so an empty one turns that provider off.
+   */
+  analytics: {
+    async get() {
+      const payload = await request<{ analytics: AnalyticsSettings } | AnalyticsSettings>("/api/v1/analytics");
+      return unwrapKey<AnalyticsSettings>(payload, "analytics");
+    },
+    async update(input: AnalyticsInput) {
+      const payload = await request<{ analytics: AnalyticsSettings } | AnalyticsSettings>("/api/v1/analytics", {
+        method: "PUT",
+        body: input,
+      });
+      return unwrapKey<AnalyticsSettings>(payload, "analytics");
     },
   },
   tags: {

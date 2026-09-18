@@ -29,6 +29,7 @@ const PAGES = [
   { name: "users", path: "/admin/users", expect: ["用户管理", "用户名", "角色"] },
   { name: "roles", path: "/admin/settings/roles", expect: ["角色权限", "管理用户", "管理角色权限", "管理全部链接"] },
   { name: "oidc", path: "/admin/settings/oidc", expect: ["登录方式", "新增登录方式", "Issuer", "Client ID", "Scopes"] },
+  { name: "analytics", path: "/admin/settings/analytics", expect: ["埋点统计", "GA4 衡量 ID", "GTM 容器 ID", "Matomo 地址", "Matomo 站点 ID"] },
   { name: "security", path: "/admin/settings/security", expect: ["两步验证", "API Token", "创建 Token"] },
 ];
 
@@ -196,7 +197,12 @@ async function main() {
     } else if (msg.method === "Runtime.consoleAPICalled" && msg.params.type === "error") {
       pageErrors.push(msg.params.args.map((a) => a.description || a.value).join(" "));
     } else if (msg.method === "Log.entryAdded" && msg.params.entry.level === "error") {
-      pageErrors.push(msg.params.entry.text);
+      // The url travels in its own protocol field, and for a failed subresource
+      // load it is the only thing that identifies the request — the text alone
+      // reads "Failed to load resource: net::ERR_...". Without it, a phase that
+      // deliberately loads something unreachable cannot tell that entry apart
+      // from a real failure.
+      pageErrors.push(`${msg.params.entry.text}${msg.params.entry.url ? ` ${msg.params.entry.url}` : ""}`);
     }
   });
 
@@ -248,6 +254,16 @@ async function main() {
     for (let waited = 0; waited < timeout; waited += 250) {
       if ((await text()).includes(needle)) return true;
       await sleep(250);
+    }
+    return false;
+  };
+  // Injected scripts arrive after the configuration has been fetched, so an
+  // assertion about one has to wait for the element rather than read the DOM
+  // once.
+  const waitForSelector = async (selector, timeout = 8000) => {
+    for (let waited = 0; waited < timeout; waited += 200) {
+      if (await evaluate(`document.querySelector(${JSON.stringify(selector)}) !== null`).catch(() => false)) return true;
+      await sleep(200);
     }
     return false;
   };
@@ -789,6 +805,64 @@ async function main() {
     const response = await fetch("/api/v1/oidc/providers/" + row.id, { method: "DELETE", credentials: "include", headers: { "X-CSRF-Token": csrf } });
     return response.status;`);
   record("the sign-in provider is removed again", providerRemoved === 204, `status=${providerRemoved}`);
+
+  // ---------- phase 7c: tracking reaches the console and nothing else ----------
+  //
+  // The assertion that matters here is the boundary, not the snippet: the
+  // console must carry the injected script and the login page must not. Matomo
+  // is the provider used because its base URL is ours to choose — pointing it at
+  // a port nothing listens on keeps the run from contacting Google or any real
+  // tracker. The load failure that produces is the one console error this phase
+  // tolerates, and it is matched by URL below.
+  const TRACKER_HOST = "127.0.0.1:45999";
+  const analyticsSaved = await apiCall(`const response = await fetch("/api/v1/analytics", {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+      body: JSON.stringify({ ga4_measurement_id: "", gtm_container_id: "", matomo_url: "http://${TRACKER_HOST}/", matomo_site_id: "1" }),
+    });
+    return response.status;`);
+  record("tracking ids can be configured", analyticsSaved === 200, `status=${analyticsSaved}`);
+
+  await go("/admin", 2000);
+  const injected = await waitForSelector('script[id="purels-analytics-matomo"]');
+  const injectedSource = await evaluate(
+    `(() => { const el = document.querySelector('script[id="purels-analytics-matomo"]'); return el ? el.textContent : ""; })()`,
+  ).catch(() => "");
+  record(
+    "the console injects the configured tracker",
+    injected && injectedSource.includes(TRACKER_HOST),
+    `present=${injected} mentionsHost=${injectedSource.includes(TRACKER_HOST)}`,
+  );
+  // Anything other than the tracker host's own load failure is a real problem
+  // and must not be filtered away with it.
+  const unexpectedErrors = pageErrors.filter((entry) => !String(entry).includes(TRACKER_HOST));
+  record(
+    "injecting a tracker raises no unexpected page errors",
+    unexpectedErrors.length === 0,
+    unexpectedErrors.slice(0, 2).map((e) => String(e).split("\n")[0].slice(0, 120)).join(" | ") ||
+      `filtered ${pageErrors.length - unexpectedErrors.length} tracker-load error(s)`,
+  );
+
+  // A full load rather than a client-side transition: next/script appends its
+  // element to the document body and never removes it, so a /login reached by
+  // clicking a link would still be carrying what the console injected.
+  await go("/login", 1500);
+  const leaked = await evaluate(`document.querySelector('script[id^="purels-analytics-"]') !== null`);
+  record("the login page carries no tracker", leaked === false, `present=${leaked}`);
+
+  const analyticsCleared = await apiCall(`const response = await fetch("/api/v1/analytics", {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+      body: JSON.stringify({ ga4_measurement_id: "", gtm_container_id: "", matomo_url: "", matomo_site_id: "" }),
+    });
+    return response.status;`);
+  record("tracking ids can be cleared", analyticsCleared === 200, `status=${analyticsCleared}`);
+
+  await go("/admin", 2000);
+  const afterClear = await evaluate(`document.querySelector('script[id^="purels-analytics-"]') !== null`);
+  record("an empty configuration injects nothing", afterClear === false, `present=${afterClear}`);
 
   // ---------- phase 8: logout, then an expired session redirects to /login ----------
   await go("/admin");

@@ -35,6 +35,9 @@ const (
 	ActionOIDCProviderCreate = "oidc.create"
 	ActionOIDCProviderUpdate = "oidc.update"
 	ActionOIDCProviderDelete = "oidc.delete"
+	// Tracking ids are injected as script into every console page, so who
+	// changed them belongs in the trail beside the other configuration edits.
+	ActionAnalyticsUpdate = "analytics.update"
 )
 
 type AuditService struct {

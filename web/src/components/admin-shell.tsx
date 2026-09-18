@@ -19,6 +19,7 @@ const navItems: Array<{ href: string; label: string; icon: IconName; scope?: str
   { href: "/admin/users", label: "用户管理", icon: "user", scope: "users:manage" },
   { href: "/admin/settings/roles", label: "角色权限", icon: "key", scope: "roles:manage" },
   { href: "/admin/settings/oidc", label: "登录方式", icon: "lock", scope: "oidc:manage" },
+  { href: "/admin/settings/analytics", label: "埋点统计", icon: "pulse", scope: "analytics:manage" },
   { href: "/admin/settings/security", label: "安全设置", icon: "shield" },
 ];
 

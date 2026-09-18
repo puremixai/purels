@@ -18,6 +18,11 @@ const (
 	// API will then fetch discovery documents from — so it is granted as
 	// sparingly as the other administration scopes.
 	ScopeOIDCManage = "oidc:manage"
+	// ScopeAnalyticsManage governs the tracking ids the console injects into
+	// its own pages. It is granted sparingly for the same reason the other
+	// administration scopes are: the values run as script in every
+	// administrator's browser.
+	ScopeAnalyticsManage = "analytics:manage"
 )
 
 // Role names. These are the four presets the roles table is seeded with. Which
@@ -32,13 +37,14 @@ const (
 
 // AllScopes is the complete vocabulary. A role edit is validated against it, so
 // a typo cannot be stored as a scope that silently never matches.
-var AllScopes = []string{ScopeLinksRead, ScopeLinksWrite, ScopeStatsRead, ScopeTokensManage, ScopeAuditRead, ScopeUsersManage, ScopeRolesManage, ScopeOIDCManage}
+var AllScopes = []string{ScopeLinksRead, ScopeLinksWrite, ScopeStatsRead, ScopeTokensManage, ScopeAuditRead, ScopeUsersManage, ScopeRolesManage, ScopeOIDCManage, ScopeAnalyticsManage}
 
 // DefaultTokenScopes is what a freshly created API token receives. It is an
 // explicit list, and deliberately excludes ScopeTokensManage, ScopeAuditRead,
-// ScopeUsersManage, ScopeRolesManage and ScopeOIDCManage: a leaked token must
-// not be able to mint other tokens, read the audit trail, administer accounts or
-// repoint the sign-in providers.
+// ScopeUsersManage, ScopeRolesManage, ScopeOIDCManage and ScopeAnalyticsManage:
+// a leaked token must not be able to mint other tokens, read the audit trail,
+// administer accounts, repoint the sign-in providers or plant a script in the
+// console.
 var DefaultTokenScopes = []string{ScopeLinksRead, ScopeLinksWrite, ScopeStatsRead}
 
 // IsKnownScope reports whether a value is one of the scopes this build knows

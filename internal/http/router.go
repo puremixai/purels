@@ -132,6 +132,15 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 		api.With(httpmw.RequireScope(domain.ScopeOIDCManage)).Patch("/oidc/providers/{id}", h.UpdateOIDCProvider)
 		api.With(httpmw.RequireScope(domain.ScopeOIDCManage)).Delete("/oidc/providers/{id}", h.DeleteOIDCProvider)
 
+		// The tracking ids the console injects into its own pages. The read is
+		// open to every signed-in account because the console fetches it on
+		// every admin page for all of them — a scope here would silently switch
+		// tracking off for everyone without analytics:manage. The write is what
+		// decides which script runs in an administrator's browser, so it is the
+		// write that needs the capability.
+		api.Get("/analytics", h.GetAnalyticsSettings)
+		api.With(httpmw.RequireScope(domain.ScopeAnalyticsManage)).Put("/analytics", h.UpdateAnalyticsSettings)
+
 		// Token management is intentionally not reachable with an API token.
 		api.With(httpmw.RequireScope(domain.ScopeTokensManage)).Get("/auth/tokens", h.ListTokens)
 		api.With(httpmw.RequireScope(domain.ScopeTokensManage)).Post("/auth/tokens", h.CreateToken)

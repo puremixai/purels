@@ -36,7 +36,7 @@ func TestAllScopesAreDistinct(t *testing.T) {
 		}
 		seen[scope] = true
 	}
-	for _, required := range []string{ScopeLinksRead, ScopeLinksWrite, ScopeStatsRead, ScopeTokensManage, ScopeAuditRead, ScopeUsersManage, ScopeRolesManage, ScopeOIDCManage} {
+	for _, required := range []string{ScopeLinksRead, ScopeLinksWrite, ScopeStatsRead, ScopeTokensManage, ScopeAuditRead, ScopeUsersManage, ScopeRolesManage, ScopeOIDCManage, ScopeAnalyticsManage} {
 		if !seen[required] {
 			t.Fatalf("AllScopes is missing %q", required)
 		}
@@ -62,7 +62,7 @@ func TestIsKnownScope(t *testing.T) {
 // The default token must not carry a capability that would let a leaked token
 // escalate: minting tokens, reading the audit trail, or administering accounts.
 func TestDefaultTokenScopesExcludeAdministration(t *testing.T) {
-	for _, forbidden := range []string{ScopeTokensManage, ScopeAuditRead, ScopeUsersManage, ScopeRolesManage, ScopeOIDCManage} {
+	for _, forbidden := range []string{ScopeTokensManage, ScopeAuditRead, ScopeUsersManage, ScopeRolesManage, ScopeOIDCManage, ScopeAnalyticsManage} {
 		for _, granted := range DefaultTokenScopes {
 			if granted == forbidden {
 				t.Fatalf("DefaultTokenScopes must not include %q", forbidden)

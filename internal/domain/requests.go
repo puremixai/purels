@@ -120,6 +120,22 @@ type OIDCProviderInput struct {
 	Enabled       *bool     `json:"enabled"`
 }
 
+// AnalyticsSettingsInput replaces the deployment's tracking configuration.
+//
+// Unlike OIDCProviderInput none of these is a pointer. There is no write-only
+// field here, the form always shows the whole state, and an empty string has an
+// unambiguous meaning — turn that provider off — so the request is a full
+// replacement rather than a partial edit, and PUT is the honest verb.
+//
+// Decode runs with DisallowUnknownFields, so this struct and the TypeScript
+// type on the other side are a single contract: one extra key is a 400.
+type AnalyticsSettingsInput struct {
+	GA4MeasurementID string `json:"ga4_measurement_id"`
+	GTMContainerID   string `json:"gtm_container_id"`
+	MatomoURL        string `json:"matomo_url"`
+	MatomoSiteID     string `json:"matomo_site_id"`
+}
+
 // ListFilter describes how the link list should be queried. OwnerID narrows the
 // result to one account; nil means no restriction, which is the administrator's
 // view. It is filled in from the request context, not from the query string.
