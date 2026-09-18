@@ -79,6 +79,9 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 		api.With(httpmw.RequireScope(domain.ScopeLinksWrite)).Post("/links/{id}/check", h.CheckLink)
 		api.With(httpmw.RequireScope(domain.ScopeLinksRead)).Get("/links/{id}/qr", h.QRCode)
 		api.With(httpmw.RequireScope(domain.ScopeLinksRead)).Get("/tags", h.ListTags)
+		// The console's own settings, not the deployment's: it needs the same
+		// scope as the link forms that consume it.
+		api.With(httpmw.RequireScope(domain.ScopeLinksRead)).Get("/config", h.AppConfig)
 		api.With(httpmw.RequireScope(domain.ScopeStatsRead)).Get("/links/{id}/stats", h.LinkStats)
 		api.With(httpmw.RequireScope(domain.ScopeStatsRead)).Get("/links/{id}/clicks", h.LinkClicks)
 		api.With(httpmw.RequireScope(domain.ScopeStatsRead)).Get("/stats/summary", h.Summary)

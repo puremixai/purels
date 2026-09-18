@@ -27,6 +27,9 @@ const (
 
 type AuditService struct {
 	Store *postgres.Store
+	// Hasher turns the caller's address into the stored digest. Its zero value
+	// is the default mode, so an unconfigured service still records one.
+	Hasher security.IPHasher
 }
 
 // Record appends an audit entry for a mutation that has already succeeded.
@@ -48,7 +51,7 @@ func (a *AuditService) Record(ctx context.Context, action, resourceType, resourc
 	}
 	var ipHash []byte
 	if ip, ok := domain.ClientIPFromContext(writeCtx); ok && ip != "" {
-		ipHash = security.HashBytes(ip)
+		ipHash = a.Hasher.Hash(ip)
 	}
 	if err := a.Store.CreateAuditLog(writeCtx, userID, action, resourceType, resource, metadata, ipHash); err != nil {
 		slog.Error("could not write audit log", "action", action, "err", err)

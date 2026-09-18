@@ -11,6 +11,8 @@ import (
 	// Embed the IANA database so STATS_TZ works on images without tzdata
 	// installed (the runtime image is plain alpine).
 	_ "time/tzdata"
+
+	"github.com/purels/purels/internal/security"
 )
 
 type Config struct {
@@ -48,6 +50,15 @@ type Config struct {
 	// always recorded, so this only decides whether they are reported.
 	CountBots bool
 
+	// IPHashMode decides what goes into the ip_hash columns: "none",
+	// "anonymised" or "pseudonymised" (the default). Always a value from that
+	// vocabulary, even when IP_HASH_MODE was unset or misspelled.
+	IPHashMode string
+	// IPHashKey turns the digest into an HMAC. Empty keeps the historical
+	// plain-SHA-256 digest, so an upgrade that only adds this setting does not
+	// invalidate the visitor counts already recorded.
+	IPHashKey []byte
+
 	// ForwardQuery appends the visitor's query string to the destination, which
 	// is what keeps utm_* and similar parameters intact through the redirect.
 	ForwardQuery bool
@@ -71,6 +82,11 @@ type Config struct {
 	// DestinationDenylist holds host names that may not be shortened. An entry
 	// also covers its subdomains.
 	DestinationDenylist []string
+
+	// ShortDomains are the extra bare host names a link may be filed under,
+	// besides the host in PublicURL. A link stores which one it picked; the
+	// scheme always comes from PublicURL. Empty leaves only the default.
+	ShortDomains []string
 
 	// HealthCheckEnabled runs the background destination sweep. Off by default:
 	// it makes the server issue outbound requests on a schedule, which is a
@@ -137,6 +153,7 @@ func Load() Config {
 		slog.Warn("ignoring negative MAX_LINKS_PER_USER", "max_links_per_user", maxLinksPerUser)
 		maxLinksPerUser = 0
 	}
+	ipHashMode := ipHashModeEnv()
 	return Config{
 		Addr:              env("API_ADDR", ":8080"),
 		DatabaseURL:       env("DATABASE_URL", "postgres://purels:purels@localhost:5432/purels?sslmode=disable"),
@@ -155,6 +172,8 @@ func Load() Config {
 
 		RegistrationEnabled: boolEnv("REGISTRATION_ENABLED", true),
 		CountBots:           boolEnv("COUNT_BOTS", false),
+		IPHashMode:          ipHashMode,
+		IPHashKey:           []byte(os.Getenv("IP_HASH_KEY")),
 		ForwardQuery:        boolEnv("FORWARD_QUERY", true),
 		FallbackURL:         fallbackURL(),
 
@@ -162,6 +181,7 @@ func Load() Config {
 		PruneGrace:          pruneGrace,
 		MaxLinksPerUser:     maxLinksPerUser,
 		DestinationDenylist: hostListEnv("DESTINATION_DENYLIST"),
+		ShortDomains:        hostListEnv("SHORT_DOMAINS"),
 		HealthCheckEnabled:  boolEnv("HEALTH_CHECK_ENABLED", false),
 		HealthCheckInterval: durationEnv("HEALTH_CHECK_INTERVAL", 24*time.Hour),
 
@@ -173,6 +193,22 @@ func Load() Config {
 		// tightest bucket of the lot.
 		RateLimitRegister: intEnv("RATE_LIMIT_REGISTER", 5),
 	}
+}
+
+// ipHashModeEnv resolves IP_HASH_MODE and warns about the two ways it can be
+// set wrong. Both warnings are deliberately non-fatal: the first because a
+// misspelling has a safe reading, the second because a missing key only weakens
+// a digest that was already weak before this setting existed.
+func ipHashModeEnv() string {
+	raw := strings.TrimSpace(os.Getenv("IP_HASH_MODE"))
+	mode := security.NormalizeIPMode(raw)
+	if raw != "" && !strings.EqualFold(raw, mode) {
+		slog.Warn("unknown IP_HASH_MODE, using the default", "ip_hash_mode", raw, "using", mode)
+	}
+	if mode != security.IPModeNone && os.Getenv("IP_HASH_KEY") == "" {
+		slog.Warn("IP_HASH_KEY is not set: ip_hash holds a plain SHA-256 digest, which is reversible by brute force over the IPv4 space")
+	}
+	return mode
 }
 
 // fallbackURL validates FALLBACK_URL. Anything that is not an absolute http(s)

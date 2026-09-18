@@ -304,7 +304,7 @@ func (h *Handler) CreateLink(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusCreated
 		h.Audit.Record(r.Context(), service.ActionLinkCreate, "link", link.ID, map[string]any{"alias": link.Alias, "destination_url": link.DestinationURL, "rules": len(link.Rules)})
 	}
-	JSON(w, status, map[string]any{"link": link, "short_url": h.Links.URL(h.Config.PublicURL, link)})
+	JSON(w, status, map[string]any{"link": link, "short_url": h.Links.ShortURL(link)})
 }
 
 // ExpandLink resolves a short code, or a full short URL, back to its link.
@@ -319,11 +319,11 @@ func (h *Handler) ExpandLink(w http.ResponseWriter, r *http.Request) {
 		h.writeServiceError(w, err)
 		return
 	}
-	JSON(w, 200, map[string]any{"link": link, "short_url": h.Links.URL(h.Config.PublicURL, link)})
+	JSON(w, 200, map[string]any{"link": link, "short_url": h.Links.ShortURL(link)})
 }
 
 // shortCode accepts a bare code ("abc") or a full short URL ("http://sho.rt/abc").
-// A URL is only accepted when it points at our own public host, so this cannot
+// A URL is only accepted when it points at one of our own hosts, so this cannot
 // be turned into a lookup service for other shorteners.
 func (h *Handler) shortCode(raw string) (string, error) {
 	raw = strings.TrimSpace(raw)
@@ -340,10 +340,7 @@ func (h *Handler) shortCode(raw string) (string, error) {
 	if err != nil {
 		return "", errors.New("url is not a valid URL")
 	}
-	// Compare hostnames, not hosts: the public URL may omit a port the caller
-	// included, and the port is not what makes a host ours.
-	public, err := url.Parse(h.Config.PublicURL)
-	if err != nil || !strings.EqualFold(parsed.Hostname(), public.Hostname()) {
+	if !h.isShortHost(parsed.Hostname()) {
 		return "", errors.New("url must point at this shortener")
 	}
 	code := strings.Trim(parsed.Path, "/")
@@ -351,6 +348,50 @@ func (h *Handler) shortCode(raw string) (string, error) {
 		return "", errors.New("url does not contain a short code")
 	}
 	return code, nil
+}
+
+// isShortHost reports whether a host name is one this deployment serves: the
+// host in PUBLIC_URL or any configured extra short domain. Ports are ignored,
+// because the port is not what makes a host ours.
+func (h *Handler) isShortHost(host string) bool {
+	if host == "" {
+		return false
+	}
+	if public, err := url.Parse(h.Config.PublicURL); err == nil && strings.EqualFold(host, public.Hostname()) {
+		return true
+	}
+	for _, configured := range h.Config.ShortDomains {
+		if strings.EqualFold(host, configured) {
+			return true
+		}
+	}
+	return false
+}
+
+// AppConfig is the console's view of this deployment's own settings. It exists
+// so the link forms can offer the configured short domains without the list
+// being duplicated into the front-end build.
+func (h *Handler) AppConfig(w http.ResponseWriter, r *http.Request) {
+	// An empty list rather than null, so the picker can read the length without
+	// a nil check.
+	domains := h.Config.ShortDomains
+	if domains == nil {
+		domains = []string{}
+	}
+	JSON(w, 200, map[string]any{
+		"short_domains":  domains,
+		"default_domain": h.defaultDomain(),
+	})
+}
+
+// defaultDomain is the host in PUBLIC_URL: the domain a link that names no
+// domain of its own is shown on.
+func (h *Handler) defaultDomain() string {
+	public, err := url.Parse(h.Config.PublicURL)
+	if err != nil {
+		return ""
+	}
+	return public.Hostname()
 }
 
 func (h *Handler) LinkClicks(w http.ResponseWriter, r *http.Request) {
@@ -412,7 +453,7 @@ func (h *Handler) GetLink(w http.ResponseWriter, r *http.Request) {
 		h.writeServiceError(w, err)
 		return
 	}
-	JSON(w, 200, map[string]any{"link": link, "short_url": h.Links.URL(h.Config.PublicURL, link)})
+	JSON(w, 200, map[string]any{"link": link, "short_url": h.Links.ShortURL(link)})
 }
 
 func (h *Handler) UpdateLink(w http.ResponseWriter, r *http.Request) {
@@ -427,7 +468,7 @@ func (h *Handler) UpdateLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.Audit.Record(r.Context(), service.ActionLinkUpdate, "link", link.ID, map[string]any{"alias": link.Alias, "destination_url": link.DestinationURL, "status": link.Status, "rules": len(link.Rules)})
-	JSON(w, 200, map[string]any{"link": link, "short_url": h.Links.URL(h.Config.PublicURL, link)})
+	JSON(w, 200, map[string]any{"link": link, "short_url": h.Links.ShortURL(link)})
 }
 
 func (h *Handler) DeleteLink(w http.ResponseWriter, r *http.Request) {
@@ -545,7 +586,7 @@ func (h *Handler) QRCode(w http.ResponseWriter, r *http.Request) {
 			size = parsed
 		}
 	}
-	png, err := qrcode.Encode(h.Links.URL(h.Config.PublicURL, link), qrcode.Medium, size)
+	png, err := qrcode.Encode(h.Links.ShortURL(link), qrcode.Medium, size)
 	if err != nil {
 		Error(w, 500, "could not generate qr code")
 		return

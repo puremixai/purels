@@ -64,6 +64,16 @@ type LinkService struct {
 	MaxLinksPerUser int
 	// Denylist holds host names that may not be shortened, subdomains included.
 	Denylist []string
+	// PublicURL is the deployment's own address. It supplies both the default
+	// short domain and the scheme every short domain is rendered under.
+	PublicURL string
+	// ShortDomains are the extra hosts a link may be filed under. A link that
+	// names none of them stores the default, which is what an empty value means.
+	ShortDomains []string
+	// Hasher turns a visitor's address into the digest stored on the click.
+	// Its zero value is the default mode, so an unconfigured service still
+	// records one.
+	Hasher security.IPHasher
 }
 
 // CreateResult reports whether Create minted a new short code or handed back an
@@ -89,6 +99,10 @@ func (l *LinkService) Create(ctx context.Context, req domain.CreateLinkRequest) 
 		return CreateResult{}, err
 	}
 	rules, err := normalizeRules(req.Rules, l.Denylist)
+	if err != nil {
+		return CreateResult{}, err
+	}
+	shortDomain, err := l.normalizeDomain(req.Domain)
 	if err != nil {
 		return CreateResult{}, err
 	}
@@ -119,6 +133,7 @@ func (l *LinkService) Create(ctx context.Context, req domain.CreateLinkRequest) 
 		}
 		link := newLink(alias, req.DestinationURL, title, tags, code, req.ExpiresAt)
 		link.Rules = rules
+		link.Domain = shortDomain
 		if err := l.Store.CreateLink(ctx, link, owner); err != nil {
 			return CreateResult{}, err
 		}
@@ -155,6 +170,7 @@ func (l *LinkService) Create(ctx context.Context, req domain.CreateLinkRequest) 
 		}
 		candidate := newLink(alias, req.DestinationURL, title, tags, code, req.ExpiresAt)
 		candidate.Rules = rules
+		candidate.Domain = shortDomain
 		if err := l.Store.CreateLink(ctx, candidate, owner); err == nil {
 			l.cache(ctx, candidate)
 			return CreateResult{Link: candidate, Created: true}, nil
@@ -318,6 +334,15 @@ func (l *LinkService) Update(ctx context.Context, id string, req domain.UpdateLi
 			return link, ruleErr
 		}
 		rules = &normalized
+	}
+	// The loaded link already carries its current domain, so an update that does
+	// not mention one leaves it where it is.
+	if req.Domain != nil {
+		shortDomain, domainErr := l.normalizeDomain(*req.Domain)
+		if domainErr != nil {
+			return link, domainErr
+		}
+		link.Domain = shortDomain
 	}
 	if err := l.Store.UpdateLink(ctx, link, tags, rules, owner); err != nil {
 		return link, err
@@ -539,10 +564,47 @@ func parseExpiry(raw string) (*time.Time, error) {
 }
 
 func (l *LinkService) RecordClick(ctx context.Context, link domain.Link, requestIP, userAgent, referrer string) {
-	_ = l.Store.CreateClickEvent(ctx, link.ID, security.HashBytes(requestIP), userAgent, referrer, security.IsBotUA(userAgent))
+	_ = l.Store.CreateClickEvent(ctx, link.ID, l.Hasher.Hash(requestIP), userAgent, referrer, security.IsBotUA(userAgent))
 }
 
-func (l *LinkService) URL(baseURL string, link domain.Link) string {
-	return strings.TrimRight(baseURL, "/") + "/" + url.PathEscape(link.Alias)
+// ShortURL is the public address of a link, on the domain it is filed under.
+// The scheme and, for a link on the default domain, the host come from
+// PublicURL; an extra short domain replaces the whole authority, so no port
+// leaks from PUBLIC_URL into a host that does not serve it.
+//
+// The domain is display only: a short code resolves on every configured host,
+// so this decides what the console shows and what the QR code encodes.
+func (l *LinkService) ShortURL(link domain.Link) string {
+	base := strings.TrimRight(l.PublicURL, "/")
+	if link.Domain != "" {
+		if parsed, err := url.Parse(base); err == nil && parsed.Host != "" {
+			parsed.Host = link.Domain
+			base = strings.TrimRight(parsed.String(), "/")
+		}
+	}
+	return base + "/" + url.PathEscape(link.Alias)
+}
+
+// normalizeDomain checks a requested short domain against the configured list.
+// An empty value means the default domain, which is what a NULL column means
+// too. The list is the only thing between a caller and a short_url pointing at
+// a host they do not control, so an unlisted value is refused rather than
+// quietly replaced by the default.
+func (l *LinkService) normalizeDomain(raw string) (string, error) {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	if value == "" {
+		return "", nil
+	}
+	// The column stores a bare host name. A scheme, port or path here would be
+	// stored as typed and then never match the picker's own output.
+	if strings.ContainsAny(value, "/:@ ") {
+		return "", errors.New("domain must be a bare host name")
+	}
+	for _, allowed := range l.ShortDomains {
+		if value == allowed {
+			return value, nil
+		}
+	}
+	return "", errors.New("domain is not one of the configured short domains")
 }
 func (l *LinkService) cache(ctx context.Context, link domain.Link) { _ = l.Cache.SetLink(ctx, link) }

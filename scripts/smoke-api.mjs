@@ -755,6 +755,47 @@ async function main() {
     record("deleting a link drops its clicks from the summary", false, "no aggregated traffic to test with");
   }
 
+  // ---------- short domains + IP mode ----------
+  const config = await json(await call("/api/v1/config"));
+  record("config lists the short domains", Array.isArray(config.short_domains), JSON.stringify(config));
+  record("config reports the default domain", Boolean(config.default_domain), config.default_domain);
+
+  // This stack configures no extra short domain, so all that can be proven here
+  // is that the whitelist is closed. The configured case needs a restart with
+  // SHORT_DOMAINS set, which the batch verification covers by hand.
+  const offDomain = await call("/api/v1/links", {
+    method: "POST",
+    headers: { "X-CSRF-Token": csrf },
+    body: { destination_url: "https://example.com/off-domain", alias: `api${STAMP}off`, domain: "evil.example" },
+  });
+  record("an unconfigured short domain is refused", offDomain.status === 400, `status=${offDomain.status}`);
+
+  const plainAlias = `api${STAMP}dom`;
+  const plain = await call("/api/v1/links", {
+    method: "POST",
+    headers: { "X-CSRF-Token": csrf },
+    body: { destination_url: "https://example.com/plain-domain", alias: plainAlias },
+  });
+  const plainPayload = await json(plain);
+  record("a link with no domain is created", plain.status === 201, `status=${plain.status}`);
+  record(
+    "an unset domain is left out of the record",
+    plainPayload.link?.domain === undefined,
+    JSON.stringify(plainPayload.link?.domain),
+  );
+  const plainShortUrl = plainPayload.short_url || "";
+  record(
+    "short_url is on the default domain",
+    plainShortUrl.includes(config.default_domain) && plainShortUrl.endsWith(`/${plainAlias}`),
+    plainShortUrl,
+  );
+  // The code is global and the domain is display only, so naming one must not
+  // change whether the short link resolves.
+  const plainRedirect = await call(`/${plainAlias}`);
+  record("the short link still resolves", plainRedirect.status === 302, `status=${plainRedirect.status}`);
+
+  record("the overview reports the IP mode", (today.ip_mode ?? "") !== "", today.ip_mode);
+
   // ---------- cleanup ----------
   const stale = await json(await call(`/api/v1/links?search=api${STAMP}&limit=100`));
   for (const link of stale.links || []) {

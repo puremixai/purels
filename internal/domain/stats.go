@@ -71,4 +71,8 @@ type StatsOverview struct {
 	RecentClicks   []RecentClick  `json:"recent_clicks"`
 	From           string         `json:"from"`
 	To             string         `json:"to"`
+	// IPMode is the effective IP_HASH_MODE. Under "none" no address is stored,
+	// so UniqueVisitors is structurally zero rather than genuinely zero, and the
+	// dashboard hides the card instead of reporting a misleading number.
+	IPMode string `json:"ip_mode"`
 }

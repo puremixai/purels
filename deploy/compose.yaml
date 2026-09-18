@@ -83,6 +83,20 @@ services:
       # Comma-separated host names that may not be shortened, subdomains
       # included. Empty denies nothing.
       DESTINATION_DENYLIST: ""
+      # Extra bare host names a link may be filed under, besides the host in
+      # PUBLIC_URL. The scheme always comes from PUBLIC_URL. Empty leaves only
+      # the default. Each host has to resolve to this deployment on its own:
+      # the short code is global, so the domain is display only.
+      SHORT_DOMAINS: ""
+      # What goes into the ip_hash columns: none, anonymised or pseudonymised
+      # (the default). "none" stores nothing, which also hides the unique-visitor
+      # figure; the other two break COUNT(DISTINCT ip_hash) across the switch,
+      # because the same visitor hashes differently before and after.
+      IP_HASH_MODE: pseudonymised
+      # Turns the digest into an HMAC. Empty keeps the historical plain-SHA-256
+      # digest, so the counts already recorded stay comparable; the API logs a
+      # warning at boot when it is empty and the mode is not "none".
+      IP_HASH_KEY: ""
       # true makes the server probe link destinations on a schedule. Off by
       # default: it is outbound traffic that an upgrade should not start on its
       # own. The manual check button works either way.

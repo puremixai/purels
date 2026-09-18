@@ -42,6 +42,18 @@ func TestShortCode(t *testing.T) {
 			t.Fatalf("shortCode(%q) = %q, want an error", input, got)
 		}
 	}
+
+	// A configured short domain is one of our own hosts, so a full URL on it is
+	// accepted; a host that is not on the list still is not.
+	multi := &Handler{Config: config.Config{PublicURL: "https://sho.rt", ShortDomains: []string{"go.example.com"}}}
+	if got, err := multi.shortCode("https://go.example.com/abc"); err != nil || got != "abc" {
+		t.Fatalf("shortCode on a configured short domain = %q, %v", got, err)
+	}
+	for _, input := range []string{"https://other.example/abc", "https://go.example.com.evil.example/abc", "https://evil.example/?u=go.example.com"} {
+		if got, err := multi.shortCode(input); err == nil {
+			t.Fatalf("shortCode(%q) = %q, want an error", input, got)
+		}
+	}
 }
 
 func TestPreviewPageEscapes(t *testing.T) {

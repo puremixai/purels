@@ -188,6 +188,9 @@ export default function StatsPage() {
     ?? ranking.find((link) => link.id === selected)?.alias
     ?? "";
   const maxDaily = detail?.daily.reduce((peak, item) => Math.max(peak, item.clicks), 0) ?? 0;
+  // Under IP_HASH_MODE=none nothing is stored, so the figure is structurally
+  // zero rather than genuinely zero: showing it would report "no visitors".
+  const showVisitors = overview?.ip_mode !== "none";
 
   return (
     <div className="space-y-6">
@@ -211,15 +214,17 @@ export default function StatsPage() {
 
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className={`grid gap-4 ${showVisitors ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         <div className="panel p-6">
           <p className="text-sm text-[var(--muted)]">区间点击</p>
           <p className="mt-3 text-4xl font-bold tabular-nums">{overview?.total_clicks ?? 0}</p>
         </div>
-        <div className="panel p-6">
-          <p className="text-sm text-[var(--muted)]">独立访客</p>
-          <p className="mt-3 text-4xl font-bold tabular-nums">{overview?.unique_visitors ?? 0}</p>
-        </div>
+        {showVisitors && (
+          <div className="panel p-6">
+            <p className="text-sm text-[var(--muted)]">独立访客</p>
+            <p className="mt-3 text-4xl font-bold tabular-nums">{overview?.unique_visitors ?? 0}</p>
+          </div>
+        )}
         <div className="panel p-6">
           <p className="text-sm text-[var(--muted)]">总链接数</p>
           <p className="mt-3 text-4xl font-bold tabular-nums">{overview?.total_links ?? 0}</p>

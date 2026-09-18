@@ -16,6 +16,10 @@ import (
 type AuthService struct {
 	Store  *postgres.Store
 	Config config.Config
+	// Hasher turns the caller's address into the digest stored on the session.
+	// Its zero value is the default mode, so an unconfigured service still
+	// records one.
+	Hasher security.IPHasher
 }
 
 type LoginResult struct {
@@ -82,7 +86,7 @@ func (a *AuthService) createSession(ctx context.Context, user domain.User, userA
 		return LoginResult{}, err
 	}
 	expires := time.Now().UTC().Add(a.Config.SessionTTL)
-	if err := a.Store.CreateSession(ctx, user.ID, security.HashBytes(sessionToken), security.HashBytes(csrfToken), security.HashBytes(ip), userAgent, expires); err != nil {
+	if err := a.Store.CreateSession(ctx, user.ID, security.HashBytes(sessionToken), security.HashBytes(csrfToken), a.Hasher.Hash(ip), userAgent, expires); err != nil {
 		return LoginResult{}, err
 	}
 	return LoginResult{User: user, SessionToken: sessionToken, CSRFToken: csrfToken}, nil

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api, ApiError, LinkRecord, LinkRuleInput } from "@/lib/api-client";
+import { LinkDomainPicker } from "@/components/link-domain-picker";
 import { LinkRulesEditor } from "@/components/link-rules-editor";
 import { parseTags } from "@/lib/tags";
 
@@ -32,6 +33,7 @@ export default function EditLinkPage() {
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState("");
   const [code, setCode] = useState("302");
+  const [domain, setDomain] = useState("");
   const [status, setStatus] = useState("active");
   const [expires, setExpires] = useState("");
   const [rules, setRules] = useState<LinkRuleInput[]>([]);
@@ -53,6 +55,7 @@ export default function EditLinkPage() {
         setTitle(record.title || "");
         setTags((record.tags || []).join(", "));
         setCode(String(record.redirect_code));
+        setDomain(record.domain || "");
         setStatus(record.status);
         setExpires(record.expires_at ? record.expires_at.slice(0, 10) : "");
         setRules(toRuleInputs(record));
@@ -100,6 +103,9 @@ export default function EditLinkPage() {
         // An empty string clears the expiry; the API distinguishes it from "unchanged".
         expires_at: expires ? new Date(`${expires}T00:00:00Z`).toISOString() : "",
         rules,
+        // Sent unconditionally: the form shows the whole state, so an empty
+        // value here means "move it back to the default domain".
+        domain,
       });
       router.push("/admin/links");
     } catch (e) {
@@ -137,7 +143,8 @@ export default function EditLinkPage() {
           <div>
             <span className="field-label">短链接</span>
             <p className="mt-1 font-medium">
-              /{link.alias}
+              {link.domain ? `${link.domain}/` : "/"}
+              {link.alias}
               {shortUrl && (
                 <a
                   href={api.links.previewUrl(shortUrl)}
@@ -150,6 +157,8 @@ export default function EditLinkPage() {
               )}
             </p>
           </div>
+
+          <LinkDomainPicker value={domain} onChange={setDomain} />
 
           <label className="block">
             <span className="field-label">目标 URL</span>

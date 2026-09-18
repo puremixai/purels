@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError, LinkRuleInput } from "@/lib/api-client";
+import { LinkDomainPicker } from "@/components/link-domain-picker";
 import { LinkRulesEditor } from "@/components/link-rules-editor";
 
 /** "News, promo  news" -> ["news", "promo"] — split, trim, drop blanks, de-dupe. */
@@ -19,6 +20,7 @@ export default function NewLinkPage() {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [alias, setAlias] = useState("");
+  const [domain, setDomain] = useState("");
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState("");
   const [code, setCode] = useState("302");
@@ -38,6 +40,7 @@ export default function NewLinkPage() {
         tags: parseTags(tags),
         redirect_code: Number(code),
         rules,
+        domain,
       });
       router.push("/admin/links");
     } catch (err) {
@@ -62,6 +65,7 @@ export default function NewLinkPage() {
           <span className="field-label">自定义别名（可选）</span>
           <input className="field-control" placeholder="留空自动生成" value={alias} onChange={(e) => setAlias(e.target.value)} />
         </label>
+        <LinkDomainPicker value={domain} onChange={setDomain} />
         <label className="block">
           <span className="field-label">标题（可选）</span>
           <input className="field-control" maxLength={255} value={title} onChange={(e) => setTitle(e.target.value)} />

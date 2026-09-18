@@ -23,6 +23,11 @@ type Link struct {
 	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
+	// Domain is the configured short domain the link is filed under. Empty means
+	// the default host from PUBLIC_URL, which is also what a NULL column means.
+	// It is display only: the code resolves on every configured host, so this
+	// decides what the console shows and what the QR code encodes.
+	Domain string `json:"domain,omitempty"`
 	// LastCheckedAt and LastStatusCode describe the last destination probe.
 	// Nil means the link has never been checked; a status code of 0 records a
 	// probe that could not reach the destination at all.

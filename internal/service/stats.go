@@ -8,7 +8,12 @@ import (
 	"github.com/purels/purels/internal/store/postgres"
 )
 
-type StatsService struct{ Store *postgres.Store }
+type StatsService struct {
+	Store *postgres.Store
+	// IPMode is the effective IP_HASH_MODE, reported so the dashboard can hide
+	// a unique-visitor figure that is structurally always zero.
+	IPMode string
+}
 
 // OverviewOptions bounds the two list-shaped sections of the overview payload.
 type OverviewOptions struct {
@@ -101,5 +106,6 @@ func (s *StatsService) Overview(ctx context.Context, from, to time.Time, opts Ov
 		Referrers:      referrers,
 		Devices:        devices,
 		RecentClicks:   recent,
+		IPMode:         s.IPMode,
 	}, nil
 }

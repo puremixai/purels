@@ -68,6 +68,11 @@ export type LinkRecord = {
   last_status_code?: number;
   /** Only single-link reads load these; a list row leaves the field absent. */
   rules?: LinkRule[];
+  /**
+   * The configured short domain the link is filed under. Absent means the
+   * default host, which is also what an empty string means on the wire.
+   */
+  domain?: string;
 };
 
 /** Outcome of one destination check. */
@@ -97,6 +102,14 @@ export type LinkInput = {
   expires_at?: string;
   /** The whole list is replaced on every save. */
   rules?: LinkRuleInput[];
+  /** An empty string moves the link back to the default domain. */
+  domain?: string;
+};
+
+/** The deployment's own settings, as the console needs to know them. */
+export type AppConfig = {
+  short_domains: string[];
+  default_domain: string;
 };
 
 export type TagStat = {
@@ -214,6 +227,11 @@ export type StatsOverview = {
   recent_clicks: RecentClick[];
   from: string;
   to: string;
+  /**
+   * The deployment's IP_HASH_MODE. Under "none" no address is stored, so
+   * unique_visitors is structurally zero rather than genuinely zero.
+   */
+  ip_mode: string;
 };
 
 export type TokenRecord = {
@@ -430,6 +448,10 @@ export const api = {
       const payload = await request<{ tags: TagStat[] } | TagStat[]>("/api/v1/tags");
       return unwrapKey<TagStat[]>(payload, "tags") || [];
     },
+  },
+  /** Deployment settings the forms need, not user data. */
+  config() {
+    return request<AppConfig>("/api/v1/config");
   },
   stats: {
     summary() {

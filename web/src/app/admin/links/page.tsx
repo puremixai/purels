@@ -353,7 +353,8 @@ export default function LinksPage() {
                     <input type="checkbox" aria-label={`选择 ${link.alias}`} checked={selected.has(link.id)} onChange={() => toggleOne(link.id)} />
                   </td>
                   <td className="px-5 py-4 font-medium">
-                    /{link.alias}
+                    {link.domain ? `${link.domain}/` : "/"}
+                    {link.alias}
                     {link.title && <span className="mt-0.5 block max-w-[200px] truncate text-xs font-normal text-[var(--muted)]">{link.title}</span>}
                   </td>
                   <td className="max-w-[300px] truncate px-5 py-4 text-[var(--muted)]">{link.destination_url}</td>

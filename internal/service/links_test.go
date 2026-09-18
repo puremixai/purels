@@ -159,3 +159,70 @@ func TestNormalizeRulesDenylist(t *testing.T) {
 		t.Fatalf("expected an allowed destination to pass: %v", err)
 	}
 }
+
+// TestShortURL pins where a link is shown. The domain is display only, so the
+// only things that matter are the scheme, the host and the code.
+func TestShortURL(t *testing.T) {
+	service := &LinkService{PublicURL: "https://sho.rt", ShortDomains: []string{"go.example.com"}}
+
+	cases := []struct {
+		name string
+		link domain.Link
+		want string
+	}{
+		{"no domain uses the public host", domain.Link{Alias: "abc"}, "https://sho.rt/abc"},
+		{"a configured domain replaces the host", domain.Link{Alias: "abc", Domain: "go.example.com"}, "https://go.example.com/abc"},
+		// The code is path-escaped, so a value the alias pattern would reject
+		// still cannot break out of the path.
+		{"the code is escaped", domain.Link{Alias: "a b"}, "https://sho.rt/a%20b"},
+	}
+	for _, test := range cases {
+		if got := service.ShortURL(test.link); got != test.want {
+			t.Errorf("%s: got %q, want %q", test.name, got, test.want)
+		}
+	}
+
+	// A port belongs to the default host only: the extra domains are bare host
+	// names, and carrying the port over would point at a host that is not
+	// serving it.
+	withPort := &LinkService{PublicURL: "http://localhost:8080/", ShortDomains: []string{"sho.rt"}}
+	if got := withPort.ShortURL(domain.Link{Alias: "abc"}); got != "http://localhost:8080/abc" {
+		t.Errorf("default host: got %q", got)
+	}
+	if got := withPort.ShortURL(domain.Link{Alias: "abc", Domain: "sho.rt"}); got != "http://sho.rt/abc" {
+		t.Errorf("extra domain: got %q", got)
+	}
+}
+
+// TestNormalizeDomain covers the whitelist that keeps a caller from pointing a
+// short_url — and therefore the QR code — at a host they do not control.
+func TestNormalizeDomain(t *testing.T) {
+	service := &LinkService{ShortDomains: []string{"sho.rt", "go.example.com"}}
+
+	for _, allowed := range []string{"", "sho.rt", "GO.EXAMPLE.COM", " go.example.com "} {
+		got, err := service.normalizeDomain(allowed)
+		if err != nil {
+			t.Errorf("%q: unexpected error %v", allowed, err)
+			continue
+		}
+		if allowed == "" && got != "" {
+			t.Errorf("an empty domain must stay empty, got %q", got)
+		}
+		if allowed != "" && got != strings.ToLower(strings.TrimSpace(allowed)) {
+			t.Errorf("%q: got %q, want the folded host", allowed, got)
+		}
+	}
+
+	for _, rejected := range []string{"evil.example", "sho.rt.evil.example", "https://sho.rt", "sho.rt:8080", "sho.rt/path"} {
+		if _, err := service.normalizeDomain(rejected); err == nil {
+			t.Errorf("%q: expected a rejection", rejected)
+		}
+	}
+
+	// With nothing configured, only the default domain is left, and naming it
+	// explicitly is still not one of the configured short domains.
+	empty := &LinkService{}
+	if _, err := empty.normalizeDomain("sho.rt"); err == nil {
+		t.Error("expected a rejection when no short domains are configured")
+	}
+}

@@ -7,6 +7,9 @@ type CreateLinkRequest struct {
 	Tags           []string `json:"tags"`
 	RedirectCode   int16    `json:"redirect_code"`
 	ExpiresAt      string   `json:"expires_at"`
+	// Domain picks one of the configured short domains. Empty means the default
+	// host from PUBLIC_URL; anything not on the SHORT_DOMAINS list is refused.
+	Domain string `json:"domain"`
 	// Rules are applied in the order they are sent; the position column is
 	// assigned from that order rather than trusted from the caller.
 	Rules []LinkRuleInput `json:"rules"`
@@ -33,6 +36,9 @@ type UpdateLinkRequest struct {
 	Title  *string   `json:"title"`
 	Tags   *[]string `json:"tags"`
 	Status string    `json:"status"`
+	// Domain follows the same convention: nil leaves the link where it is, an
+	// empty string moves it back to the default domain.
+	Domain *string `json:"domain"`
 	// Rules follows the same convention: nil leaves the existing rules alone,
 	// an empty slice removes them all.
 	Rules *[]LinkRuleInput `json:"rules"`

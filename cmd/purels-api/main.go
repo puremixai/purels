@@ -42,7 +42,11 @@ func main() {
 	}
 	defer cache.Close()
 
-	authService := &service.AuthService{Store: store, Config: cfg}
+	// One hasher for every write site, so the three ip_hash columns cannot drift
+	// apart as the setting changes.
+	hasher := security.IPHasher{Mode: cfg.IPHashMode, Key: cfg.IPHashKey}
+
+	authService := &service.AuthService{Store: store, Config: cfg, Hasher: hasher}
 	if err := authService.Bootstrap(ctx); err != nil {
 		logger.Error("bootstrap failed", "error", err)
 		os.Exit(1)
@@ -54,14 +58,17 @@ func main() {
 		UniqueURLs:        cfg.UniqueURLs,
 		MaxLinksPerUser:   cfg.MaxLinksPerUser,
 		Denylist:          cfg.DestinationDenylist,
+		PublicURL:         cfg.PublicURL,
+		ShortDomains:      cfg.ShortDomains,
+		Hasher:            hasher,
 	}
 	h := &handler.Handler{
 		Config: cfg,
 		Auth:   authService,
 		Links:  linkService,
-		Stats:  &service.StatsService{Store: store},
+		Stats:  &service.StatsService{Store: store, IPMode: cfg.IPHashMode},
 		Tokens: &service.TokenService{Store: store},
-		Audit:  &service.AuditService{Store: store},
+		Audit:  &service.AuditService{Store: store, Hasher: hasher},
 		Users:  &service.UserService{Store: store},
 		// Built here rather than in the service so the SSRF guard is part of
 		// the wiring: a checker without it must never be constructed.
