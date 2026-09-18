@@ -1,0 +1,65 @@
+package service
+
+import (
+	"context"
+	"log/slog"
+
+	"github.com/purels/purels/internal/domain"
+	"github.com/purels/purels/internal/security"
+	"github.com/purels/purels/internal/store/postgres"
+)
+
+// Audit actions recorded by the handlers. Kept as constants so the trail stays
+// queryable and the UI can label them consistently.
+const (
+	ActionLinkCreate   = "link.create"
+	ActionLinkUpdate   = "link.update"
+	ActionLinkDelete   = "link.delete"
+	ActionLinkImport   = "link.import"
+	ActionLinkBulk     = "link.bulk"
+	ActionTokenCreate  = "token.create"
+	ActionTokenRevoke  = "token.revoke"
+	ActionSessionLogin = "session.login"
+	ActionSessionEnd   = "session.logout"
+	ActionUserRegister = "user.register"
+	ActionUserUpdate   = "user.update"
+)
+
+type AuditService struct {
+	Store *postgres.Store
+}
+
+// Record appends an audit entry for a mutation that has already succeeded.
+// The actor and client address are read from ctx, so callers only supply what
+// happened. Failures are logged rather than returned: a broken audit trail must
+// not turn a successful operation into an error for the operator.
+func (a *AuditService) Record(ctx context.Context, action, resourceType, resourceID string, metadata map[string]any) {
+	// The client may have disconnected by the time we write; the record still
+	// needs to land.
+	writeCtx := context.WithoutCancel(ctx)
+
+	var userID *string
+	if user, ok := domain.UserFromContext(writeCtx); ok && user.ID != "" {
+		userID = &user.ID
+	}
+	var resource *string
+	if resourceID != "" {
+		resource = &resourceID
+	}
+	var ipHash []byte
+	if ip, ok := domain.ClientIPFromContext(writeCtx); ok && ip != "" {
+		ipHash = security.HashBytes(ip)
+	}
+	if err := a.Store.CreateAuditLog(writeCtx, userID, action, resourceType, resource, metadata, ipHash); err != nil {
+		slog.Error("could not write audit log", "action", action, "err", err)
+	}
+}
+
+// List returns a page of the audit trail, newest first.
+func (a *AuditService) List(ctx context.Context, action string, limit, offset int) (domain.AuditPage, error) {
+	entries, total, err := a.Store.ListAuditLogs(ctx, action, limit, offset)
+	if err != nil {
+		return domain.AuditPage{}, err
+	}
+	return domain.AuditPage{Entries: entries, Total: total, Limit: limit, Offset: offset}, nil
+}

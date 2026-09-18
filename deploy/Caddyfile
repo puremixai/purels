@@ -1,0 +1,28 @@
+{
+	auto_https off
+}
+
+:80 {
+	# Dedicated short-link host (optional): everything goes to the API.
+	@short host s.example.com
+	handle @short {
+		reverse_proxy api:8080
+	}
+
+	# Backend API + operational endpoints.
+	@api path /api/* /healthz /readyz /metrics
+	handle @api {
+		reverse_proxy api:8080
+	}
+
+	# Admin UI and its build assets.
+	@web path / /_next/* /admin* /login* /register* /favicon.ico /robots.txt
+	handle @web {
+		reverse_proxy web:3000
+	}
+
+	# Anything else is a short-link alias.
+	handle {
+		reverse_proxy api:8080
+	}
+}

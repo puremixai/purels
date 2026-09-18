@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #172033;
+  --muted: #67738a;
+  --line: #e6e9ef;
+  --surface: #ffffff;
+  --canvas: #f6f7fb;
+  --brand: #3855d9;
+  --brand-dark: #263aa3;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+::selection {
+  background: #dbe3ff;
+  color: var(--ink);
+}
+
+.focus-ring:focus-visible {
+  outline: 3px solid #c9d3ff;
+  outline-offset: 2px;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgb(32 43 75 / 4%);
+}
+
+.field-label {
+  display: block;
+  color: #364056;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+
+.field-control {
+  width: 100%;
+  border: 1px solid #d9deea;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink);
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.field-control::placeholder {
+  color: #a3adbf;
+}
+
+.field-control:focus {
+  border-color: #8295ef;
+  box-shadow: 0 0 0 3px #e8ecff;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  border-radius: 9px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.btn-primary {
+  border: 1px solid var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+}
+
+.btn-secondary {
+  border: 1px solid #d9deea;
+  background: #fff;
+  color: #46516a;
+}
+
+.btn-secondary:hover {
+  border-color: #aeb9d2;
+  background: #f8f9fc;
+}
+
+.btn-danger {
+  border: 1px solid #f0c7ce;
+  background: #fff8f8;
+  color: #bd384b;
+}
+
+.btn-danger:hover {
+  border-color: #e695a2;
+  background: #fff0f2;
+}
+
+@media (max-width: 768px) {
+  .mobile-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}

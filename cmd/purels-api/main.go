@@ -1,0 +1,83 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/purels/purels/internal/cache/redis"
+	"github.com/purels/purels/internal/config"
+	httpapi "github.com/purels/purels/internal/http"
+	"github.com/purels/purels/internal/http/handler"
+	httpmw "github.com/purels/purels/internal/http/middleware"
+	"github.com/purels/purels/internal/security"
+	"github.com/purels/purels/internal/service"
+	"github.com/purels/purels/internal/store/postgres"
+)
+
+func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	cfg := config.Load()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	store, err := postgres.New(ctx, cfg.DatabaseURL, cfg.StatsTZ)
+	if err != nil {
+		logger.Error("database connection failed", "error", err)
+		os.Exit(1)
+	}
+	defer store.Close()
+	// Bot clicks are always recorded; this decides whether the read paths report
+	// them, so it is a store-wide switch rather than a per-query argument.
+	store.CountBots = cfg.CountBots
+	cache, err := redis.New(cfg.RedisURL)
+	if err != nil {
+		logger.Error("redis configuration failed", "error", err)
+		os.Exit(1)
+	}
+	defer cache.Close()
+
+	authService := &service.AuthService{Store: store, Config: cfg}
+	if err := authService.Bootstrap(ctx); err != nil {
+		logger.Error("bootstrap failed", "error", err)
+		os.Exit(1)
+	}
+	linkService := &service.LinkService{
+		Store:             store,
+		Cache:             cache,
+		SequentialAliases: cfg.SequentialAliases(),
+		UniqueURLs:        cfg.UniqueURLs,
+		MaxLinksPerUser:   cfg.MaxLinksPerUser,
+		Denylist:          cfg.DestinationDenylist,
+	}
+	h := &handler.Handler{
+		Config: cfg,
+		Auth:   authService,
+		Links:  linkService,
+		Stats:  &service.StatsService{Store: store},
+		Tokens: &service.TokenService{Store: store},
+		Audit:  &service.AuditService{Store: store},
+		Users:  &service.UserService{Store: store},
+		// Built here rather than in the service so the SSRF guard is part of
+		// the wiring: a checker without it must never be constructed.
+		Probe: &service.HealthChecker{Store: store, Client: security.NewProbeClient()},
+	}
+	router := httpapi.NewRouter(h, httpmw.RateLimiter{Cache: cache})
+	server := &http.Server{Addr: cfg.Addr, Handler: router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
+	go func() {
+		logger.Info("api listening", "addr", cfg.Addr)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Error("server stopped", "error", err)
+			stop()
+		}
+	}()
+	<-ctx.Done()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_ = server.Shutdown(shutdownCtx)
+}

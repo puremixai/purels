@@ -1,0 +1,147 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: purels
+      POSTGRES_PASSWORD: purels
+      POSTGRES_DB: purels
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U purels -d purels"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "6379:6379"
+
+  migrate:
+    image: migrate/migrate:v4.18.3
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../migrations:/migrations:ro
+    command: ["-path", "/migrations", "-database", "postgres://purels:purels@postgres:5432/purels?sslmode=disable", "up"]
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      API_ADDR: :8080
+      DATABASE_URL: postgres://purels:purels@postgres:5432/purels?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      PUBLIC_URL: http://localhost
+      ADMIN_ORIGIN: http://localhost:3000,http://localhost
+      COOKIE_SECURE: "false"
+      # random keeps codes unguessable; sequential (Base36) makes them enumerable.
+      ALIAS_MODE: random
+      # IANA zone deciding where a statistics "day" starts. Clicks are always
+      # stored as UTC; this only shifts the day boundaries.
+      STATS_TZ: UTC
+      # true reuses the existing short code when a destination is shortened again.
+      UNIQUE_URLS: "true"
+      BOOTSTRAP_USERNAME: admin
+      BOOTSTRAP_PASSWORD: change-me-now
+      # false closes public sign-up without affecting existing accounts.
+      REGISTRATION_ENABLED: "true"
+      # Bot clicks are always recorded; this only decides whether the statistics
+      # report them.
+      COUNT_BOTS: "false"
+      # Keep utm_* and friends intact by appending the visitor's query string to
+      # the destination.
+      FORWARD_QUERY: "true"
+      # Where an unknown short code sends the visitor. Empty means a plain 404.
+      # Must be an absolute http(s) URL; anything else is ignored with a warning.
+      FALLBACK_URL: ""
+      # true hard-deletes links that expired more than PRUNE_GRACE ago. Off by
+      # default because the click history goes with them.
+      AUTO_PRUNE_EXPIRED: "false"
+      PRUNE_GRACE: 720h
+      # How many live links one regular account may own. 0 disables the cap;
+      # administrators are exempt either way.
+      MAX_LINKS_PER_USER: "1000"
+      # Comma-separated host names that may not be shortened, subdomains
+      # included. Empty denies nothing.
+      DESTINATION_DENYLIST: ""
+      # true makes the server probe link destinations on a schedule. Off by
+      # default: it is outbound traffic that an upgrade should not start on its
+      # own. The manual check button works either way.
+      HEALTH_CHECK_ENABLED: "false"
+      HEALTH_CHECK_INTERVAL: 24h
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_LOGIN: "10"
+      RATE_LIMIT_API: "120"
+      RATE_LIMIT_REDIRECT: "600"
+      RATE_LIMIT_REGISTER: "5"
+    ports:
+      - "8080:8080"
+
+  worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    entrypoint: ["/app/purels-worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://purels:purels@postgres:5432/purels?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      # Must match the API: the worker buckets the days the API queries.
+      STATS_TZ: UTC
+      # Must match the API: the worker is what acts on them.
+      AUTO_PRUNE_EXPIRED: "false"
+      PRUNE_GRACE: 720h
+      HEALTH_CHECK_ENABLED: "false"
+      HEALTH_CHECK_INTERVAL: 24h
+
+  web:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ""
+        API_PROXY_TARGET: http://api:8080
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "3000:3000"
+
+  gateway:
+    image: caddy:2.10-alpine
+    depends_on:
+      api:
+        condition: service_started
+      web:
+        condition: service_started
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "80:80"
+
+volumes:
+  postgres-data:
+  redis-data:

@@ -1,0 +1,7 @@
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS link_click_daily;
+DROP TABLE IF EXISTS click_events;
+DROP TABLE IF EXISTS links;
+DROP TABLE IF EXISTS api_tokens;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS admin_users;

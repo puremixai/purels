@@ -1,0 +1,46 @@
+SHELL := /bin/sh
+
+.PHONY: dev test fmt build migrate-up compose-up smoke-api smoke-users smoke-lifecycle smoke-pages smoke-all
+
+dev:
+	go run ./cmd/purels-api
+
+test:
+	go test ./...
+
+# API checks against a running stack (default http://localhost:8080).
+smoke-api:
+	node scripts/smoke-api.mjs
+
+smoke-users:
+	node scripts/smoke-users.mjs
+
+smoke-lifecycle:
+	node scripts/smoke-lifecycle.mjs
+
+# Browser checks. Requires headless Chrome with the DevTools protocol enabled:
+#   chrome --headless=new --disable-gpu --remote-debugging-port=9222 \
+#          --user-data-dir=/tmp/purels-chrome about:blank
+smoke-pages:
+	node scripts/smoke-pages.mjs
+
+# Every suite, one at a time. They share the API rate-limit bucket, so running
+# them back to back (or in parallel) makes them fail each other's limits.
+smoke-all:
+	@for suite in smoke-api smoke-users smoke-lifecycle smoke-pages; do \
+		echo "===================== $$suite ====================="; \
+		node scripts/$$suite.mjs || exit 1; \
+		[ "$$suite" = smoke-pages ] || sleep 65; \
+	done
+
+fmt:
+	gofmt -w $$(find . -name '*.go' -not -path './web/*')
+
+build:
+	go build ./cmd/purels-api ./cmd/purels-worker
+
+migrate-up:
+	migrate -path migrations -database "$${DATABASE_URL}" up
+
+compose-up:
+	docker compose -f deploy/compose.yaml up --build

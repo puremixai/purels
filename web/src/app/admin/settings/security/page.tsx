@@ -1,0 +1,12 @@
+"use client";
+import { useEffect, useState } from "react";
+import { api, ApiError, TokenRecord } from "@/lib/api-client";
+
+export default function SecurityPage() {
+  const [tokens, setTokens] = useState<TokenRecord[]>([]); const [name, setName] = useState(""); const [secret, setSecret] = useState(""); const [error, setError] = useState("");
+  async function load() { try { setTokens(await api.tokens.list()); } catch (e) { setError(e instanceof ApiError ? e.message : "加载失败"); } }
+  useEffect(() => { load(); }, []);
+  async function create() { try { const result = await api.tokens.create(name); setSecret(result.secret); setName(""); await load(); } catch (e) { setError(e instanceof Error ? e.message : "创建失败"); } }
+  async function revoke(id: string) { try { await api.tokens.revoke(id); await load(); } catch (e) { setError(e instanceof Error ? e.message : "撤销失败"); } }
+  return <div className="space-y-6"><div><p className="text-sm text-[var(--muted)]">工作台 / 安全设置</p><h1 className="mt-1 text-2xl font-bold">API Token</h1></div>{error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}{secret && <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold">请立即保存 Token，之后不会再次显示。</p><code className="mt-2 block break-all">{secret}</code></div>}<section className="panel space-y-4 p-6"><h2 className="font-semibold">创建 Token</h2><div className="flex gap-3"><input className="field-control" placeholder="Token 名称" value={name} onChange={e=>setName(e.target.value)} /><button className="btn-primary" onClick={create} disabled={!name}>创建</button></div></section><section className="panel overflow-hidden"><div className="border-b border-[var(--line)] px-6 py-4 font-semibold">现有 Token</div>{tokens.length ? tokens.map(token=><div className="flex items-center justify-between border-b border-[var(--line)] px-6 py-4 last:border-0" key={token.id}><div className="min-w-0"><p className="font-medium">{token.name}</p><p className="text-sm text-[var(--muted)]">{token.token_prefix}••••</p><p className="mt-1 flex flex-wrap gap-1">{(token.scopes || []).map(scope=><span key={scope} className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">{scope}</span>)}</p></div><button className="btn-danger" onClick={()=>revoke(token.id)}>撤销</button></div>) : <p className="px-6 py-8 text-sm text-[var(--muted)]">暂无 Token</p>}</section></div>;
+}
