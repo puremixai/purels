@@ -46,7 +46,16 @@ func main() {
 	// apart as the setting changes.
 	hasher := security.IPHasher{Mode: cfg.IPHashMode, Key: cfg.IPHashKey}
 
-	authService := &service.AuthService{Store: store, Config: cfg, Hasher: hasher}
+	// Built once and shared: the login path and the enrolment path have to
+	// agree on the key, and a box that failed to build stays unusable so
+	// enrolment is refused rather than silently storing a secret nothing can
+	// read back. The error is not fatal — 2FA is off by default.
+	box, err := security.NewSecretBox(cfg.TOTPEncryptionKey)
+	if err != nil {
+		logger.Warn("two-factor authentication is unavailable", "error", err)
+	}
+
+	authService := &service.AuthService{Store: store, Config: cfg, Hasher: hasher, Box: box}
 	if err := authService.Bootstrap(ctx); err != nil {
 		logger.Error("bootstrap failed", "error", err)
 		os.Exit(1)
@@ -71,6 +80,7 @@ func main() {
 		Audit:  &service.AuditService{Store: store, Hasher: hasher},
 		Users:  &service.UserService{Store: store},
 		Roles:  &service.RoleService{Store: store},
+		MFA:    &service.TwoFactorService{Store: store, Config: cfg, Box: box},
 		// Built here rather than in the service so the SSRF guard is part of
 		// the wiring: a checker without it must never be constructed.
 		Probe: &service.HealthChecker{Store: store, Client: security.NewProbeClient()},

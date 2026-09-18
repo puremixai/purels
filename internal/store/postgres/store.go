@@ -98,7 +98,7 @@ func (s *Store) CreateUser(ctx context.Context, id, username, passwordHash, role
 // ListUsers returns every account, oldest first so the bootstrap administrator
 // stays at the top of the list.
 func (s *Store) ListUsers(ctx context.Context) ([]domain.Account, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT id, username, role, disabled, created_at FROM admin_users ORDER BY created_at ASC, username ASC`)
+	rows, err := s.Pool.Query(ctx, `SELECT id, username, role, disabled, totp_confirmed_at IS NOT NULL, created_at FROM admin_users ORDER BY created_at ASC, username ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (s *Store) ListUsers(ctx context.Context) ([]domain.Account, error) {
 	accounts := make([]domain.Account, 0)
 	for rows.Next() {
 		var account domain.Account
-		if err := rows.Scan(&account.ID, &account.Username, &account.Role, &account.Disabled, &account.CreatedAt); err != nil {
+		if err := rows.Scan(&account.ID, &account.Username, &account.Role, &account.Disabled, &account.MFAEnabled, &account.CreatedAt); err != nil {
 			return nil, err
 		}
 		accounts = append(accounts, account)
@@ -171,21 +171,21 @@ func (s *Store) GetSession(ctx context.Context, tokenHash []byte) (domain.Sessio
 	var session domain.Session
 	var userID, username, role string
 	var rawScopes []byte
-	var unrestricted bool
+	var unrestricted, mfaEnabled bool
 	err := s.Pool.QueryRow(ctx, `
-		SELECT s.id, s.csrf_hash, s.expires_at, u.id, u.username, u.role, r.scopes, r.unrestricted
+		SELECT s.id, s.csrf_hash, s.expires_at, u.id, u.username, u.role, r.scopes, r.unrestricted, u.totp_confirmed_at IS NOT NULL
 		FROM sessions s
 		JOIN admin_users u ON u.id=s.user_id
 		JOIN roles r ON r.name=u.role
 		WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at > now() AND u.disabled=false`, tokenHash).
-		Scan(&session.ID, &session.CSRFHash, &session.ExpiresAt, &userID, &username, &role, &rawScopes, &unrestricted)
+		Scan(&session.ID, &session.CSRFHash, &session.ExpiresAt, &userID, &username, &role, &rawScopes, &unrestricted, &mfaEnabled)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return session, false, nil
 	}
 	if err != nil {
 		return session, false, err
 	}
-	session.User = domain.User{ID: userID, Username: username, Role: role, Scopes: parseScopes(rawScopes), Unrestricted: unrestricted}
+	session.User = domain.User{ID: userID, Username: username, Role: role, Scopes: parseScopes(rawScopes), Unrestricted: unrestricted, MFAEnabled: mfaEnabled}
 	_, _ = s.Pool.Exec(ctx, `UPDATE sessions SET last_seen_at=now() WHERE id=$1`, session.ID)
 	return session, true, nil
 }
@@ -193,6 +193,32 @@ func (s *Store) GetSession(ctx context.Context, tokenHash []byte) (domain.Sessio
 func (s *Store) RevokeSession(ctx context.Context, tokenHash []byte) error {
 	_, err := s.Pool.Exec(ctx, `UPDATE sessions SET revoked_at=now() WHERE token_hash=$1 AND revoked_at IS NULL`, tokenHash)
 	return err
+}
+
+// GetUserByID returns one account with its role's permissions, the same shape
+// GetSession produces. A completed second factor needs it: the session is
+// created from a user id, and the response has to describe the account.
+//
+// A disabled account is reported as missing, which is how a login that was
+// interrupted by a second factor cannot outlive a disable that happened while
+// the challenge was outstanding.
+func (s *Store) GetUserByID(ctx context.Context, id string) (domain.User, error) {
+	var user domain.User
+	var rawScopes []byte
+	err := s.Pool.QueryRow(ctx, `
+		SELECT u.id, u.username, u.role, r.scopes, r.unrestricted, u.totp_confirmed_at IS NOT NULL
+		FROM admin_users u
+		JOIN roles r ON r.name=u.role
+		WHERE u.id=$1 AND u.disabled=false`, id).
+		Scan(&user.ID, &user.Username, &user.Role, &rawScopes, &user.Unrestricted, &user.MFAEnabled)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return user, ErrNotFound
+	}
+	if err != nil {
+		return user, err
+	}
+	user.Scopes = parseScopes(rawScopes)
+	return user, nil
 }
 
 // CreateLink inserts a link owned by ownerID. A nil owner leaves user_id NULL,

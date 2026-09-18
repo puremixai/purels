@@ -18,6 +18,10 @@ type User struct {
 	// ("what may I do") and visibility ("whose links may I see") are different
 	// questions, and one flag cannot answer both.
 	Unrestricted bool `json:"unrestricted"`
+	// MFAEnabled reports whether a confirmed second factor is stored. It travels
+	// with the user so /auth/me is a complete description of the signed-in
+	// account rather than one the console has to complete with a second call.
+	MFAEnabled bool `json:"mfa_enabled"`
 }
 
 type Link struct {
@@ -105,11 +109,52 @@ type TagStat struct {
 
 // Account is one row of the administrator's user list.
 type Account struct {
-	ID        string    `json:"id"`
-	Username  string    `json:"username"`
-	Role      string    `json:"role"`
-	Disabled  bool      `json:"disabled"`
-	CreatedAt time.Time `json:"created_at"`
+	ID       string `json:"id"`
+	Username string `json:"username"`
+	Role     string `json:"role"`
+	Disabled bool   `json:"disabled"`
+	// MFAEnabled lets the administrator see whose second factor is in play, so
+	// the reset action has a visible target rather than being a blind guess.
+	MFAEnabled bool      `json:"mfa_enabled"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// MFAState is what the login path needs to know about an account's second
+// factor. Secret is the value as stored — ciphertext — because only the service
+// holds the key, and the store must not make a trust decision about a value it
+// cannot interpret.
+type MFAState struct {
+	Secret      []byte
+	ConfirmedAt *time.Time
+}
+
+// Enrolled reports whether the account has a confirmed second factor. A secret
+// without a confirmation is an enrolment nobody finished, and it never takes
+// part in a login decision.
+func (m MFAState) Enrolled() bool { return m.ConfirmedAt != nil && len(m.Secret) > 0 }
+
+// MFAStatus is what the console needs to render the security page.
+type MFAStatus struct {
+	// Available is the deployment's side of the feature: TOTP_ENABLED with a
+	// usable key. False means enrolment is refused, not merely hidden.
+	Available bool `json:"available"`
+	// Enabled is this account's side: a confirmed secret is stored.
+	Enabled bool `json:"enabled"`
+	// Pending reports an enrolment that was started and never confirmed. It has
+	// no effect on sign-in, and the console offers to start over.
+	Pending                bool `json:"pending"`
+	RecoveryCodesRemaining int  `json:"recovery_codes_remaining"`
+}
+
+// MFAEnrollment is what an enrolment hands back: everything the authenticator
+// app needs and nothing the console would have to look up again.
+type MFAEnrollment struct {
+	Secret     string `json:"secret"`
+	OTPAuthURL string `json:"otpauth_url"`
+	// QR is a data URI rather than a second endpoint, so the secret never
+	// appears in a URL, a proxy log or a Referer header, and there is no
+	// question of which pending secret a given image belongs to.
+	QR string `json:"qr"`
 }
 
 // Role is a named bundle of scopes plus a visibility flag, stored in the roles

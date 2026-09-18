@@ -20,12 +20,25 @@ type AuthService struct {
 	// Its zero value is the default mode, so an unconfigured service still
 	// records one.
 	Hasher security.IPHasher
+	// Box decrypts the stored TOTP secrets. Its zero value refuses everything,
+	// which is what makes a missing key fail closed rather than let a second
+	// factor be skipped.
+	Box security.SecretBox
 }
+
+// ErrInvalidCredentials covers a wrong username, a wrong password and a disabled
+// account. They share one message so the response cannot be used to discover
+// which account names exist.
+var ErrInvalidCredentials = errors.New("invalid credentials")
 
 type LoginResult struct {
 	User         domain.User
 	SessionToken string
 	CSRFToken    string
+	// MFAChallenge is set instead of a session when a second factor is due.
+	// When it is set the other fields are empty and the caller must not set a
+	// cookie: a correct password alone has not authenticated anybody.
+	MFAChallenge string
 }
 
 func (a *AuthService) Bootstrap(ctx context.Context) error {
@@ -46,9 +59,107 @@ func (a *AuthService) Login(ctx context.Context, username, password, userAgent, 
 		return LoginResult{}, err
 	}
 	if !enabled || user.Username == "" || !security.CheckPassword(password, passwordHash) {
-		return LoginResult{}, errors.New("invalid credentials")
+		return LoginResult{}, ErrInvalidCredentials
+	}
+	if challenge, ok, err := a.startSecondFactor(ctx, user.ID); err != nil {
+		return LoginResult{}, err
+	} else if ok {
+		return LoginResult{MFAChallenge: challenge}, nil
 	}
 	return a.createSession(ctx, user, userAgent, ip)
+}
+
+// startSecondFactor decides whether a correct password is enough.
+//
+// It reports false when the deployment cannot verify a code at all, even for an
+// account that has one: a switch turned on without a usable key must not start
+// challenging people whose secrets can no longer be decrypted, because that
+// would lock out every account that ever enrolled.
+func (a *AuthService) startSecondFactor(ctx context.Context, userID string) (string, bool, error) {
+	if !a.Config.TwoFactorAvailable() {
+		return "", false, nil
+	}
+	state, err := a.Store.GetMFAState(ctx, userID)
+	if err != nil {
+		if errors.Is(err, postgres.ErrNotFound) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	if !state.Enrolled() {
+		return "", false, nil
+	}
+	token, err := security.RandomString(48)
+	if err != nil {
+		return "", false, err
+	}
+	expires := time.Now().UTC().Add(a.Config.TOTPChallengeTTL)
+	if err := a.Store.CreateMFAChallenge(ctx, userID, security.HashBytes(token), expires); err != nil {
+		return "", false, err
+	}
+	return token, true, nil
+}
+
+// VerifySecondFactor completes a login that was interrupted for a second
+// factor. The code may be a TOTP code or one of the account's recovery codes.
+//
+// The challenge is claimed — one attempt spent — before the code is looked at,
+// so a wrong code costs an attempt rather than being free to try.
+func (a *AuthService) VerifySecondFactor(ctx context.Context, challenge, code, userAgent, ip string) (LoginResult, error) {
+	challenge = strings.TrimSpace(challenge)
+	if challenge == "" {
+		return LoginResult{}, ErrInvalidSecondFactor
+	}
+	hash := security.HashBytes(challenge)
+	userID, ok, err := a.Store.ClaimMFAChallenge(ctx, hash, mfaAttemptLimit)
+	if err != nil {
+		return LoginResult{}, err
+	}
+	if !ok {
+		return LoginResult{}, ErrInvalidSecondFactor
+	}
+	state, err := a.Store.GetMFAState(ctx, userID)
+	if err != nil || !state.Enrolled() {
+		return LoginResult{}, ErrInvalidSecondFactor
+	}
+	if accepted, err := a.codeAccepted(ctx, userID, state.Secret, code); err != nil {
+		return LoginResult{}, err
+	} else if !accepted {
+		return LoginResult{}, ErrInvalidSecondFactor
+	}
+	// Retire the half-session, so the same challenge cannot mint a second one.
+	if err := a.Store.ConsumeMFAChallenge(ctx, hash); err != nil {
+		return LoginResult{}, err
+	}
+	user, err := a.Store.GetUserByID(ctx, userID)
+	if err != nil {
+		// The account was disabled while the challenge was outstanding.
+		return LoginResult{}, ErrInvalidSecondFactor
+	}
+	return a.createSession(ctx, user, userAgent, ip)
+}
+
+// codeAccepted tries the TOTP code first and then the recovery-code set. The
+// two vocabularies cannot collide: a TOTP code is six digits and a recovery code
+// is ten letters.
+func (a *AuthService) codeAccepted(ctx context.Context, userID string, sealed []byte, code string) (bool, error) {
+	plaintext, err := a.Box.Open(sealed)
+	if err != nil {
+		// A changed key or a tampered row. Not the caller's fault, but there is
+		// nothing they can do about it either, and the administrator's reset is
+		// the documented way out.
+		return false, nil
+	}
+	if security.VerifyTOTP(string(plaintext), code, time.Now().UTC()) {
+		return true, nil
+	}
+	normalized := security.NormalizeRecoveryCode(code)
+	if normalized == "" {
+		return false, nil
+	}
+	// Spending is one atomic statement, so two simultaneous submissions of the
+	// same code cannot both succeed.
+	return a.Store.SpendRecoveryCode(ctx, userID, security.HashBytes(normalized))
 }
 
 // Register creates a regular account and signs it in, so a new user lands in

@@ -52,6 +52,10 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 	// Sign-up sits beside login: outside the authenticated group, and therefore
 	// also outside the CSRF check, which only applies to cookie sessions.
 	r.With(limit("register", h.Config.RateLimitRegister)).Post("/api/v1/auth/register", h.Register)
+	// The second step of a login, for the same reason: the caller holds a
+	// challenge, not a session. Its own bucket, and the attempt counter stored
+	// with the challenge is the limit that actually holds.
+	r.With(limit("2fa", h.Config.RateLimit2FA)).Post("/api/v1/auth/2fa/verify", h.VerifySecondFactor)
 	r.Get("/api/v1/auth/csrf", h.CSRF)
 
 	auth := httpmw.Auth{Store: h.Auth.Store}
@@ -63,6 +67,14 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 		// Any authenticated principal may inspect and end its own session.
 		api.Post("/auth/logout", h.Logout)
 		api.Get("/auth/me", h.Me)
+
+		// The second factor is self-service: every one of these acts on the
+		// caller's own account, so no scope is involved. Resetting somebody
+		// else's is the administrator's action and lives under /users.
+		api.Get("/auth/2fa", h.MFAStatus)
+		api.Post("/auth/2fa/enroll", h.EnrollMFA)
+		api.Post("/auth/2fa/confirm", h.ConfirmMFA)
+		api.Post("/auth/2fa/disable", h.DisableMFA)
 
 		api.With(httpmw.RequireScope(domain.ScopeLinksRead)).Get("/links", h.ListLinks)
 		api.With(httpmw.RequireScope(domain.ScopeLinksWrite)).Post("/links", h.CreateLink)
@@ -95,6 +107,9 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 		// users:manage may reach it, with a session or a token alike.
 		api.With(httpmw.RequireScope(domain.ScopeUsersManage)).Get("/users", h.ListUsers)
 		api.With(httpmw.RequireScope(domain.ScopeUsersManage)).Patch("/users/{id}", h.UpdateUser)
+		// The only way back in after the encryption key is lost or changed, so
+		// it requires nothing from the account being reset.
+		api.With(httpmw.RequireScope(domain.ScopeUsersManage)).Post("/users/{id}/2fa/reset", h.ResetUserMFA)
 
 		// Role definitions are editable, so they need their own capability.
 		api.With(httpmw.RequireScope(domain.ScopeRolesManage)).Get("/roles", h.ListRoles)

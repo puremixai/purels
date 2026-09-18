@@ -24,6 +24,12 @@ const (
 	ActionUserRegister = "user.register"
 	ActionUserUpdate   = "user.update"
 	ActionRoleUpdate   = "role.update"
+	// The second-factor actions. session.2fa is a completed login, so the trail
+	// shows how an account got in rather than only that it did.
+	ActionSession2FA     = "session.2fa"
+	ActionUserMFAEnroll  = "user.2fa_enroll"
+	ActionUserMFADisable = "user.2fa_disable"
+	ActionUserMFAReset   = "user.2fa_reset"
 )
 
 type AuditService struct {

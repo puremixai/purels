@@ -78,6 +78,26 @@ type UpdateRoleRequest struct {
 	Unrestricted bool     `json:"unrestricted"`
 }
 
+// VerifySecondFactorRequest completes a login that was interrupted for a code.
+// The challenge is the half-session token a correct password returned; the code
+// is either a TOTP code or one of the account's recovery codes.
+type VerifySecondFactorRequest struct {
+	Challenge string `json:"challenge"`
+	Code      string `json:"code"`
+}
+
+// ConfirmMFARequest finishes an enrolment by proving the authenticator works.
+type ConfirmMFARequest struct {
+	Code string `json:"code"`
+}
+
+// DisableMFARequest turns the second factor off. The password is required so a
+// stolen session cannot quietly remove it.
+type DisableMFARequest struct {
+	Password string `json:"password"`
+	Code     string `json:"code"`
+}
+
 // ListFilter describes how the link list should be queried. OwnerID narrows the
 // result to one account; nil means no restriction, which is the administrator's
 // view. It is filled in from the request context, not from the query string.

@@ -28,7 +28,7 @@ const PAGES = [
   { name: "audit", path: "/admin/audit", expect: ["操作日志", "操作人", "动作"] },
   { name: "users", path: "/admin/users", expect: ["用户管理", "用户名", "角色"] },
   { name: "roles", path: "/admin/settings/roles", expect: ["角色权限", "管理用户", "管理角色权限", "管理全部链接"] },
-  { name: "security", path: "/admin/settings/security", expect: ["API Token", "创建 Token"] },
+  { name: "security", path: "/admin/settings/security", expect: ["两步验证", "API Token", "创建 Token"] },
 ];
 
 const ERROR_MARKERS = [
@@ -238,6 +238,15 @@ async function main() {
     for (let waited = 0; waited < timeout; waited += 100) {
       if ((await path().catch(() => null)) === expected) return true;
       await sleep(100);
+    }
+    return false;
+  };
+  // Same reasoning for the destination probe: it dials the target URL from the
+  // server, so its latency tracks the network rather than the page.
+  const waitForText = async (needle, timeout = 15000) => {
+    for (let waited = 0; waited < timeout; waited += 250) {
+      if ((await text()).includes(needle)) return true;
+      await sleep(250);
     }
     return false;
   };
@@ -461,11 +470,11 @@ async function main() {
     // and only the second is allowed to depend on the network.
     const checkBefore = await text();
     const checkClicked = await clickText("button", "立即检查");
-    await sleep(3000);
+    const checkSettled = await waitForText("上次检查");
     const checkAfter = await text();
     record(
       "edit page checks the destination",
-      checkClicked && checkBefore.includes("尚未检查") && checkAfter.includes("上次检查"),
+      checkClicked && checkBefore.includes("尚未检查") && checkSettled,
       `clicked=${checkClicked} before=${checkBefore.includes("尚未检查")} after=${checkAfter.includes("上次检查")}`,
     );
 

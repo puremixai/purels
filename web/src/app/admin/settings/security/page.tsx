@@ -1,12 +1,95 @@
 "use client";
-import { useEffect, useState } from "react";
-import { api, ApiError, TokenRecord } from "@/lib/api-client";
+import { useCallback, useEffect, useState } from "react";
+import { api, ApiError, MFAEnrollment, MFAStatus, TokenRecord } from "@/lib/api-client";
 
 export default function SecurityPage() {
   const [tokens, setTokens] = useState<TokenRecord[]>([]); const [name, setName] = useState(""); const [secret, setSecret] = useState(""); const [error, setError] = useState("");
-  async function load() { try { setTokens(await api.tokens.list()); } catch (e) { setError(e instanceof ApiError ? e.message : "加载失败"); } }
-  useEffect(() => { load(); }, []);
-  async function create() { try { const result = await api.tokens.create(name); setSecret(result.secret); setName(""); await load(); } catch (e) { setError(e instanceof Error ? e.message : "创建失败"); } }
-  async function revoke(id: string) { try { await api.tokens.revoke(id); await load(); } catch (e) { setError(e instanceof Error ? e.message : "撤销失败"); } }
-  return <div className="space-y-6"><div><p className="text-sm text-[var(--muted)]">工作台 / 安全设置</p><h1 className="mt-1 text-2xl font-bold">API Token</h1></div>{error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}{secret && <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold">请立即保存 Token，之后不会再次显示。</p><code className="mt-2 block break-all">{secret}</code></div>}<section className="panel space-y-4 p-6"><h2 className="font-semibold">创建 Token</h2><div className="flex gap-3"><input className="field-control" placeholder="Token 名称" value={name} onChange={e=>setName(e.target.value)} /><button className="btn-primary" onClick={create} disabled={!name}>创建</button></div></section><section className="panel overflow-hidden"><div className="border-b border-[var(--line)] px-6 py-4 font-semibold">现有 Token</div>{tokens.length ? tokens.map(token=><div className="flex items-center justify-between border-b border-[var(--line)] px-6 py-4 last:border-0" key={token.id}><div className="min-w-0"><p className="font-medium">{token.name}</p><p className="text-sm text-[var(--muted)]">{token.token_prefix}••••</p><p className="mt-1 flex flex-wrap gap-1">{(token.scopes || []).map(scope=><span key={scope} className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">{scope}</span>)}</p></div><button className="btn-danger" onClick={()=>revoke(token.id)}>撤销</button></div>) : <p className="px-6 py-8 text-sm text-[var(--muted)]">暂无 Token</p>}</section></div>;
+
+  const [status, setStatus] = useState<MFAStatus | null>(null);
+  const [enrollment, setEnrollment] = useState<MFAEnrollment | null>(null);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [mfaError, setMfaError] = useState("");
+  const [mfaBusy, setMfaBusy] = useState(false);
+
+  const loadTokens = useCallback(async () => { try { setTokens(await api.tokens.list()); } catch (e) { setError(e instanceof ApiError ? e.message : "加载失败"); } }, []);
+  const loadStatus = useCallback(async () => { try { setStatus(await api.mfa.status()); } catch (e) { setMfaError(e instanceof ApiError ? e.message : "加载失败"); } }, []);
+
+  useEffect(() => { loadTokens(); loadStatus(); }, [loadTokens, loadStatus]);
+
+  async function create() { try { const result = await api.tokens.create(name); setSecret(result.secret); setName(""); await loadTokens(); } catch (e) { setError(e instanceof Error ? e.message : "创建失败"); } }
+  async function revoke(id: string) { try { await api.tokens.revoke(id); await loadTokens(); } catch (e) { setError(e instanceof Error ? e.message : "撤销失败"); } }
+
+  async function run(action: () => Promise<void>) {
+    setMfaBusy(true); setMfaError("");
+    try { await action(); } catch (e) { setMfaError(e instanceof ApiError ? e.message : "操作失败"); } finally { setMfaBusy(false); }
+  }
+
+  const startEnroll = () => run(async () => { setRecoveryCodes([]); setCode(""); setEnrollment(await api.mfa.enroll()); });
+  const confirmEnroll = () => run(async () => {
+    const result = await api.mfa.confirm(code);
+    setRecoveryCodes(result.recovery_codes);
+    setEnrollment(null); setCode("");
+    await loadStatus();
+  });
+  const disable = () => run(async () => {
+    await api.mfa.disable(password, code);
+    setPassword(""); setCode(""); setEnrollment(null);
+    await loadStatus();
+  });
+  const cancelEnroll = () => { setEnrollment(null); setCode(""); setMfaError(""); };
+
+  return <div className="space-y-6">
+    <div><p className="text-sm text-[var(--muted)]">工作台 / 安全设置</p><h1 className="mt-1 text-2xl font-bold">安全设置</h1></div>
+
+    <section className="panel space-y-4 p-6">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="font-semibold">两步验证</h2>
+        <span className={`rounded-full px-2.5 py-1 text-xs ${status?.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{status?.enabled ? "已启用" : "未启用"}</span>
+      </div>
+
+      {mfaError && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{mfaError}</p>}
+
+      {status && !status.available && <p className="text-sm text-[var(--muted)]">部署未启用两步验证。</p>}
+
+      {status?.available && recoveryCodes.length > 0 && <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <p className="font-semibold">恢复码只显示这一次，请立即保存。</p>
+        <div className="grid grid-cols-2 gap-1 font-mono">{recoveryCodes.map(c => <span key={c}>{c}</span>)}</div>
+        <button className="btn-secondary" onClick={() => setRecoveryCodes([])}>我已保存</button>
+      </div>}
+
+      {status?.available && enrollment && recoveryCodes.length === 0 && <div className="space-y-4">
+        <div className="flex flex-wrap items-start gap-5">
+          <img alt="两步验证二维码" className="h-40 w-40 rounded-lg border border-[var(--line)] bg-white p-1" src={enrollment.qr} />
+          <div className="min-w-0 space-y-1 text-sm">
+            <p className="text-[var(--muted)]">密钥</p>
+            <code className="block break-all font-mono text-xs">{enrollment.secret}</code>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <input className="field-control" placeholder="验证码" value={code} onChange={e => setCode(e.target.value)} />
+          <button className="btn-primary" onClick={confirmEnroll} disabled={mfaBusy || !code}>确认</button>
+          <button className="btn-secondary" onClick={cancelEnroll} disabled={mfaBusy}>取消</button>
+        </div>
+      </div>}
+
+      {status?.available && !enrollment && recoveryCodes.length === 0 && status.enabled && <div className="space-y-3 border-t border-[var(--line)] pt-4">
+        <p className="text-sm text-[var(--muted)]">剩余恢复码 {status.recovery_codes_remaining}</p>
+        <div className="flex flex-wrap gap-3">
+          <input className="field-control w-auto" type="password" autoComplete="current-password" placeholder="当前密码" value={password} onChange={e => setPassword(e.target.value)} />
+          <input className="field-control w-auto" placeholder="验证码" value={code} onChange={e => setCode(e.target.value)} />
+          <button className="btn-danger" onClick={disable} disabled={mfaBusy || !password || !code}>关闭</button>
+        </div>
+      </div>}
+
+      {status?.available && !enrollment && recoveryCodes.length === 0 && !status.enabled && <div className="space-y-3 border-t border-[var(--line)] pt-4">
+        <button className="btn-primary" onClick={startEnroll} disabled={mfaBusy}>{status.pending ? "重新绑定" : "启用"}</button>
+      </div>}
+    </section>
+
+    <section className="panel space-y-4 p-6"><h2 className="font-semibold">创建 Token</h2>{error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}{secret && <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold">请立即保存 Token，之后不会再次显示。</p><code className="mt-2 block break-all">{secret}</code></div>}<div className="flex gap-3"><input className="field-control" placeholder="Token 名称" value={name} onChange={e => setName(e.target.value)} /><button className="btn-primary" onClick={create} disabled={!name}>创建</button></div></section>
+
+    <section className="panel overflow-hidden"><div className="border-b border-[var(--line)] px-6 py-4 font-semibold">API Token</div>{tokens.length ? tokens.map(token => <div className="flex items-center justify-between border-b border-[var(--line)] px-6 py-4 last:border-0" key={token.id}><div className="min-w-0"><p className="font-medium">{token.name}</p><p className="text-sm text-[var(--muted)]">{token.token_prefix}••••</p><p className="mt-1 flex flex-wrap gap-1">{(token.scopes || []).map(scope => <span key={scope} className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">{scope}</span>)}</p></div><button className="btn-danger" onClick={() => revoke(token.id)}>撤销</button></div>) : <p className="px-6 py-8 text-sm text-[var(--muted)]">暂无 Token</p>}</section>
+  </div>;
 }

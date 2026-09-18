@@ -96,17 +96,43 @@ type Config struct {
 	// link's last result must be before it is checked again.
 	HealthCheckInterval time.Duration
 
+	// TOTPEnabled is the master switch for the built-in second factor. Off by
+	// default, and off means "never challenge anyone" even for an account that
+	// already has a confirmed secret — which is what lets a deployment that
+	// enforces MFA on the OIDC side turn the local one off without unbinding
+	// every account.
+	TOTPEnabled bool
+	// TOTPEncryptionKey is the AES-256-GCM key the TOTP secrets are stored
+	// under. Empty means enrolment is refused, because a secret the server
+	// cannot read back is worse than no secret.
+	TOTPEncryptionKey string
+	// TOTPChallengeTTL is how long the half-session between a correct password
+	// and a correct second factor stays usable.
+	TOTPChallengeTTL time.Duration
+
 	// Rate limiting (per client IP, per minute).
 	RateLimitEnabled  bool
 	RateLimitLogin    int
 	RateLimitAPI      int
 	RateLimitRedirect int
 	RateLimitRegister int
+	// RateLimit2FA guards the second-factor endpoint. It is defence in depth
+	// only: the real brute-force bound is the attempt counter stored with the
+	// challenge, because the limiter is fail-open when Redis is unavailable.
+	RateLimit2FA int
 }
 
 // SequentialAliases reports whether generated short codes should be drawn from
 // the alias sequence instead of random strings.
 func (c Config) SequentialAliases() bool { return c.AliasMode == "sequential" }
+
+// TwoFactorAvailable reports whether the built-in second factor can be used at
+// all. Both halves are required, and both the login challenge and enrolment read
+// this: a switch-on without a key would otherwise start challenging accounts
+// whose secrets can no longer be decrypted, locking out everyone who enrolled.
+func (c Config) TwoFactorAvailable() bool {
+	return c.TOTPEnabled && c.TOTPEncryptionKey != ""
+}
 
 // Location is the statistics timezone, never nil so callers can use it directly.
 func (c Config) Location() *time.Location {
@@ -154,6 +180,13 @@ func Load() Config {
 		maxLinksPerUser = 0
 	}
 	ipHashMode := ipHashModeEnv()
+	// A zero or negative TTL would make every challenge expire before the
+	// operator could type a code, so it is clamped rather than trusted.
+	totpChallengeTTL := durationEnv("TOTP_CHALLENGE_TTL", 5*time.Minute)
+	if totpChallengeTTL <= 0 {
+		slog.Warn("ignoring non-positive TOTP_CHALLENGE_TTL", "totp_challenge_ttl", totpChallengeTTL)
+		totpChallengeTTL = 5 * time.Minute
+	}
 	return Config{
 		Addr:              env("API_ADDR", ":8080"),
 		DatabaseURL:       env("DATABASE_URL", "postgres://purels:purels@localhost:5432/purels?sslmode=disable"),
@@ -185,6 +218,10 @@ func Load() Config {
 		HealthCheckEnabled:  boolEnv("HEALTH_CHECK_ENABLED", false),
 		HealthCheckInterval: durationEnv("HEALTH_CHECK_INTERVAL", 24*time.Hour),
 
+		TOTPEnabled:       boolEnv("TOTP_ENABLED", false),
+		TOTPEncryptionKey: totpEncryptionKey(),
+		TOTPChallengeTTL:  totpChallengeTTL,
+
 		RateLimitEnabled:  boolEnv("RATE_LIMIT_ENABLED", true),
 		RateLimitLogin:    intEnv("RATE_LIMIT_LOGIN", 10),
 		RateLimitAPI:      intEnv("RATE_LIMIT_API", 120),
@@ -192,7 +229,31 @@ func Load() Config {
 		// Sign-up is the cheapest way to fill the database, so it gets the
 		// tightest bucket of the lot.
 		RateLimitRegister: intEnv("RATE_LIMIT_REGISTER", 5),
+		RateLimit2FA:      intEnv("RATE_LIMIT_2FA", 10),
 	}
+}
+
+// totpEncryptionKey reads TOTP_ENCRYPTION_KEY and warns about the two ways the
+// second factor can end up unusable. Neither warning is fatal: 2FA is off by
+// default, and refusing to boot over an optional feature would take a working
+// service down.
+func totpEncryptionKey() string {
+	key := strings.TrimSpace(os.Getenv("TOTP_ENCRYPTION_KEY"))
+	enabled := boolEnv("TOTP_ENABLED", false)
+	switch {
+	case enabled && key == "":
+		slog.Warn("TOTP_ENABLED is set but TOTP_ENCRYPTION_KEY is empty: the second factor stays off and enrolment is refused")
+	case !enabled && key != "":
+		slog.Warn("TOTP_ENCRYPTION_KEY is set but TOTP_ENABLED is false: nobody will be challenged")
+	}
+	if key != "" {
+		// Validated here rather than at first use, so a wrong key is a boot-time
+		// warning instead of a failed enrolment an operator has to decode.
+		if _, err := security.NewSecretBox(key); err != nil {
+			slog.Warn("TOTP_ENCRYPTION_KEY is not usable", "err", err)
+		}
+	}
+	return key
 }
 
 // ipHashModeEnv resolves IP_HASH_MODE and warns about the two ways it can be

@@ -36,6 +36,8 @@ export type AdminUser = {
   scopes?: string[];
   /** True when the account sees every link rather than only its own. */
   unrestricted?: boolean;
+  /** True when a confirmed second factor is stored on the account. */
+  mfa_enabled?: boolean;
   displayName?: string;
 };
 
@@ -45,7 +47,36 @@ export type AccountRecord = {
   username: string;
   role: RoleName;
   disabled: boolean;
+  mfa_enabled: boolean;
   created_at: string;
+};
+
+/** The deployment's and this account's second-factor state. */
+export type MFAStatus = {
+  /** The deployment can use 2FA at all: the switch is on and a key is set. */
+  available: boolean;
+  /** This account has a confirmed secret. */
+  enabled: boolean;
+  /** An enrolment was started and never confirmed. It affects nothing. */
+  pending: boolean;
+  recovery_codes_remaining: number;
+};
+
+/** An in-progress enrolment: what the authenticator app needs. */
+export type MFAEnrollment = {
+  secret: string;
+  otpauth_url: string;
+  /** A data URI, so the secret never travels in a URL or a proxy log. */
+  qr: string;
+};
+
+/** What a sign-in returns: a session, or the challenge that precedes one. */
+export type LoginResponse = {
+  user?: AdminUser;
+  csrf_token?: string;
+  /** Set instead of a session when a second factor is due. */
+  mfa_required?: boolean;
+  challenge?: string;
 };
 
 /** One row of the role editor: a named bundle of permissions. */
@@ -281,6 +312,19 @@ export type TokenRecord = {
 
 type RequestOptions = Omit<RequestInit, "body"> & { body?: unknown };
 
+/**
+ * Endpoints that are reachable before a session exists. They need no CSRF token
+ * because there is no cookie to protect yet, and a 401 from them is the
+ * endpoint's own answer rather than an expired session — bouncing the browser to
+ * /login on a wrong second-factor code would throw away the challenge the user
+ * is halfway through.
+ */
+const preSessionPaths = new Set([
+  "/api/v1/auth/login",
+  "/api/v1/auth/register",
+  "/api/v1/auth/2fa/verify",
+]);
+
 /** Bodies that are already serialised must reach fetch untouched. */
 function isRawBody(body: unknown): body is BodyInit {
   return body instanceof FormData || body instanceof Blob || typeof body === "string";
@@ -292,10 +336,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     headers.set("Content-Type", "application/json");
   }
   const isMutation = options.method && !["GET", "HEAD", "OPTIONS"].includes(options.method.toUpperCase());
-  // Login and sign-up are not cookie-authenticated, so there is no CSRF token
-  // to fetch yet and the API does not ask for one.
-  const csrfExempt = path === "/api/v1/auth/login" || path === "/api/v1/auth/register";
-  if (isMutation && !csrfToken && !csrfExempt) {
+  if (isMutation && !csrfToken && !preSessionPaths.has(path)) {
     try {
       const csrfResponse = await fetch(`${API_BASE_URL}/api/v1/auth/csrf`, { credentials: "include" });
       if (csrfResponse.ok) {
@@ -332,7 +373,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (!response.ok) {
     // An expired or missing session should send the operator back to the login page
     // instead of leaving every admin page showing a generic load error.
-    if (response.status === 401 && path !== "/api/v1/auth/login" && typeof window !== "undefined") {
+    if (response.status === 401 && !preSessionPaths.has(path) && typeof window !== "undefined") {
       if (!window.location.pathname.startsWith("/login")) window.location.href = "/login";
       throw new ApiError("登录已过期，请重新登录。", 401, payload);
     }
@@ -370,7 +411,7 @@ function buildQuery(params: Record<string, string | number | undefined>): string
 export const api = {
   auth: {
     async login(username: string, password: string) {
-      const result = await request<{ user?: AdminUser; csrf_token?: string }>("/api/v1/auth/login", {
+      const result = await request<LoginResponse>("/api/v1/auth/login", {
         method: "POST",
         body: { username, password },
       });
@@ -379,7 +420,7 @@ export const api = {
     },
     /** Creates a regular account and signs it in. */
     async register(username: string, password: string) {
-      const result = await request<{ user?: AdminUser; csrf_token?: string }>("/api/v1/auth/register", {
+      const result = await request<LoginResponse>("/api/v1/auth/register", {
         method: "POST",
         body: { username, password },
       });
@@ -397,6 +438,30 @@ export const api = {
     },
     logout() {
       return request<void>("/api/v1/auth/logout", { method: "POST" });
+    },
+  },
+  /** The caller's own second factor. Resetting somebody else's is `users.resetMfa`. */
+  mfa: {
+    status() {
+      return request<MFAStatus>("/api/v1/auth/2fa");
+    },
+    /** Second step of a login. Returns a session on success. */
+    async verify(challenge: string, code: string) {
+      const result = await request<LoginResponse>("/api/v1/auth/2fa/verify", {
+        method: "POST",
+        body: { challenge, code },
+      });
+      csrfToken = result.csrf_token || "";
+      return result;
+    },
+    enroll() {
+      return request<MFAEnrollment>("/api/v1/auth/2fa/enroll", { method: "POST" });
+    },
+    confirm(code: string) {
+      return request<{ recovery_codes: string[] }>("/api/v1/auth/2fa/confirm", { method: "POST", body: { code } });
+    },
+    disable(password: string, code: string) {
+      return request<void>("/api/v1/auth/2fa/disable", { method: "POST", body: { password, code } });
     },
   },
   links: {
@@ -478,6 +543,13 @@ export const api = {
     },
     update(id: string, input: { role?: string; disabled?: boolean }) {
       return request<void>(`/api/v1/users/${encodeURIComponent(id)}`, { method: "PATCH", body: input });
+    },
+    /**
+     * Removes another account's second factor. The only way back in after the
+     * encryption key is lost or changed, so it asks the target for nothing.
+     */
+    resetMfa(id: string) {
+      return request<void>(`/api/v1/users/${encodeURIComponent(id)}/2fa/reset`, { method: "POST" });
     },
   },
   roles: {

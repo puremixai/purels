@@ -1,0 +1,16 @@
+# Temporary override used to verify the TOTP path with the feature switched on.
+# Not part of the deployment: the shipped default is TOTP_ENABLED=false.
+#
+#   docker compose -f deploy/compose.yaml -f deploy/.totp-check.yaml up -d api
+#   node scripts/smoke-totp.mjs
+#
+# RATE_LIMIT_2FA is raised because a full run makes about a dozen verify calls
+# and the default bucket of 10 per minute would turn the later ones into 429s.
+# The real brute-force bound is the attempt counter stored with the challenge.
+services:
+  api:
+    environment:
+      TOTP_ENABLED: "true"
+      # 32 raw bytes. In a real deployment: openssl rand -base64 32
+      TOTP_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
+      RATE_LIMIT_2FA: "60"

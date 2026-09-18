@@ -46,6 +46,7 @@ type Handler struct {
 	Audit  *service.AuditService
 	Users  *service.UserService
 	Roles  *service.RoleService
+	MFA    *service.TwoFactorService
 	Probe  *service.HealthChecker
 }
 
@@ -70,15 +71,49 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := h.Auth.Login(r.Context(), strings.TrimSpace(req.Username), req.Password, r.UserAgent(), clientIP(r))
 	if err != nil {
-		Error(w, 401, "invalid credentials")
+		h.writeServiceError(w, err)
 		return
 	}
-	setCookie(w, "purels_session", result.SessionToken, true, h.Config)
-	setCookie(w, "purels_csrf", result.CSRFToken, false, h.Config)
+	// A correct password is not a session when a second factor is due. No
+	// cookie is set, and the caller has to come back with a code.
+	if result.MFAChallenge != "" {
+		JSON(w, 200, map[string]any{"mfa_required": true, "challenge": result.MFAChallenge})
+		return
+	}
 	// Login happens before the auth middleware runs, so seed the actor here to
 	// keep the trail entry attributed.
 	h.Audit.Record(domain.WithUser(r.Context(), result.User), service.ActionSessionLogin, "session", "", nil)
-	JSON(w, 200, map[string]any{"user": result.User, "csrf_token": result.CSRFToken})
+	h.finishLogin(w, 200, result)
+}
+
+// VerifySecondFactor completes a login that was interrupted for a code.
+//
+// It sits outside the authenticated group because the caller holds a challenge
+// rather than a session, which also means it is not cookie-authenticated and so
+// is not subject to the CSRF check.
+func (h *Handler) VerifySecondFactor(w http.ResponseWriter, r *http.Request) {
+	var req domain.VerifySecondFactorRequest
+	if err := Decode(r, &req); err != nil {
+		Error(w, 400, "invalid request")
+		return
+	}
+	result, err := h.Auth.VerifySecondFactor(r.Context(), req.Challenge, req.Code, r.UserAgent(), clientIP(r))
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	// The trail shows how the account got in, not merely that it did.
+	h.Audit.Record(domain.WithUser(r.Context(), result.User), service.ActionSession2FA, "session", "", nil)
+	h.finishLogin(w, 200, result)
+}
+
+// finishLogin sets the session cookies and returns the signed-in account. The
+// three ways in — password, registration and a completed second factor — all
+// end here, so the cookie attributes and the response shape cannot drift apart.
+func (h *Handler) finishLogin(w http.ResponseWriter, status int, result service.LoginResult) {
+	setCookie(w, "purels_session", result.SessionToken, true, h.Config)
+	setCookie(w, "purels_csrf", result.CSRFToken, false, h.Config)
+	JSON(w, status, map[string]any{"user": result.User, "csrf_token": result.CSRFToken})
 }
 
 // Register creates a regular account and signs it in. It sits outside the
@@ -99,12 +134,83 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		h.writeServiceError(w, err)
 		return
 	}
-	setCookie(w, "purels_session", result.SessionToken, true, h.Config)
-	setCookie(w, "purels_csrf", result.CSRFToken, false, h.Config)
 	// Registration happens before the auth middleware runs, so seed the actor
 	// here to keep the trail entry attributed.
 	h.Audit.Record(domain.WithUser(r.Context(), result.User), service.ActionUserRegister, "user", result.User.ID, nil)
-	JSON(w, http.StatusCreated, map[string]any{"user": result.User, "csrf_token": result.CSRFToken})
+	h.finishLogin(w, http.StatusCreated, result)
+}
+
+// MFAStatus describes the caller's own second factor.
+func (h *Handler) MFAStatus(w http.ResponseWriter, r *http.Request) {
+	user, _ := domain.UserFromContext(r.Context())
+	status, err := h.MFA.Status(r.Context(), user.ID)
+	if err != nil {
+		Error(w, 500, "could not load the second-factor status")
+		return
+	}
+	JSON(w, 200, status)
+}
+
+// EnrollMFA starts an enrolment and returns the secret, the otpauth URI and a
+// QR code. The response must not be cached: it carries a secret.
+func (h *Handler) EnrollMFA(w http.ResponseWriter, r *http.Request) {
+	user, _ := domain.UserFromContext(r.Context())
+	enrollment, err := h.MFA.Enroll(r.Context(), user)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	JSON(w, 200, enrollment)
+}
+
+// ConfirmMFA finishes an enrolment. The recovery codes are in this response and
+// nowhere else — only their hashes are stored.
+func (h *Handler) ConfirmMFA(w http.ResponseWriter, r *http.Request) {
+	var req domain.ConfirmMFARequest
+	if err := Decode(r, &req); err != nil {
+		Error(w, 400, "invalid request")
+		return
+	}
+	user, _ := domain.UserFromContext(r.Context())
+	codes, err := h.MFA.Confirm(r.Context(), user.ID, req.Code)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	h.Audit.Record(r.Context(), service.ActionUserMFAEnroll, "user", user.ID, nil)
+	w.Header().Set("Cache-Control", "no-store")
+	JSON(w, 200, map[string]any{"recovery_codes": codes})
+}
+
+// DisableMFA turns the caller's own second factor off.
+func (h *Handler) DisableMFA(w http.ResponseWriter, r *http.Request) {
+	var req domain.DisableMFARequest
+	if err := Decode(r, &req); err != nil {
+		Error(w, 400, "invalid request")
+		return
+	}
+	user, _ := domain.UserFromContext(r.Context())
+	if err := h.MFA.Disable(r.Context(), user, req.Password, req.Code); err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	h.Audit.Record(r.Context(), service.ActionUserMFADisable, "user", user.ID, nil)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ResetUserMFA removes another account's second factor. Requires users:manage.
+//
+// It is the only way back in after TOTP_ENCRYPTION_KEY is lost or changed, so it
+// deliberately asks the target for nothing.
+func (h *Handler) ResetUserMFA(w http.ResponseWriter, r *http.Request) {
+	target := chi.URLParam(r, "id")
+	if err := h.MFA.Reset(r.Context(), target); err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	h.Audit.Record(r.Context(), service.ActionUserMFAReset, "user", target, nil)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -724,6 +830,12 @@ func (h *Handler) writeServiceError(w http.ResponseWriter, err error) {
 		Error(w, 409, err.Error())
 	case errors.Is(err, service.ErrQuotaExceeded):
 		Error(w, 429, err.Error())
+	case errors.Is(err, service.ErrInvalidCredentials):
+		Error(w, 401, err.Error())
+	case errors.Is(err, service.ErrInvalidSecondFactor):
+		Error(w, 401, err.Error())
+	case errors.Is(err, service.ErrTwoFactorUnavailable), errors.Is(err, service.ErrNoEnrolment):
+		Error(w, 409, err.Error())
 	default:
 		Error(w, 400, err.Error())
 	}

@@ -54,6 +54,21 @@ export default function UsersPage() {
     }
   }
 
+  // The only way back in after the encryption key is lost or changed, so it
+  // deliberately asks the target for nothing.
+  async function resetMfa(id: string) {
+    setBusy(id);
+    setError("");
+    try {
+      await api.users.resetMfa(id);
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "重置失败");
+    } finally {
+      setBusy("");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -65,12 +80,13 @@ export default function UsersPage() {
 
       <div className="panel overflow-hidden">
         <div className="mobile-scroll">
-          <table className="w-full min-w-[760px] text-left text-sm">
+          <table className="w-full min-w-[880px] text-left text-sm">
             <thead className="border-b border-[var(--line)] bg-slate-50 text-xs text-[var(--muted)]">
               <tr>
                 <th className="px-5 py-3">用户名</th>
                 <th className="px-5 py-3">角色</th>
                 <th className="px-5 py-3">状态</th>
+                <th className="px-5 py-3">两步验证</th>
                 <th className="px-5 py-3">注册时间</th>
                 <th className="px-5 py-3 text-right">操作</th>
               </tr>
@@ -101,6 +117,16 @@ export default function UsersPage() {
                       <span className={`rounded-full px-2.5 py-1 text-xs ${account.disabled ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
                         {account.disabled ? "已禁用" : "正常"}
                       </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-full px-2.5 py-1 text-xs ${account.mfa_enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                          {account.mfa_enabled ? "已启用" : "未启用"}
+                        </span>
+                        {account.mfa_enabled && (
+                          <button className="text-xs text-[var(--brand)] hover:underline" disabled={disabled} onClick={() => resetMfa(account.id)}>重置</button>
+                        )}
+                      </div>
                     </td>
                     <td className="whitespace-nowrap px-5 py-4 tabular-nums text-[var(--muted)]">{formatTime(account.created_at)}</td>
                     <td className="px-5 py-4 text-right">
