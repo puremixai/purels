@@ -22,7 +22,7 @@ import (
 func (h *Handler) PublicOIDCProviders(w http.ResponseWriter, r *http.Request) {
 	providers, err := h.OIDC.PublicProviders(r.Context())
 	if err != nil {
-		Error(w, 500, "could not load sign-in methods")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not load sign-in methods")
 		return
 	}
 	JSON(w, 200, map[string]any{"providers": providers})
@@ -38,7 +38,7 @@ func (h *Handler) PublicOIDCProviders(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListOIDCProviders(w http.ResponseWriter, r *http.Request) {
 	providers, err := h.OIDC.List(r.Context())
 	if err != nil {
-		Error(w, 500, "could not load sign-in methods")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not load sign-in methods")
 		return
 	}
 	JSON(w, 200, map[string]any{"providers": providers, "redirect_base": h.Config.OIDCRedirectBase})
@@ -48,7 +48,7 @@ func (h *Handler) ListOIDCProviders(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CreateOIDCProvider(w http.ResponseWriter, r *http.Request) {
 	var req domain.OIDCProviderInput
 	if err := Decode(r, &req); err != nil {
-		Error(w, 400, "invalid request")
+		ErrorCode(w, 400, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	provider, err := h.OIDC.Create(r.Context(), req)
@@ -65,7 +65,7 @@ func (h *Handler) CreateOIDCProvider(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdateOIDCProvider(w http.ResponseWriter, r *http.Request) {
 	var req domain.OIDCProviderInput
 	if err := Decode(r, &req); err != nil {
-		Error(w, 400, "invalid request")
+		ErrorCode(w, 400, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	provider, err := h.OIDC.Update(r.Context(), chi.URLParam(r, "id"), req)

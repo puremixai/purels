@@ -35,7 +35,7 @@ func (h *Handler) GetCaptchaSettings(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdateCaptchaSettings(w http.ResponseWriter, r *http.Request) {
 	var req domain.CaptchaSettingsInput
 	if err := Decode(r, &req); err != nil {
-		Error(w, http.StatusBadRequest, "invalid request")
+		ErrorCode(w, http.StatusBadRequest, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	settings, err := h.Captcha.Update(r.Context(), req)

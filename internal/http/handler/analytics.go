@@ -31,7 +31,7 @@ func (h *Handler) GetAnalyticsSettings(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdateAnalyticsSettings(w http.ResponseWriter, r *http.Request) {
 	var req domain.AnalyticsSettingsInput
 	if err := Decode(r, &req); err != nil {
-		Error(w, 400, "invalid request")
+		ErrorCode(w, 400, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	settings, err := h.Analytics.Update(r.Context(), req)

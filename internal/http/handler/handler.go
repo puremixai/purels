@@ -28,7 +28,19 @@ func JSON(w http.ResponseWriter, status int, value any) {
 }
 
 func Error(w http.ResponseWriter, status int, message string) {
-	JSON(w, status, map[string]any{"error": map[string]string{"message": message}})
+	ErrorCode(w, status, "", message)
+}
+
+// ErrorCode answers with a machine-readable code beside the human message so the
+// console can render its own localized text. The key is left out entirely when
+// the code is empty rather than sent blank: the console reads a missing code as
+// "show this message as written", which is what a validation error wants.
+func ErrorCode(w http.ResponseWriter, status int, code, message string) {
+	body := map[string]string{"message": message}
+	if code != "" {
+		body["code"] = code
+	}
+	JSON(w, status, map[string]any{"error": body})
 }
 
 func Decode(r *http.Request, target any) error {
@@ -61,7 +73,7 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 	if err := h.Auth.Store.Pool.Ping(ctx); err != nil {
-		Error(w, 503, "database unavailable")
+		ErrorCode(w, 503, domain.CodeDatabaseUnavailable, "database unavailable")
 		return
 	}
 	JSON(w, 200, map[string]string{"status": "ready"})
@@ -70,7 +82,7 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req domain.LoginRequest
 	if err := Decode(r, &req); err != nil {
-		Error(w, 400, "invalid request")
+		ErrorCode(w, 400, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	result, err := h.Auth.Login(r.Context(), strings.TrimSpace(req.Username), req.Password, r.UserAgent(), clientIP(r))
@@ -98,7 +110,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) VerifySecondFactor(w http.ResponseWriter, r *http.Request) {
 	var req domain.VerifySecondFactorRequest
 	if err := Decode(r, &req); err != nil {
-		Error(w, 400, "invalid request")
+		ErrorCode(w, 400, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	challenge := strings.TrimSpace(req.Challenge)
@@ -106,7 +118,7 @@ func (h *Handler) VerifySecondFactor(w http.ResponseWriter, r *http.Request) {
 		// The OIDC handoff arrives as a redirect, so it cannot return the
 		// challenge in a response body the way a password login does; it parks
 		// it in a cookie instead. That cookie is HttpOnly, so only the server
-		// can read it back — which is why the fallback is here and not in the
+		// can read it back �? which is why the fallback is here and not in the
 		// page. Everything downstream is unchanged, so this route to the
 		// attempt counter cannot skip it.
 		if cookie, err := r.Cookie("purels_mfa"); err == nil {
@@ -124,7 +136,7 @@ func (h *Handler) VerifySecondFactor(w http.ResponseWriter, r *http.Request) {
 }
 
 // finishLogin sets the session cookies and returns the signed-in account. The
-// three ways in — password, registration and a completed second factor — all
+// three ways in �? password, registration and a completed second factor �? all
 // end here, so the cookie attributes and the response shape cannot drift apart.
 func (h *Handler) finishLogin(w http.ResponseWriter, status int, result service.LoginResult) {
 	setCookie(w, "purels_session", result.SessionToken, true, h.Config)
@@ -141,12 +153,12 @@ func (h *Handler) finishLogin(w http.ResponseWriter, status int, result service.
 // it is not cookie-authenticated and so is not subject to the CSRF check.
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	if !h.Config.RegistrationEnabled {
-		Error(w, http.StatusForbidden, "registration is disabled")
+		ErrorCode(w, http.StatusForbidden, domain.CodeRegistrationDisabled, "registration is disabled")
 		return
 	}
 	var req domain.RegisterRequest
 	if err := Decode(r, &req); err != nil {
-		Error(w, 400, "invalid request")
+		ErrorCode(w, 400, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	result, err := h.Auth.Register(r.Context(), req.Username, req.Password, req.CaptchaToken, r.UserAgent(), clientIP(r))
@@ -165,7 +177,7 @@ func (h *Handler) MFAStatus(w http.ResponseWriter, r *http.Request) {
 	user, _ := domain.UserFromContext(r.Context())
 	status, err := h.MFA.Status(r.Context(), user.ID)
 	if err != nil {
-		Error(w, 500, "could not load the second-factor status")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not load the second-factor status")
 		return
 	}
 	JSON(w, 200, status)
@@ -185,11 +197,11 @@ func (h *Handler) EnrollMFA(w http.ResponseWriter, r *http.Request) {
 }
 
 // ConfirmMFA finishes an enrolment. The recovery codes are in this response and
-// nowhere else — only their hashes are stored.
+// nowhere else �? only their hashes are stored.
 func (h *Handler) ConfirmMFA(w http.ResponseWriter, r *http.Request) {
 	var req domain.ConfirmMFARequest
 	if err := Decode(r, &req); err != nil {
-		Error(w, 400, "invalid request")
+		ErrorCode(w, 400, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	user, _ := domain.UserFromContext(r.Context())
@@ -207,7 +219,7 @@ func (h *Handler) ConfirmMFA(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) DisableMFA(w http.ResponseWriter, r *http.Request) {
 	var req domain.DisableMFARequest
 	if err := Decode(r, &req); err != nil {
-		Error(w, 400, "invalid request")
+		ErrorCode(w, 400, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	user, _ := domain.UserFromContext(r.Context())
@@ -252,7 +264,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CSRF(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("purels_csrf")
 	if err != nil || cookie.Value == "" {
-		Error(w, 404, "csrf token unavailable")
+		ErrorCode(w, 404, domain.CodeCSRFUnavailable, "csrf token unavailable")
 		return
 	}
 	JSON(w, 200, map[string]string{"token": cookie.Value})
@@ -294,7 +306,7 @@ func (h *Handler) Redirect(w http.ResponseWriter, r *http.Request) {
 }
 
 // preview renders the page a trailing "+" asks for: where this link would send
-// the visitor who is looking at it. It deliberately does not record a click —
+// the visitor who is looking at it. It deliberately does not record a click �?
 // opening a preview is not a visit, and counting it would inflate a link's
 // statistics the moment somebody checked one.
 func (h *Handler) preview(w http.ResponseWriter, r *http.Request, alias string) {
@@ -314,16 +326,19 @@ func (h *Handler) preview(w http.ResponseWriter, r *http.Request, alias string) 
 	// The page echoes a destination, so it has no business in a search index.
 	w.Header().Set("X-Robots-Tag", "noindex, nofollow")
 	w.WriteHeader(http.StatusOK)
-	_, _ = io.WriteString(w, previewPage(link.Alias, destination))
+	_, _ = io.WriteString(w, previewPage(link.Alias, destination, preferredLang(r.Header.Get("Accept-Language"))))
 }
 
 // previewPage renders the preview as a self-contained document. The styling is
 // inline and minimal on purpose: this page is served by the API, which has no
 // access to the admin UI's stylesheet, and it has to stay readable without one.
-func previewPage(alias, destination string) string {
+//
+// language is one of the constants in lang.go rather than anything the caller
+// supplied, which is why it is interpolated without escaping.
+func previewPage(alias, destination, language string) string {
 	escaped := html.EscapeString(destination)
 	var page strings.Builder
-	page.WriteString(`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">`)
+	page.WriteString(`<!doctype html><html lang="` + language + `"><head><meta charset="utf-8">`)
 	page.WriteString(`<meta name="viewport" content="width=device-width, initial-scale=1">`)
 	page.WriteString(`<meta name="robots" content="noindex, nofollow">`)
 	page.WriteString(`<title>` + html.EscapeString(alias) + `</title></head>`)
@@ -331,7 +346,7 @@ func previewPage(alias, destination string) string {
 	page.WriteString(`<main style="width:min(560px,calc(100% - 32px));padding:28px;border:1px solid #e6e9ef;border-radius:14px;background:#fff;box-shadow:0 2px 8px rgb(32 43 75 / 4%)">`)
 	page.WriteString(`<h1 style="margin:0 0 16px;font-size:20px">` + html.EscapeString(alias) + `</h1>`)
 	page.WriteString(`<p style="margin:0 0 24px;color:#67738a;word-break:break-all">` + escaped + `</p>`)
-	page.WriteString(`<a href="` + escaped + `" style="display:inline-block;padding:10px 18px;border-radius:10px;background:#3855d9;color:#fff;text-decoration:none">继续</a>`)
+	page.WriteString(`<a href="` + escaped + `" style="display:inline-block;padding:10px 18px;border-radius:10px;background:#3855d9;color:#fff;text-decoration:none">` + previewContinueLabel(language) + `</a>`)
 	page.WriteString(`</main></body></html>`)
 	return page.String()
 }
@@ -401,7 +416,7 @@ func (h *Handler) ListLinks(w http.ResponseWriter, r *http.Request) {
 		Offset: offset,
 	})
 	if err != nil {
-		Error(w, 500, "could not list links")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not list links")
 		return
 	}
 	JSON(w, 200, page)
@@ -410,7 +425,7 @@ func (h *Handler) ListLinks(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListTags(w http.ResponseWriter, r *http.Request) {
 	tags, err := h.Links.ListTags(r.Context())
 	if err != nil {
-		Error(w, 500, "could not list tags")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not list tags")
 		return
 	}
 	JSON(w, 200, map[string]any{"tags": tags})
@@ -419,7 +434,7 @@ func (h *Handler) ListTags(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CreateLink(w http.ResponseWriter, r *http.Request) {
 	var req domain.CreateLinkRequest
 	if err := Decode(r, &req); err != nil {
-		Error(w, 400, "invalid request")
+		ErrorCode(w, 400, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	result, err := h.Links.Create(r.Context(), req)
@@ -535,7 +550,7 @@ func (h *Handler) LinkClicks(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePaging(r.URL.Query(), 20, 100)
 	page, err := h.Stats.LinkClicks(r.Context(), id, from, to.AddDate(0, 0, 1), limit, offset)
 	if err != nil {
-		Error(w, 500, "could not load the click log")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not load the click log")
 		return
 	}
 	JSON(w, 200, map[string]any{
@@ -559,7 +574,7 @@ func (h *Handler) ExportLinks(w http.ResponseWriter, r *http.Request) {
 		Sort:   query.Get("sort"),
 	})
 	if err != nil {
-		Error(w, 500, "could not export links")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not export links")
 		return
 	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
@@ -590,7 +605,7 @@ func (h *Handler) GetLink(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdateLink(w http.ResponseWriter, r *http.Request) {
 	var req domain.UpdateLinkRequest
 	if err := Decode(r, &req); err != nil {
-		Error(w, 400, "invalid request")
+		ErrorCode(w, 400, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	link, err := h.Links.Update(r.Context(), chi.URLParam(r, "id"), req)
@@ -617,7 +632,7 @@ func (h *Handler) DeleteLink(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) BulkLinks(w http.ResponseWriter, r *http.Request) {
 	var req domain.BulkLinkRequest
 	if err := Decode(r, &req); err != nil {
-		Error(w, 400, "invalid request")
+		ErrorCode(w, 400, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	affected, err := h.Links.Bulk(r.Context(), req)
@@ -652,7 +667,7 @@ func (h *Handler) CheckLink(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 	stats, err := h.Stats.Summary(r.Context())
 	if err != nil {
-		Error(w, 500, "could not load stats")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not load stats")
 		return
 	}
 	JSON(w, 200, stats)
@@ -667,7 +682,7 @@ func (h *Handler) LinkStats(w http.ResponseWriter, r *http.Request) {
 	}
 	stats, err := h.Stats.LinkStats(r.Context(), id, from, to.AddDate(0, 0, 1), 20)
 	if err != nil {
-		Error(w, 500, "could not load stats")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not load stats")
 		return
 	}
 	JSON(w, 200, map[string]any{"stats": stats, "from": from.Format("2006-01-02"), "to": to.Format("2006-01-02")})
@@ -687,7 +702,7 @@ func (h *Handler) TopLinks(w http.ResponseWriter, r *http.Request) {
 	from, to := parseDateRange(r, h.Config.Location())
 	links, err := h.Stats.Top(r.Context(), order, limit, from, to.AddDate(0, 0, 1))
 	if err != nil {
-		Error(w, 500, "could not load rankings")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not load rankings")
 		return
 	}
 	JSON(w, 200, map[string]any{"links": links, "order": order, "from": from.Format("2006-01-02"), "to": to.Format("2006-01-02")})
@@ -697,7 +712,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	from, to := parseDateRange(r, h.Config.Location())
 	overview, err := h.Stats.Overview(r.Context(), from, to.AddDate(0, 0, 1), service.OverviewOptions{ReferrerLimit: 10, RecentLimit: 20})
 	if err != nil {
-		Error(w, 500, "could not load stats overview")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not load stats overview")
 		return
 	}
 	overview.From = from.Format("2006-01-02")
@@ -719,7 +734,7 @@ func (h *Handler) QRCode(w http.ResponseWriter, r *http.Request) {
 	}
 	png, err := qrcode.Encode(h.Links.ShortURL(link), qrcode.Medium, size)
 	if err != nil {
-		Error(w, 500, "could not generate qr code")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not generate qr code")
 		return
 	}
 	w.Header().Set("Content-Type", "image/png")
@@ -732,7 +747,7 @@ func (h *Handler) ListTokens(w http.ResponseWriter, r *http.Request) {
 	user, _ := domain.UserFromContext(r.Context())
 	tokens, err := h.Tokens.List(r.Context(), user.ID)
 	if err != nil {
-		Error(w, 500, "could not load tokens")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not load tokens")
 		return
 	}
 	JSON(w, 200, map[string]any{"tokens": tokens})
@@ -741,7 +756,7 @@ func (h *Handler) ListTokens(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CreateToken(w http.ResponseWriter, r *http.Request) {
 	var req domain.CreateTokenRequest
 	if err := Decode(r, &req); err != nil {
-		Error(w, 400, "invalid request")
+		ErrorCode(w, 400, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	user, _ := domain.UserFromContext(r.Context())
@@ -770,7 +785,7 @@ func (h *Handler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePaging(query, 20, 100)
 	page, err := h.Audit.List(r.Context(), strings.TrimSpace(query.Get("action")), limit, offset)
 	if err != nil {
-		Error(w, 500, "could not load the audit log")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not load the audit log")
 		return
 	}
 	JSON(w, 200, page)
@@ -780,7 +795,7 @@ func (h *Handler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	accounts, err := h.Users.List(r.Context())
 	if err != nil {
-		Error(w, 500, "could not load users")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not load users")
 		return
 	}
 	JSON(w, 200, map[string]any{"users": accounts})
@@ -791,7 +806,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	var req domain.UpdateUserRequest
 	if err := Decode(r, &req); err != nil {
-		Error(w, 400, "invalid request")
+		ErrorCode(w, 400, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	actor, _ := domain.UserFromContext(r.Context())
@@ -818,7 +833,7 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListRoles(w http.ResponseWriter, r *http.Request) {
 	roles, err := h.Roles.List(r.Context())
 	if err != nil {
-		Error(w, 500, "could not load roles")
+		ErrorCode(w, 500, domain.CodeInternalError, "could not load roles")
 		return
 	}
 	JSON(w, 200, map[string]any{"roles": roles})
@@ -829,7 +844,7 @@ func (h *Handler) ListRoles(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	var req domain.UpdateRoleRequest
 	if err := Decode(r, &req); err != nil {
-		Error(w, 400, "invalid request")
+		ErrorCode(w, 400, domain.CodeInvalidRequest, "invalid request")
 		return
 	}
 	name := chi.URLParam(r, "name")
@@ -847,28 +862,40 @@ func (h *Handler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) writeServiceError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, postgres.ErrNotFound):
-		Error(w, 404, "resource not found")
+		ErrorCode(w, 404, domain.CodeNotFound, "resource not found")
 	case errors.Is(err, postgres.ErrConflict):
-		Error(w, 409, "resource already exists")
+		ErrorCode(w, 409, domain.CodeConflict, "resource already exists")
 	case errors.Is(err, postgres.ErrLastCapabilityHolder):
-		Error(w, 409, err.Error())
+		ErrorCode(w, 409, domain.CodeLastCapabilityHolder, err.Error())
 	case errors.Is(err, service.ErrQuotaExceeded):
-		Error(w, 429, err.Error())
+		ErrorCode(w, 429, domain.CodeQuotaExceeded, err.Error())
 	case errors.Is(err, service.ErrInvalidCredentials):
-		Error(w, 401, err.Error())
+		ErrorCode(w, 401, domain.CodeInvalidCredentials, err.Error())
 	case errors.Is(err, service.ErrInvalidSecondFactor):
-		Error(w, 401, err.Error())
-	case errors.Is(err, service.ErrTwoFactorUnavailable), errors.Is(err, service.ErrNoEnrolment):
-		Error(w, 409, err.Error())
-	case errors.Is(err, service.ErrSecretsUnavailable), errors.Is(err, service.ErrOIDCSlugImmutable), errors.Is(err, service.ErrCaptchaSecretsUnavailable):
-		Error(w, 409, err.Error())
+		ErrorCode(w, 401, domain.CodeInvalidSecondFactor, err.Error())
+	case errors.Is(err, service.ErrTwoFactorUnavailable):
+		ErrorCode(w, 409, domain.CodeTwoFactorUnavailable, err.Error())
+	case errors.Is(err, service.ErrNoEnrolment):
+		ErrorCode(w, 409, domain.CodeNoEnrolment, err.Error())
+	case errors.Is(err, service.ErrSecretsUnavailable):
+		ErrorCode(w, 409, domain.CodeSecretsUnavailable, err.Error())
+	case errors.Is(err, service.ErrOIDCSlugImmutable):
+		ErrorCode(w, 409, domain.CodeOIDCSlugImmutable, err.Error())
+	case errors.Is(err, service.ErrCaptchaSecretsUnavailable):
+		ErrorCode(w, 409, domain.CodeCaptchaSecretsUnavailable, err.Error())
 	case errors.Is(err, service.ErrCaptchaUnavailable):
-		Error(w, 503, err.Error())
+		ErrorCode(w, 503, domain.CodeCaptchaUnavailable, err.Error())
 	case errors.Is(err, service.ErrCaptchaInvalid):
-		Error(w, 400, err.Error())
+		ErrorCode(w, 400, domain.CodeCaptchaInvalid, err.Error())
 	case errors.Is(err, service.ErrCaptchaInvalidSettings):
-		Error(w, 400, err.Error())
+		ErrorCode(w, 400, domain.CodeCaptchaInvalidSettings, err.Error())
+	case errors.Is(err, service.ErrAnalyticsInvalid):
+		ErrorCode(w, 400, domain.CodeAnalyticsInvalid, err.Error())
 	default:
+		// No code on purpose. These are the field-level validation messages �? the
+		// ones that name a rule ("redirect_code must be 301 or 302") �? and a code
+		// could not say which rule was broken. The console shows the message as
+		// written instead, which is more use than a generic replacement.
 		Error(w, 400, err.Error())
 	}
 }
@@ -896,7 +923,7 @@ func clientIP(r *http.Request) string {
 }
 
 // parseDateRange resolves the requested window into midnight-aligned days in
-// loc, which must be the same zone the click days were bucketed in — otherwise
+// loc, which must be the same zone the click days were bucketed in �? otherwise
 // "today" would mean two different things either side of the query.
 // Both ends are inclusive; callers add one day to get an exclusive upper bound.
 // The window is capped so an unbounded range cannot request a huge trend series.

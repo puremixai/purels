@@ -59,7 +59,7 @@ func TestShortCode(t *testing.T) {
 func TestPreviewPageEscapes(t *testing.T) {
 	// Both the heading and the button's href are built by hand, so an alias or a
 	// destination carrying markup must come out escaped rather than live.
-	page := previewPage(`ab"c<script>`, `https://example.com/?q=<script>alert(1)</script>"`)
+	page := previewPage(`ab"c<script>`, `https://example.com/?q=<script>alert(1)</script>"`, langEnglish)
 	if strings.Contains(page, "<script>") {
 		t.Fatal("the preview page must not emit an unescaped value")
 	}
@@ -68,6 +68,26 @@ func TestPreviewPageEscapes(t *testing.T) {
 	}
 	if !strings.Contains(page, "noindex") {
 		t.Fatal("expected the preview page to keep search engines out")
+	}
+}
+
+func TestPreviewPageFollowsTheRequestedLanguage(t *testing.T) {
+	// The page is the one document the API renders, so it carries its own copy
+	// and its own lang attribute rather than the console's.
+	chinese := previewPage("abc", "https://example.com", preferredLang("zh-CN,zh;q=0.9,en;q=0.8"))
+	if !strings.Contains(chinese, `<html lang="zh-CN">`) {
+		t.Fatal("expected a Chinese request to get the Chinese lang attribute")
+	}
+	if !strings.Contains(chinese, ">继续</a>") {
+		t.Fatal("expected a Chinese request to get the Chinese button")
+	}
+
+	english := previewPage("abc", "https://example.com", preferredLang("en-US,en;q=0.9"))
+	if !strings.Contains(english, `<html lang="en">`) {
+		t.Fatal("expected an English request to get the English lang attribute")
+	}
+	if !strings.Contains(english, ">Continue</a>") {
+		t.Fatal("expected an English request to get the English button")
 	}
 }
 

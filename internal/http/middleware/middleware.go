@@ -29,7 +29,7 @@ func (a Auth) Require(next http.Handler) http.Handler {
 		}
 		cookie, err := r.Cookie("purels_session")
 		if err != nil {
-			writeJSONError(w, http.StatusUnauthorized, "unauthorized")
+			writeJSONError(w, http.StatusUnauthorized, domain.CodeUnauthorized, "unauthorized")
 			return
 		}
 		session, ok, err := a.Store.GetSession(r.Context(), security.HashBytes(cookie.Value))
@@ -37,11 +37,11 @@ func (a Auth) Require(next http.Handler) http.Handler {
 			// A lookup failure is a server fault, not a bad credential. Reporting 401
 			// here would make the browser discard a perfectly valid session.
 			slog.Error("session lookup failed", "path", r.URL.Path, "err", err)
-			writeJSONError(w, http.StatusInternalServerError, "could not verify session")
+			writeJSONError(w, http.StatusInternalServerError, domain.CodeInternalError, "could not verify session")
 			return
 		}
 		if !ok {
-			writeJSONError(w, http.StatusUnauthorized, "unauthorized")
+			writeJSONError(w, http.StatusUnauthorized, domain.CodeUnauthorized, "unauthorized")
 			return
 		}
 		ctx := domain.WithUser(r.Context(), session.User)
@@ -60,7 +60,7 @@ func RequireScope(scope string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !domain.HasScope(r.Context(), scope) {
-				writeJSONError(w, http.StatusForbidden, "api token is missing required scope: "+scope)
+				writeJSONError(w, http.StatusForbidden, domain.CodeInsufficientScope, "api token is missing required scope: "+scope)
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -81,21 +81,28 @@ func (a Auth) CSRF(next http.Handler) http.Handler {
 		}
 		csrfCookie, err := r.Cookie("purels_csrf")
 		if err != nil || csrfCookie.Value == "" {
-			writeJSONError(w, http.StatusForbidden, "csrf token required")
+			writeJSONError(w, http.StatusForbidden, domain.CodeCSRFRequired, "csrf token required")
 			return
 		}
 		session, _ := domain.SessionFromContext(r.Context())
 		provided := security.HashBytes(r.Header.Get("X-CSRF-Token"))
 		if subtle.ConstantTimeCompare(provided, session.CSRFHash) != 1 || subtle.ConstantTimeCompare(provided, security.HashBytes(csrfCookie.Value)) != 1 {
-			writeJSONError(w, http.StatusForbidden, "csrf token invalid")
+			writeJSONError(w, http.StatusForbidden, domain.CodeCSRFInvalid, "csrf token invalid")
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
 }
 
-func writeJSONError(w http.ResponseWriter, status int, message string) {
+// writeJSONError answers with the same envelope the handlers use, including the
+// machine-readable code the console localizes on. See handler.ErrorCode for why
+// the code is omitted rather than sent blank when there is none.
+func writeJSONError(w http.ResponseWriter, status int, code, message string) {
+	body := map[string]string{"message": message}
+	if code != "" {
+		body["code"] = code
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"message": message}})
+	_ = json.NewEncoder(w).Encode(map[string]any{"error": body})
 }

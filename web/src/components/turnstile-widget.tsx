@@ -2,6 +2,7 @@
 
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
+import { useT } from "./i18n-provider";
 
 /** Keep this URL fixed: provider verification is not operator-controlled. */
 export const TURNSTILE_SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
@@ -42,12 +43,19 @@ export function TurnstileWidget({ siteKey, onTokenChange, onError, resetSignal =
   const widgetIdRef = useRef<string | number | null>(null);
   const tokenChangeRef = useRef(onTokenChange);
   const errorRef = useRef(onError);
+  const t = useT();
+  // The translator is held in a ref for the same reason the callbacks are: the
+  // effect that renders the widget must not re-run when the language changes, or
+  // switching language would tear the widget down and throw away a challenge the
+  // visitor had already solved.
+  const translateRef = useRef(t);
   const [scriptReady, setScriptReady] = useState(false);
 
   useEffect(() => {
     tokenChangeRef.current = onTokenChange;
     errorRef.current = onError;
-  }, [onTokenChange, onError]);
+    translateRef.current = t;
+  }, [onTokenChange, onError, t]);
 
   useEffect(() => {
     if (!scriptReady || !siteKey || !containerRef.current || !window.turnstile) return;
@@ -58,7 +66,7 @@ export function TurnstileWidget({ siteKey, onTokenChange, onError, resetSignal =
       "expired-callback": () => tokenChangeRef.current(""),
       "error-callback": () => {
         tokenChangeRef.current("");
-        errorRef.current?.("验证加载失败，请重试");
+        errorRef.current?.(translateRef.current("turnstile.loadFailed"));
       },
     });
     widgetIdRef.current = widgetId;

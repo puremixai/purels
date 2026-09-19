@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/purels/purels/internal/cache/redis"
+	"github.com/purels/purels/internal/domain"
 )
 
 type RateLimiter struct{ Cache *redis.Cache }
@@ -49,7 +50,7 @@ func (rl RateLimiter) Limit(name string, limit int, window time.Duration) func(h
 					retryAfter = int(ttl.Seconds()) + 1
 				}
 				w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
-				writeJSONError(w, http.StatusTooManyRequests, "too many requests, please slow down")
+				writeJSONError(w, http.StatusTooManyRequests, domain.CodeRateLimited, "too many requests, please slow down")
 				return
 			}
 			next.ServeHTTP(w, r)

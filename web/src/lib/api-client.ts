@@ -3,12 +3,22 @@ let csrfToken = "";
 
 export class ApiError extends Error {
   readonly status: number;
+  /**
+   * The API's machine-readable code, when it sent one. Empty means it did not,
+   * which happens for field-level validation messages: those name a rule that a
+   * code could not, so the message is the only thing worth showing.
+   *
+   * Transport failures that never reached the API use the console's own codes —
+   * `network`, `session_expired`, `http_error`.
+   */
+  readonly code: string;
   readonly details?: unknown;
 
-  constructor(message: string, status: number, details?: unknown) {
+  constructor(message: string, status: number, code = "", details?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
     this.details = details;
   }
 }
@@ -429,6 +439,35 @@ function isRawBody(body: unknown): body is BodyInit {
   return body instanceof FormData || body instanceof Blob || typeof body === "string";
 }
 
+/**
+ * The human message the API sent, if it sent one.
+ *
+ * This is English and the console renders its own wording from the code
+ * whenever it can, so this is a fallback rather than the normal path. It still
+ * has to survive the trip: an uncoded validation message is the only place a
+ * broken rule is named.
+ */
+function serverMessage(payload: unknown): string {
+  if (typeof payload === "string") return payload.trim();
+  if (typeof payload !== "object" || payload === null) return "";
+  const envelope = (payload as { error?: unknown }).error;
+  if (typeof envelope === "object" && envelope !== null) {
+    const message = (envelope as { message?: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  const message = (payload as { message?: unknown }).message;
+  return typeof message === "string" ? message : "";
+}
+
+/** The machine-readable code the API sent, if it sent one. */
+function serverCode(payload: unknown): string {
+  if (typeof payload !== "object" || payload === null) return "";
+  const envelope = (payload as { error?: unknown }).error;
+  if (typeof envelope !== "object" || envelope === null) return "";
+  const code = (envelope as { code?: unknown }).code;
+  return typeof code === "string" ? code : "";
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
   if (options.body !== undefined && !isRawBody(options.body)) {
@@ -458,7 +497,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
           : JSON.stringify(options.body),
     });
   } catch {
-    throw new ApiError("无法连接到 API 服务，请检查后端地址。", 0);
+    throw new ApiError("Cannot reach the API server. Check the backend address.", 0, "network");
   }
 
   const contentType = response.headers.get("content-type") || "";
@@ -474,17 +513,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     // instead of leaving every admin page showing a generic load error.
     if (response.status === 401 && !preSessionPaths.has(path) && typeof window !== "undefined") {
       if (!window.location.pathname.startsWith("/login")) window.location.href = "/login";
-      throw new ApiError("登录已过期，请重新登录。", 401, payload);
+      throw new ApiError("Your session has expired. Please sign in again.", 401, "session_expired", payload);
     }
-    const message =
-      typeof payload === "object" && payload !== null && "error" in payload && typeof (payload as { error?: unknown }).error === "object" && (payload as { error: { message?: unknown } }).error?.message
-        ? String((payload as { error: { message: unknown } }).error.message)
-        : typeof payload === "object" && payload !== null && "message" in payload
-          ? String((payload as { message: unknown }).message)
-          : typeof payload === "string" && payload.trim()
-            ? payload
-            : `请求失败（${response.status}）`;
-    throw new ApiError(message, response.status, payload);
+    throw new ApiError(
+      serverMessage(payload) || `Request failed (${response.status}).`,
+      response.status,
+      serverCode(payload) || "http_error",
+      payload,
+    );
   }
 
   return payload as T;
