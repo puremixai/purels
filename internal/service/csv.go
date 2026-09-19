@@ -12,6 +12,7 @@ import (
 	"unicode"
 
 	"github.com/purels/purels/internal/domain"
+	"github.com/purels/purels/internal/store/postgres"
 )
 
 const (
@@ -141,12 +142,29 @@ func (l *LinkService) ImportCSV(ctx context.Context, r io.Reader) (domain.Import
 			req.RedirectCode = int16(code)
 		}
 		if _, err := l.Create(ctx, req); err != nil {
-			failRow(&report, line, req.Alias, err.Error())
+			failRow(&report, line, req.Alias, rowError(err))
 			continue
 		}
 		report.Created++
 	}
 	return report, nil
+}
+
+// rowError turns one failed row into something safe to hand back to the caller.
+//
+// The report exists to say which row failed and why, so a service-level
+// validation message — "redirect_code must be 301 or 302" — is passed through
+// exactly as written; replacing it would throw away the only useful part.
+//
+// A database error is not. One that normalizeDBError did not classify still
+// carries Postgres' own text, which names columns, constraints and SQLSTATEs,
+// and the report is returned in the response body. The row is still identified
+// by its line and alias, so the operator loses nothing but the SQL.
+func rowError(err error) string {
+	if postgres.IsDBError(err) {
+		return "could not be saved"
+	}
+	return err.Error()
 }
 
 // columnIndex returns the position of a column, or -1 when the file omits it.

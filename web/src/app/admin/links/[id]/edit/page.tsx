@@ -4,15 +4,11 @@ import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useLocale, useT } from "@/components/i18n-provider";
 import { api, LinkRecord, LinkRuleInput } from "@/lib/api-client";
+import { formatDateTime } from "@/lib/format";
 import { errorText } from "@/lib/i18n";
 import { LinkDomainPicker } from "@/components/link-domain-picker";
 import { LinkRulesEditor } from "@/components/link-rules-editor";
 import { parseTags } from "@/lib/tags";
-
-function formatTime(value: string, locale: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(locale, { hour12: false });
-}
 
 /** The stored rules, reduced to the fields the editor edits. */
 function toRuleInputs(link: LinkRecord): LinkRuleInput[] {
@@ -138,7 +134,7 @@ export default function EditLinkPage() {
             <span className="text-sm text-[var(--muted)]">
               {link.last_checked_at
                 ? <>
-                    {t("links.edit.lastChecked", { time: formatTime(link.last_checked_at, locale) })}
+                    {t("links.edit.lastChecked", { time: formatDateTime(link.last_checked_at, locale) })}
                     {link.last_status_code ? ` · ${link.last_status_code}` : ` · ${t("links.edit.checkUnreachable")}`}
                   </>
                 : t("links.edit.neverChecked")}

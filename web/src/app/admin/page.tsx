@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useT } from "@/components/i18n-provider";
+import { useLocale, useT } from "@/components/i18n-provider";
 import { api, LinkRecord, StatsSummary } from "@/lib/api-client";
+import { formatNumber } from "@/lib/format";
 import { errorText } from "@/lib/i18n";
 
 export default function Dashboard() {
   const t = useT();
+  const locale = useLocale();
   const [stats, setStats] = useState<StatsSummary | null>(null);
   const [links, setLinks] = useState<LinkRecord[]>([]);
   const [error, setError] = useState("");
@@ -22,8 +24,8 @@ export default function Dashboard() {
   // Keyed by a name rather than by the label: the label is translated now, and a
   // key that changed with the language would remount every card.
   const cards = [
-    { key: "links", label: t("dashboard.totalLinks"), value: stats?.total_links ?? 0 },
-    { key: "clicks", label: t("dashboard.totalClicks"), value: stats?.total_clicks ?? 0 },
+    { key: "links", label: t("dashboard.totalLinks"), value: formatNumber(stats?.total_links ?? 0, locale) },
+    { key: "clicks", label: t("dashboard.totalClicks"), value: formatNumber(stats?.total_clicks ?? 0, locale) },
     { key: "status", label: t("dashboard.serviceStatus"), value: t("dashboard.healthy") },
   ];
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, ClickPage, DateRange, LinkRecord, LinkStats, StatsOverview } from "@/lib/api-client";
 import { useLocale, useT } from "@/components/i18n-provider";
 import { downloadCsv } from "@/lib/csv";
+import { formatNumber, formatShortDateTime } from "@/lib/format";
 import { errorText, hasMessage, type Locale, type MessageKey, type T } from "@/lib/i18n";
 
 const CLICK_PAGE_SIZE = 20;
@@ -39,12 +40,6 @@ function rangeForPreset(preset: PresetValue): DateRange {
   return { from: toIsoDate(from), to: toIsoDate(to) };
 }
 
-function formatTimestamp(value: string, locale: Locale) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(locale, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
-
 function TrendChart({ points }: { points: StatsOverview["trend"] }) {
   const t = useT();
   const max = points.reduce((peak, point) => Math.max(peak, point.clicks), 0);
@@ -71,7 +66,15 @@ function TrendChart({ points }: { points: StatsOverview["trend"] }) {
   );
 }
 
-function BarList({ rows, emptyText }: { rows: Array<{ key: string; label: string; clicks: number }>; emptyText: string }) {
+function BarList({
+  rows,
+  emptyText,
+  locale,
+}: {
+  rows: Array<{ key: string; label: string; clicks: number }>;
+  emptyText: string;
+  locale: Locale;
+}) {
   const max = rows.reduce((peak, row) => Math.max(peak, row.clicks), 0);
   if (!rows.length) return <p className="text-sm text-[var(--muted)]">{emptyText}</p>;
   return (
@@ -80,7 +83,7 @@ function BarList({ rows, emptyText }: { rows: Array<{ key: string; label: string
         <div key={row.key}>
           <div className="flex items-baseline justify-between gap-3 text-sm">
             <span className="truncate" title={row.label}>{row.label}</span>
-            <span className="shrink-0 tabular-nums text-[var(--muted)]">{row.clicks}</span>
+            <span className="shrink-0 tabular-nums text-[var(--muted)]">{formatNumber(row.clicks, locale)}</span>
           </div>
           <div className="mt-1 h-1.5 rounded-full bg-slate-100">
             <div className="h-1.5 rounded-full bg-[var(--brand)]" style={{ width: `${max ? Math.max(3, (row.clicks / max) * 100) : 3}%` }} />
@@ -292,6 +295,7 @@ export default function StatsPage() {
                 clicks: item.clicks,
               }))}
               emptyText={t("stats.emptyReferrers")}
+              locale={locale}
             />
           </section>
 
@@ -304,6 +308,7 @@ export default function StatsPage() {
                 clicks: item.clicks,
               }))}
               emptyText={t("stats.emptyDevices")}
+              locale={locale}
             />
           </section>
         </div>
@@ -325,7 +330,7 @@ export default function StatsPage() {
           <div className="space-y-6">
             <div className="rounded-lg bg-slate-50 px-4 py-3">
               <p className="text-sm text-[var(--muted)]">{t("stats.totalClicks")}</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums">{detail.total_clicks}</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums">{formatNumber(detail.total_clicks, locale)}</p>
             </div>
 
             <div>
@@ -336,7 +341,7 @@ export default function StatsPage() {
                     <div key={item.day} className="flex items-center gap-3 text-sm">
                       <span className="w-24 shrink-0 tabular-nums text-[var(--muted)]">{String(item.day).slice(0, 10)}</span>
                       <span className="h-2 rounded-full bg-[var(--brand)]" style={{ width: `${maxDaily ? Math.max(4, (item.clicks / maxDaily) * 100) : 4}%` }} />
-                      <span className="tabular-nums">{item.clicks}</span>
+                      <span className="tabular-nums">{formatNumber(item.clicks, locale)}</span>
                     </div>
                   ))}
                 </div>
@@ -357,7 +362,7 @@ export default function StatsPage() {
                       {detail.referrers.map((item) => (
                         <tr key={item.referrer || "__direct__"}>
                           <td className="max-w-[420px] truncate py-3">{item.referrer || t("stats.direct")}</td>
-                          <td className="py-3 text-right tabular-nums">{item.clicks}</td>
+                          <td className="py-3 text-right tabular-nums">{formatNumber(item.clicks, locale)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -394,7 +399,7 @@ export default function StatsPage() {
                     <tbody className="divide-y divide-[var(--line)]">
                       {(clickLog?.clicks ?? []).map((click, index) => (
                         <tr key={`${click.occurred_at}-${index}`}>
-                          <td className="whitespace-nowrap py-3 tabular-nums text-[var(--muted)]">{formatTimestamp(click.occurred_at, locale)}</td>
+                          <td className="whitespace-nowrap py-3 tabular-nums text-[var(--muted)]">{formatShortDateTime(click.occurred_at, locale)}</td>
                           <td className="max-w-[200px] truncate py-3 text-[var(--muted)]">{click.referrer || t("stats.direct")}</td>
                           <td className="max-w-[320px] truncate py-3 text-[var(--muted)]" title={click.user_agent}>{click.user_agent || "—"}</td>
                         </tr>
@@ -425,7 +430,7 @@ export default function StatsPage() {
             <tbody className="divide-y divide-[var(--line)]">
               {(overview?.recent_clicks ?? []).map((click, index) => (
                 <tr key={`${click.link_id}-${click.occurred_at}-${index}`}>
-                  <td className="whitespace-nowrap px-6 py-3 tabular-nums text-[var(--muted)]">{formatTimestamp(click.occurred_at, locale)}</td>
+                  <td className="whitespace-nowrap px-6 py-3 tabular-nums text-[var(--muted)]">{formatShortDateTime(click.occurred_at, locale)}</td>
                   <td className="px-6 py-3 font-medium">/{click.alias || "—"}</td>
                   <td className="max-w-[220px] truncate px-6 py-3 text-[var(--muted)]">{click.referrer || t("stats.direct")}</td>
                   <td className="max-w-[360px] truncate px-6 py-3 text-[var(--muted)]" title={click.user_agent}>{click.user_agent || "—"}</td>

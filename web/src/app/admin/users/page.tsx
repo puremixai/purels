@@ -3,16 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, AccountRecord, RoleRecord } from "@/lib/api-client";
 import { useLocale, useT } from "@/components/i18n-provider";
-import { errorText, hasMessage, type Locale, type T } from "@/lib/i18n";
+import { formatDateTime } from "@/lib/format";
+import { errorText, hasMessage, type T } from "@/lib/i18n";
 
 function roleLabel(t: T, name: string) {
   const key = `role.${name}`;
   return hasMessage(key) ? t(key) : name;
-}
-
-function formatTime(value: string, locale: Locale) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(locale, { hour12: false });
 }
 
 export default function UsersPage() {
@@ -137,7 +133,7 @@ export default function UsersPage() {
                         )}
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-5 py-4 tabular-nums text-[var(--muted)]">{formatTime(account.created_at, locale)}</td>
+                    <td className="whitespace-nowrap px-5 py-4 tabular-nums text-[var(--muted)]">{formatDateTime(account.created_at, locale)}</td>
                     <td className="px-5 py-4 text-right">
                       <button
                         className="btn-secondary"

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, AuditEntry } from "@/lib/api-client";
 import { useLocale, useT } from "@/components/i18n-provider";
-import { errorText, hasMessage, type Locale, type T } from "@/lib/i18n";
+import { formatDateTime } from "@/lib/format";
+import { errorText, hasMessage, type T } from "@/lib/i18n";
 
 const PAGE_SIZE = 20;
 
@@ -50,11 +51,6 @@ function describe(entry: AuditEntry) {
     .filter(([, value]) => value !== "" && value !== null && value !== undefined)
     .map(([key, value]) => `${key}: ${value}`);
   return parts.join(" · ");
-}
-
-function formatTime(value: string, locale: Locale) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(locale, { hour12: false });
 }
 
 export default function AuditPage() {
@@ -125,7 +121,7 @@ export default function AuditPage() {
             <tbody className="divide-y divide-[var(--line)]">
               {entries.map((entry) => (
                 <tr key={entry.id}>
-                  <td className="whitespace-nowrap px-5 py-4 tabular-nums text-[var(--muted)]">{formatTime(entry.created_at, locale)}</td>
+                  <td className="whitespace-nowrap px-5 py-4 tabular-nums text-[var(--muted)]">{formatDateTime(entry.created_at, locale)}</td>
                   <td className="px-5 py-4 font-medium">{entry.username || "—"}</td>
                   <td className="px-5 py-4">
                     <span className={`rounded-full px-2.5 py-1 text-xs ${actionStyle(entry.action)}`}>{actionLabel(t, entry.action)}</span>
