@@ -796,6 +796,28 @@ async function main() {
 
   record("the overview reports the IP mode", (today.ip_mode ?? "") !== "", today.ip_mode);
 
+  // ---------- error hygiene ----------
+  // A malformed id must not reach Postgres, and Postgres' own text must not reach
+  // the client. It used to read back as
+  // `ERROR: invalid input syntax for type uuid: "not-a-uuid" (SQLSTATE 22P02)`,
+  // which names the column type and the SQLSTATE.
+  const leak = /SQLSTATE|invalid input syntax|pgx\.|constraint "|relation "/i;
+  const malformed = "not-a-uuid";
+  for (const [what, path, options] of [
+    ["link id", `/api/v1/links/${malformed}`, {}],
+    [
+      "user id",
+      `/api/v1/users/${malformed}`,
+      { method: "PATCH", headers: { "X-CSRF-Token": csrf }, body: { role: "admin" } },
+    ],
+  ]) {
+    const response = await call(path, options);
+    const payload = await json(response);
+    const body = typeof payload === "string" ? payload : JSON.stringify(payload);
+    record(`a malformed ${what} is not echoed back`, !leak.test(body), `body=${body.slice(0, 120)}`);
+    record(`a malformed ${what} reads as absent`, response.status === 404, `status=${response.status}`);
+  }
+
   // ---------- cleanup ----------
   const stale = await json(await call(`/api/v1/links?search=api${STAMP}&limit=100`));
   for (const link of stale.links || []) {

@@ -8,10 +8,10 @@
 // Env: CDP_PORT (9222), BASE_URL (http://localhost), ADMIN_USER, ADMIN_PASS
 //
 // The console ships English and Chinese. Everything below asserts the English
-// wording, because that is what a fresh browser context gets — the locale cookie
-// is only written once the switcher has been used. Phase 1b is the one exception:
-// it drives the switcher and asserts the Chinese wording, then puts the language
-// back so the rest of the run stays in English.
+// wording: the browser's Accept-Language is pinned to English at connect time and
+// the locale cookie is only written once the switcher has been used. Phase 1b
+// drives the switcher and asserts the Chinese wording, then puts the language
+// back; phase 1c covers the header negotiation itself, with no cookie in play.
 
 import { setTimeout as sleep } from "node:timers/promises";
 import { writeFileSync, unlinkSync } from "node:fs";
@@ -136,6 +136,12 @@ async function main() {
   await c.send("Runtime.enable");
   await c.send("Log.enable");
   await c.send("Network.enable");
+  // Pin the browser's own language. With no locale cookie the console now follows
+  // Accept-Language, so leaving this to the host Chrome would make every wording
+  // assertion below depend on the machine's locale.
+  await c.send("Network.setExtraHTTPHeaders", {
+    headers: { "Accept-Language": "en-US,en;q=0.9" },
+  });
 
   let pageErrors = [];
   const httpErrors = [];
@@ -502,6 +508,32 @@ async function main() {
     backToEnglish && (await lang()) === "en" && englishBody.includes("Overview") && !englishBody.includes("概览"),
     `lang=${await lang()} overview=${englishBody.includes("Overview")}`,
   );
+
+  // ---------- phase 1c: negotiation from the browser's own header ----------
+  // With no cookie the console falls back to Accept-Language, mirroring
+  // preferredLang in the API's preview page so the two cannot disagree. Driven
+  // over plain HTTP rather than through the browser: the browser's header is
+  // pinned above, and the point here is one header value per case.
+  const negotiate = async (acceptLanguage) => {
+    const response = await fetch(`${BASE}/login`, {
+      headers: acceptLanguage === null ? {} : { "Accept-Language": acceptLanguage },
+    }).catch(() => null);
+    const html = response ? await response.text() : "";
+    return html.match(/<html[^>]*\blang="([^"]*)"/)?.[1] ?? "";
+  };
+
+  for (const [header, want, why] of [
+    [null, "en", "no header at all falls back to English"],
+    ["zh-CN,zh;q=0.9,en;q=0.8", "zh-CN", "a Chinese browser gets Chinese"],
+    ["en-US,en;q=0.9,zh-CN;q=0.8", "en", "an English browser gets English"],
+    ["zh-TW", "zh-CN", "a regional tag reaches the shipped dictionary"],
+    ["zh;q=0.1,en;q=0.9", "en", "quality beats the order the tags arrive in"],
+    ["en;q=0,zh;q=0.5", "zh-CN", "a refused language is skipped"],
+    ["fr-FR,de;q=0.8", "en", "an unsupported language falls back"],
+  ]) {
+    const got = await negotiate(header);
+    record(`negotiation: ${why}`, got === want, `Accept-Language=${header ?? "(none)"} lang=${got}`);
+  }
 
   // The role dropdown is built from the API's role list, so it has to offer all
   // four presets rather than the two the console used to hard-code.

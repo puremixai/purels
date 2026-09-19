@@ -896,6 +896,16 @@ func (h *Handler) writeServiceError(w http.ResponseWriter, err error) {
 		// ones that name a rule ("redirect_code must be 301 or 302") �? and a code
 		// could not say which rule was broken. The console shows the message as
 		// written instead, which is more use than a generic replacement.
+		//
+		// A database error reaching here was not classified by
+		// normalizeDBError, so its text names columns, constraints and
+		// SQLSTATEs. Answering generically is what keeps that text off the
+		// wire: echoing it is how a malformed id in a path parameter once
+		// returned Postgres' own "invalid input syntax for type uuid".
+		if postgres.IsDBError(err) {
+			ErrorCode(w, 500, domain.CodeInternalError, "internal server error")
+			return
+		}
 		Error(w, 400, err.Error())
 	}
 }

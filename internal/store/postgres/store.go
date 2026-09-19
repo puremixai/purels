@@ -335,7 +335,10 @@ func (s *Store) scanLink(row pgx.Row) (domain.Link, error) {
 		return link, ErrNotFound
 	}
 	if err != nil {
-		return link, err
+		// Through normalizeDBError like every other store method: a malformed id
+		// fails in the scan as SQLSTATE 22P02, and returning it raw would carry
+		// Postgres' own text back to the caller.
+		return link, normalizeDBError(err)
 	}
 	link.Rules = parseRules(rawRules)
 	return link, nil
@@ -1065,9 +1068,31 @@ func normalizeDBError(err error) error {
 			// read as a bad request rather than a server fault, and it must not
 			// leak the constraint name.
 			return errors.New("referenced record does not exist")
+		case "22P02":
+			// A malformed id in a path parameter. Postgres rejects the cast, and
+			// its own text names the column, the offending value and the
+			// SQLSTATE, so it must not reach the client.
+			//
+			// Not found rather than a bad request on purpose: it keeps a
+			// malformed id indistinguishable from an id that is well formed but
+			// absent, so the endpoint cannot be used to probe which id format a
+			// resource uses.
+			return ErrNotFound
 		}
 	}
 	return err
+}
+
+// IsDBError reports whether err came from the database rather than from this
+// application.
+//
+// It exists for the one place that decides what a client is allowed to read: an
+// error that normalizeDBError did not classify still carries Postgres' own text,
+// which names columns, constraints and SQLSTATEs. Anything matching this must be
+// answered generically rather than echoed.
+func IsDBError(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr)
 }
 
 func truncate(value string, max int) string {
