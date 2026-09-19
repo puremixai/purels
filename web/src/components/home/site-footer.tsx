@@ -12,7 +12,7 @@ import { SECTIONS } from "./sections";
  */
 export function SiteFooter({ t, registrationOpen }: { t: T; registrationOpen: boolean }) {
   return (
-    <footer className="border-t border-[var(--line)] bg-white">
+    <footer className="border-t border-[var(--line)] bg-surface">
       <div className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-12 sm:grid-cols-3">
         <div className="sm:col-span-1">
           <div className="flex items-center gap-2.5">
@@ -46,7 +46,7 @@ export function SiteFooter({ t, registrationOpen }: { t: T; registrationOpen: bo
         </ul>
       </div>
       <div className="border-t border-[var(--line)]">
-        <p className="mx-auto w-full max-w-6xl px-5 py-5 text-[13px] text-[var(--muted)]">
+        <p className="mx-auto w-full max-w-6xl px-5 py-5 text-sm text-[var(--muted)]">
           {t("home.footer.license")} · {t("home.footer.copyright")}
         </p>
       </div>

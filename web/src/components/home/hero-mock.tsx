@@ -23,10 +23,10 @@ export function HeroMock({ t }: { t: T }) {
         <span className="h-2.5 w-2.5 rounded-full bg-[#dfe3ec]" />
       </div>
       <div className="p-5">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">{t("home.hero.mock.link")}</p>
+        <p className="text-2xs font-semibold uppercase tracking-wide text-[var(--muted)]">{t("home.hero.mock.link")}</p>
         <div className="mt-2 flex items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--canvas)] px-3 py-2">
           <Icon name="link" size={15} className="shrink-0 text-[var(--brand)]" />
-          <span className="font-mono text-[13px]">example.com/aB3xK9</span>
+          <span className="font-mono text-sm">example.com/aB3xK9</span>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-3">
           <MockStat label={t("home.hero.mock.links")} value="128" />
@@ -34,7 +34,7 @@ export function HeroMock({ t }: { t: T }) {
           <MockStat label={t("home.hero.mock.visitors")} value="9,412" />
         </div>
         <div className="mt-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">{t("home.hero.mock.trend")}</p>
+          <p className="text-2xs font-semibold uppercase tracking-wide text-[var(--muted)]">{t("home.hero.mock.trend")}</p>
           <svg className="mt-3 w-full" viewBox="0 0 280 96" fill="none">
             {BARS.map((height, index) => (
               <rect
@@ -58,7 +58,7 @@ export function HeroMock({ t }: { t: T }) {
 function MockStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-[var(--line)] px-3 py-2">
-      <p className="text-[11px] text-[var(--muted)]">{label}</p>
+      <p className="text-2xs text-[var(--muted)]">{label}</p>
       <p className="mt-0.5 text-base font-bold">{value}</p>
     </div>
   );

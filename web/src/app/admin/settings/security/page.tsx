@@ -49,14 +49,14 @@ export default function SecurityPage() {
     <section className="panel space-y-4 p-6">
       <div className="flex items-center justify-between gap-4">
         <h2 className="font-semibold">{t("settings.security.mfa")}</h2>
-        <span className={`rounded-full px-2.5 py-1 text-xs ${status?.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{status?.enabled ? t("settings.security.enabled") : t("settings.security.notEnabled")}</span>
+        <span className={`rounded-full px-2.5 py-1 text-xs ${status?.enabled ? "bg-success-tint text-success" : "bg-canvas text-ink-soft"}`}>{status?.enabled ? t("settings.security.enabled") : t("settings.security.notEnabled")}</span>
       </div>
 
-      {mfaError && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{mfaError}</p>}
+      {mfaError && <p className="rounded-lg bg-danger-tint px-4 py-3 text-sm text-danger">{mfaError}</p>}
 
       {status && !status.available && <p className="text-sm text-[var(--muted)]">{t("settings.security.unavailable")}</p>}
 
-      {status?.available && recoveryCodes.length > 0 && <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      {status?.available && recoveryCodes.length > 0 && <div className="space-y-3 rounded-lg border border-warning/20 bg-warning-tint p-4 text-sm text-warning">
         <p className="font-semibold">{t("settings.security.recoveryWarning")}</p>
         <div className="grid grid-cols-2 gap-1 font-mono">{recoveryCodes.map(c => <span key={c}>{c}</span>)}</div>
         <button className="btn-secondary" onClick={() => setRecoveryCodes([])}>{t("settings.security.recoverySaved")}</button>
@@ -64,7 +64,7 @@ export default function SecurityPage() {
 
       {status?.available && enrollment && recoveryCodes.length === 0 && <div className="space-y-4">
         <div className="flex flex-wrap items-start gap-5">
-          <img alt={t("settings.security.qrAlt")} className="h-40 w-40 rounded-lg border border-[var(--line)] bg-white p-1" src={enrollment.qr} />
+          <img alt={t("settings.security.qrAlt")} className="h-40 w-40 rounded-lg border border-[var(--line)] bg-surface p-1" src={enrollment.qr} />
           <div className="min-w-0 space-y-1 text-sm">
             <p className="text-[var(--muted)]">{t("settings.security.secret")}</p>
             <code className="block break-all font-mono text-xs">{enrollment.secret}</code>
@@ -91,8 +91,8 @@ export default function SecurityPage() {
       </div>}
     </section>
 
-    <section className="panel space-y-4 p-6"><h2 className="font-semibold">{t("settings.security.tokensTitle")}</h2>{error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}{secret && <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold">{t("settings.security.tokenWarning")}</p><code className="mt-2 block break-all">{secret}</code></div>}<div className="flex gap-3"><input className="field-control" placeholder={t("settings.security.tokenName")} value={name} onChange={e => setName(e.target.value)} /><button className="btn-primary" onClick={create} disabled={!name}>{t("settings.security.create")}</button></div></section>
+    <section className="panel space-y-4 p-6"><h2 className="font-semibold">{t("settings.security.tokensTitle")}</h2>{error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}{secret && <div className="rounded-lg border border-warning/20 bg-warning-tint p-4 text-sm text-warning"><p className="font-semibold">{t("settings.security.tokenWarning")}</p><code className="mt-2 block break-all">{secret}</code></div>}<div className="flex gap-3"><input className="field-control" placeholder={t("settings.security.tokenName")} value={name} onChange={e => setName(e.target.value)} /><button className="btn-primary" onClick={create} disabled={!name}>{t("settings.security.create")}</button></div></section>
 
-    <section className="panel overflow-hidden"><div className="border-b border-[var(--line)] px-6 py-4 font-semibold">{t("settings.security.tokenList")}</div>{tokens.length ? tokens.map(token => <div className="flex items-center justify-between border-b border-[var(--line)] px-6 py-4 last:border-0" key={token.id}><div className="min-w-0"><p className="font-medium">{token.name}</p><p className="text-sm text-[var(--muted)]">{token.token_prefix}••••</p><p className="mt-1 flex flex-wrap gap-1">{(token.scopes || []).map(scope => <span key={scope} className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">{scope}</span>)}</p></div><button className="btn-danger" onClick={() => revoke(token.id)}>{t("settings.security.revoke")}</button></div>) : <p className="px-6 py-8 text-sm text-[var(--muted)]">{t("settings.security.noTokens")}</p>}</section>
+    <section className="panel overflow-hidden"><div className="border-b border-[var(--line)] px-6 py-4 font-semibold">{t("settings.security.tokenList")}</div>{tokens.length ? tokens.map(token => <div className="flex items-center justify-between border-b border-[var(--line)] px-6 py-4 last:border-0" key={token.id}><div className="min-w-0"><p className="font-medium">{token.name}</p><p className="text-sm text-[var(--muted)]">{token.token_prefix}••••</p><p className="mt-1 flex flex-wrap gap-1">{(token.scopes || []).map(scope => <span key={scope} className="rounded bg-canvas px-1.5 py-0.5 text-2xs text-ink-soft">{scope}</span>)}</p></div><button className="btn-danger" onClick={() => revoke(token.id)}>{t("settings.security.revoke")}</button></div>) : <p className="px-6 py-8 text-sm text-[var(--muted)]">{t("settings.security.noTokens")}</p>}</section>
   </div>;
 }

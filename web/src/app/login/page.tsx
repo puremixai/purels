@@ -81,14 +81,14 @@ export default function LoginPage() {
       {verifying
         ? <form onSubmit={verify} className="space-y-4">
             <label className="block"><span className="field-label">{t("login.code")}</span><input required autoFocus autoComplete="one-time-code" className="field-control" value={code} onChange={e => setCode(e.target.value)} /></label>
-            {shownError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{shownError}</p>}
+            {shownError && <p className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{shownError}</p>}
             <button className="btn-primary w-full" disabled={loading}>{loading ? t("login.verifying") : t("login.verify")}</button>
-            <button type="button" className="w-full text-sm text-[var(--muted)] hover:text-slate-700" onClick={restart}>{t("login.back")}</button>
+            <button type="button" className="w-full text-sm text-[var(--muted)] hover:text-ink-soft" onClick={restart}>{t("login.back")}</button>
           </form>
         : <form onSubmit={submit} className="space-y-4">
             <label className="block"><span className="field-label">{t("login.username")}</span><input required autoComplete="username" className="field-control" value={username} onChange={e => setUsername(e.target.value)} /></label>
             <label className="block"><span className="field-label">{t("login.password")}</span><input required type="password" autoComplete="current-password" className="field-control" value={password} onChange={e => setPassword(e.target.value)} /></label>
-            {shownError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{shownError}</p>}
+            {shownError && <p className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{shownError}</p>}
             <button className="btn-primary w-full" disabled={loading}>{loading ? t("login.submitting") : t("login.submit")}</button>
           </form>}
       {/* After the form, and never inside it: the browser suite drives this page
@@ -105,7 +105,7 @@ export default function LoginPage() {
       {/* Outside the form on purpose: the switcher is a select, and an input
           inside the form would change the shape the suite asserts on. */}
       <div className="mt-6 border-t border-[var(--line)] pt-4">
-        <LocaleSwitcher className="field-control text-[13px] text-slate-600" />
+        <LocaleSwitcher className="field-control text-sm text-ink-soft" />
       </div>
     </section>
   </main>;

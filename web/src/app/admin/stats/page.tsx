@@ -85,7 +85,7 @@ function BarList({
             <span className="truncate" title={row.label}>{row.label}</span>
             <span className="shrink-0 tabular-nums text-[var(--muted)]">{formatNumber(row.clicks, locale)}</span>
           </div>
-          <div className="mt-1 h-1.5 rounded-full bg-slate-100">
+          <div className="mt-1 h-1.5 rounded-full bg-canvas">
             <div className="h-1.5 rounded-full bg-[var(--brand)]" style={{ width: `${max ? Math.max(3, (row.clicks / max) * 100) : 3}%` }} />
           </div>
         </div>
@@ -219,7 +219,7 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}
+      {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
 
       <div className={`grid gap-4 ${showVisitors ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         <div className="panel p-6">
@@ -257,7 +257,7 @@ export default function StatsPage() {
           </div>
           <div className="mobile-scroll">
             <table className="w-full min-w-[420px] text-left text-sm">
-              <thead className="border-b border-[var(--line)] bg-slate-50 text-xs text-[var(--muted)]">
+              <thead className="border-b border-[var(--line)] bg-canvas-alt text-xs text-[var(--muted)]">
                 <tr>
                   <th className="w-10 px-5 py-3">#</th>
                   <th className="px-5 py-3">{t("stats.table.short")}</th>
@@ -269,7 +269,7 @@ export default function StatsPage() {
                   <tr
                     key={link.id}
                     onClick={() => setSelected(link.id)}
-                    className={`cursor-pointer transition-colors ${selected === link.id ? "bg-[#edf0ff]" : "hover:bg-slate-50"}`}
+                    className={`cursor-pointer transition-colors ${selected === link.id ? "bg-brand-tint" : "hover:bg-canvas-alt"}`}
                   >
                     <td className="px-5 py-3 tabular-nums text-[var(--muted)]">{index + 1}</td>
                     <td className="max-w-[220px] truncate px-5 py-3 font-medium" title={link.destination_url}>/{link.alias}</td>
@@ -328,7 +328,7 @@ export default function StatsPage() {
 
         {selected && detail && !detailLoading && (
           <div className="space-y-6">
-            <div className="rounded-lg bg-slate-50 px-4 py-3">
+            <div className="rounded-lg bg-canvas-alt px-4 py-3">
               <p className="text-sm text-[var(--muted)]">{t("stats.totalClicks")}</p>
               <p className="mt-1 text-2xl font-bold tabular-nums">{formatNumber(detail.total_clicks, locale)}</p>
             </div>
@@ -339,7 +339,7 @@ export default function StatsPage() {
                 <div className="space-y-2">
                   {detail.daily.map((item) => (
                     <div key={item.day} className="flex items-center gap-3 text-sm">
-                      <span className="w-24 shrink-0 tabular-nums text-[var(--muted)]">{String(item.day).slice(0, 10)}</span>
+                      <span className="w-28 shrink-0 tabular-nums text-[var(--muted)]">{String(item.day).slice(0, 10)}</span>
                       <span className="h-2 rounded-full bg-[var(--brand)]" style={{ width: `${maxDaily ? Math.max(4, (item.clicks / maxDaily) * 100) : 4}%` }} />
                       <span className="tabular-nums">{formatNumber(item.clicks, locale)}</span>
                     </div>
@@ -419,7 +419,7 @@ export default function StatsPage() {
         <div className="border-b border-[var(--line)] px-6 py-4 font-semibold">{t("stats.recentClicks")}</div>
         <div className="mobile-scroll">
           <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="border-b border-[var(--line)] bg-slate-50 text-xs text-[var(--muted)]">
+            <thead className="border-b border-[var(--line)] bg-canvas-alt text-xs text-[var(--muted)]">
               <tr>
                 <th className="px-6 py-3">{t("stats.table.time")}</th>
                 <th className="px-6 py-3">{t("stats.table.short")}</th>

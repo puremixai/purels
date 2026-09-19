@@ -34,7 +34,7 @@ export default function Dashboard() {
       <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("nav.overview")}</p>
       <h1 className="mt-1 text-2xl font-bold tracking-tight">{t("nav.overview")}</h1>
     </div>
-    {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}
+    {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {cards.map((card) => <div className="panel p-5" key={card.key}>
         <p className="text-sm text-[var(--muted)]">{card.label}</p>
@@ -54,7 +54,7 @@ export default function Dashboard() {
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <span className="text-sm text-[var(--muted)] tabular-nums">{t("dashboard.clicks", { count: link.clicks ?? 0 })}</span>
-            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700">{link.status}</span>
+            <span className="rounded-full bg-success-tint px-2.5 py-1 text-xs text-success">{link.status}</span>
           </div>
         </div>) : <p className="px-5 py-8 text-center text-sm text-[var(--muted)]">{t("dashboard.empty")}</p>}
       </div>

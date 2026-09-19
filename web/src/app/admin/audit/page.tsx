@@ -40,9 +40,9 @@ function actionLabel(t: T, action: string) {
 }
 
 function actionStyle(action: string) {
-  if (action.endsWith(".delete") || action.endsWith(".revoke") || action === "session.logout") return "bg-red-50 text-red-700";
-  if (action.endsWith(".create") || action === "session.login") return "bg-emerald-50 text-emerald-700";
-  return "bg-slate-100 text-slate-600";
+  if (action.endsWith(".delete") || action.endsWith(".revoke") || action === "session.logout") return "bg-danger-tint text-danger";
+  if (action.endsWith(".create") || action === "session.login") return "bg-success-tint text-success";
+  return "bg-canvas text-ink-soft";
 }
 
 function describe(entry: AuditEntry) {
@@ -105,12 +105,12 @@ export default function AuditPage() {
         </select>
       </div>
 
-      {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}
+      {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
 
       <div className="panel overflow-hidden">
         <div className="mobile-scroll">
           <table className="w-full min-w-[900px] text-left text-sm">
-            <thead className="border-b border-[var(--line)] bg-slate-50 text-xs text-[var(--muted)]">
+            <thead className="border-b border-[var(--line)] bg-canvas-alt text-xs text-[var(--muted)]">
               <tr>
                 <th className="px-5 py-3">{t("audit.table.time")}</th>
                 <th className="px-5 py-3">{t("audit.table.actor")}</th>

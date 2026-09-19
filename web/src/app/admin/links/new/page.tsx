@@ -109,7 +109,7 @@ export default function NewLinkPage() {
             {t("links.form.interstitialUnit")}
           </label>
         </div>
-        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        {error && <p className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{error}</p>}
         <LinkRulesEditor rules={rules} onChange={setRules} />
         <div className="flex justify-end gap-3">
           <button type="button" className="btn-secondary" onClick={() => router.back()}>{t("common.cancel")}</button>

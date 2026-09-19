@@ -16,7 +16,7 @@ import { SECTIONS } from "./sections";
  */
 export function SiteHeader({ t, registrationOpen }: { t: T; registrationOpen: boolean }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-[var(--line)] bg-white/90 backdrop-blur-sm">
+    <header className="sticky top-0 z-20 border-b border-[var(--line)] bg-surface/90 backdrop-blur-sm">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-4 px-5 sm:gap-6">
         <Link className="flex shrink-0 items-center gap-2.5" href="/">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--brand)] text-base font-bold text-white">P</span>
@@ -32,7 +32,7 @@ export function SiteHeader({ t, registrationOpen }: { t: T; registrationOpen: bo
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
-          <LocaleSwitcher className="field-control field-control-inline text-[13px]" />
+          <LocaleSwitcher className="field-control field-control-inline text-sm" />
           {registrationOpen && (
             <Link className="hidden text-sm text-[var(--muted)] hover:text-[var(--ink)] sm:block" href="/login">
               {t("home.nav.signIn")}

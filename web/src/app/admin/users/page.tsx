@@ -81,12 +81,12 @@ export default function UsersPage() {
         <h1 className="mt-1 text-2xl font-bold">{t("users.title")}</h1>
       </div>
 
-      {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}
+      {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
 
       <div className="panel overflow-hidden">
         <div className="mobile-scroll">
           <table className="w-full min-w-[880px] text-left text-sm">
-            <thead className="border-b border-[var(--line)] bg-slate-50 text-xs text-[var(--muted)]">
+            <thead className="border-b border-[var(--line)] bg-canvas-alt text-xs text-[var(--muted)]">
               <tr>
                 <th className="px-5 py-3">{t("users.table.username")}</th>
                 <th className="px-5 py-3">{t("users.table.role")}</th>
@@ -104,7 +104,7 @@ export default function UsersPage() {
                   <tr key={account.id}>
                     <td className="px-5 py-4 font-medium">
                       {account.username}
-                      {isSelf && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">{t("users.self")}</span>}
+                      {isSelf && <span className="ml-2 rounded-full bg-canvas px-2 py-0.5 text-2xs text-muted">{t("users.self")}</span>}
                     </td>
                     <td className="px-5 py-4">
                       <select
@@ -119,13 +119,13 @@ export default function UsersPage() {
                       </select>
                     </td>
                     <td className="px-5 py-4">
-                      <span className={`rounded-full px-2.5 py-1 text-xs ${account.disabled ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
+                      <span className={`rounded-full px-2.5 py-1 text-xs ${account.disabled ? "bg-danger-tint text-danger" : "bg-success-tint text-success"}`}>
                         {account.disabled ? t("users.status.disabled") : t("users.status.active")}
                       </span>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
-                        <span className={`rounded-full px-2.5 py-1 text-xs ${account.mfa_enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                        <span className={`rounded-full px-2.5 py-1 text-xs ${account.mfa_enabled ? "bg-success-tint text-success" : "bg-canvas text-ink-soft"}`}>
                           {account.mfa_enabled ? t("users.mfa.enabled") : t("users.mfa.disabled")}
                         </span>
                         {account.mfa_enabled && (

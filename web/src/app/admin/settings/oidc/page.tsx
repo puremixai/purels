@@ -191,10 +191,10 @@ export default function OIDCSettingsPage() {
         <h1 className="mt-1 text-2xl font-bold">{t("settings.oidc.title")}</h1>
       </div>
 
-      {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}
-      {notice && <p className="rounded-lg bg-emerald-50 px-4 py-3 text-emerald-800">{notice}</p>}
+      {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
+      {notice && <p className="rounded-lg bg-success-tint px-4 py-3 text-success">{notice}</p>}
       {!loading && !redirectBase && (
-        <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p className="rounded-lg bg-warning-tint px-4 py-3 text-sm text-warning">
           {t("settings.oidc.noRedirectBase")}
         </p>
       )}
@@ -209,8 +209,8 @@ export default function OIDCSettingsPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <h2 className="font-semibold">{provider.display_name}</h2>
-                <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{provider.slug}</code>
-                <span className={`rounded-full px-2.5 py-1 text-xs ${provider.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                <code className="rounded bg-canvas px-1.5 py-0.5 text-xs text-ink-soft">{provider.slug}</code>
+                <span className={`rounded-full px-2.5 py-1 text-xs ${provider.enabled ? "bg-success-tint text-success" : "bg-canvas text-ink-soft"}`}>
                   {provider.enabled ? t("settings.oidc.enabled") : t("settings.oidc.disabled")}
                 </span>
               </div>
@@ -236,7 +236,7 @@ export default function OIDCSettingsPage() {
             </div>
 
             {confirming === provider.id && (
-              <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+              <p className="rounded-lg bg-danger-tint px-4 py-3 text-sm text-danger">
                 {t("settings.oidc.deleteWarning")}
                 {provider.identity_count > 0 ? ` ${t("settings.oidc.boundAccounts", { count: provider.identity_count })}` : ""}
               </p>
@@ -311,7 +311,7 @@ export default function OIDCSettingsPage() {
             {callback && (
               <div className="space-y-1 border-t border-[var(--line)] pt-4 text-sm">
                 <p className="text-[var(--muted)]">{t("settings.oidc.callback")}</p>
-                <code className="block break-all rounded bg-slate-50 px-3 py-2 font-mono text-xs">{callback}</code>
+                <code className="block break-all rounded bg-canvas-alt px-3 py-2 font-mono text-xs">{callback}</code>
               </div>
             )}
           </section>

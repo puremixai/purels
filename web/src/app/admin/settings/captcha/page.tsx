@@ -107,8 +107,8 @@ export default function CaptchaSettingsPage() {
         <h1 className="mt-1 text-2xl font-bold">{t("settings.captcha.title")}</h1>
       </div>
 
-      {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}
-      {notice && <p className="rounded-lg bg-emerald-50 px-4 py-3 text-emerald-800">{notice}</p>}
+      {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
+      {notice && <p className="rounded-lg bg-success-tint px-4 py-3 text-success">{notice}</p>}
       {loading && <p className="text-sm text-[var(--muted)]">{t("common.loading")}</p>}
 
       {!loading && (

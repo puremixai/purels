@@ -20,7 +20,7 @@ export function QrDialog({ link, onClose }: { link: LinkRecord | null; onClose: 
   const imageUrl = api.links.qrUrl(link.id, 320);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 px-5" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 px-5" onClick={onClose}>
       <div className="panel w-full max-w-sm p-6" onClick={(event) => event.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
@@ -28,7 +28,7 @@ export function QrDialog({ link, onClose }: { link: LinkRecord | null; onClose: 
             <p className="truncate text-sm text-[var(--muted)]">/{link.alias}</p>
           </div>
           <button
-            className="rounded p-1 text-slate-400 hover:bg-slate-100"
+            className="rounded p-1 text-faint hover:bg-canvas"
             onClick={onClose}
             aria-label={t("common.close")}
           >
@@ -41,7 +41,7 @@ export function QrDialog({ link, onClose }: { link: LinkRecord | null; onClose: 
           alt={t("qr.alt", { alias: link.alias })}
           width={320}
           height={320}
-          className="mx-auto rounded-lg border border-[var(--line)] bg-white"
+          className="mx-auto rounded-lg border border-[var(--line)] bg-surface"
         />
         <a href={imageUrl} download={`${link.alias}.png`} className="btn-secondary mt-4 block w-full text-center">
           {t("qr.download")}

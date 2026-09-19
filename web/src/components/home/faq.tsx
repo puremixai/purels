@@ -12,9 +12,9 @@ import type { T } from "@/lib/i18n";
  */
 export function Faq({ t }: { t: T }) {
   return (
-    <div className="mt-10 grid gap-3">
+    <div className="mt-10 divide-y divide-[var(--line)] border-y border-[var(--line)]">
       {FAQ.map((item) => (
-        <details key={item.q} className="group panel px-5 py-4">
+        <details key={item.q} className="group py-5">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold [&::-webkit-details-marker]:hidden">
             {t(item.q)}
             <Icon

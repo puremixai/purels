@@ -42,9 +42,9 @@ const BULK_ACTIONS: Array<{ value: BulkAction; labelKey: MessageKey; needsValue:
 ];
 
 function statusStyle(status: string) {
-  if (status === "active") return "bg-emerald-50 text-emerald-700";
-  if (status === "disabled") return "bg-amber-50 text-amber-700";
-  return "bg-slate-100 text-slate-600";
+  if (status === "active") return "bg-success-tint text-success";
+  if (status === "disabled") return "bg-warning-tint text-warning";
+  return "bg-canvas text-ink-soft";
 }
 
 /** "Check 200" / "Check failed" — only shown once the link has been checked. */
@@ -292,12 +292,12 @@ export default function LinksPage() {
         </select>
       </div>
 
-      {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}
+      {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
 
       {report && (
         <div className="panel space-y-2 p-4">
           <p className="text-sm">{t("links.imported", { count: report.created })}</p>
-          {report.failed > 0 && <p className="text-sm text-red-700">{t("links.importFailed", { count: report.failed })}</p>}
+          {report.failed > 0 && <p className="text-sm text-danger">{t("links.importFailed", { count: report.failed })}</p>}
           {report.errors.length > 0 && (
             <ul className="mobile-scroll max-h-48 space-y-1 overflow-y-auto text-xs text-[var(--muted)]">
               {report.errors.map((item) => (
@@ -336,7 +336,7 @@ export default function LinksPage() {
       <div className="panel overflow-hidden">
         <div className="mobile-scroll">
           <table className="w-full min-w-[1020px] text-left text-sm">
-            <thead className="border-b border-[var(--line)] bg-slate-50 text-xs text-[var(--muted)]">
+            <thead className="border-b border-[var(--line)] bg-canvas-alt text-xs text-[var(--muted)]">
               <tr>
                 <th className="w-10 px-5 py-3">
                   <input
@@ -372,7 +372,7 @@ export default function LinksPage() {
                       {(link.tags || []).map((name) => (
                         <button
                           key={name}
-                          className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-200"
+                          className="rounded-full bg-canvas px-2 py-0.5 text-xs text-ink-soft hover:bg-line"
                           onClick={() => { setTag(name); setPage(0); }}
                         >
                           {name}

@@ -60,15 +60,15 @@ export default function RegisterPage() {
     <section className="panel w-full max-w-md p-8">
       <div className="mb-8 flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--brand)] text-lg font-bold text-white">P</div><div><h1 className="text-xl font-bold">Purels</h1><p className="text-sm text-[var(--muted)]">{t("login.subtitle")}</p></div></div>
       <h2 className="mb-6 text-lg font-semibold">{t("register.heading")}</h2>
-      {captchaError && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{captchaError}</p>}
+      {captchaError && <p className="mb-4 rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{captchaError}</p>}
       {registrationClosed ? (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{t("error.registration_disabled")}</p>
+        <p className="rounded-lg bg-warning-tint px-3 py-2 text-sm text-warning">{t("error.registration_disabled")}</p>
       ) : (
         <>
           <form onSubmit={submit} className="space-y-4">
             <label className="block"><span className="field-label">{t("register.username")}</span><input required autoComplete="username" className="field-control" value={username} onChange={e => setUsername(e.target.value)} /></label>
             <label className="block"><span className="field-label">{t("register.password")}</span><input required minLength={12} type="password" autoComplete="new-password" className="field-control" value={password} onChange={e => setPassword(e.target.value)} /></label>
-            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+            {error && <p className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{error}</p>}
             <button className="btn-primary w-full" disabled={loading || captchaLoading || Boolean(captchaError) || (captchaRequired && !captchaToken)}>{loading ? t("register.submitting") : t("register.submit")}</button>
           </form>
           {captchaRequired && captcha?.site_key && (
@@ -82,7 +82,7 @@ export default function RegisterPage() {
       {/* Outside the form, for the same reason the login page keeps its own
           switcher there: the suite counts the form's inputs and buttons. */}
       <div className="mt-6 border-t border-[var(--line)] pt-4">
-        <LocaleSwitcher className="field-control text-[13px] text-slate-600" />
+        <LocaleSwitcher className="field-control text-sm text-ink-soft" />
       </div>
     </section>
   </main>;
