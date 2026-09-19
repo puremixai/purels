@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run's result irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The version comes from go.mod rather than being repeated here, so
+      # bumping it is a one-file change.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt would rewrite these files:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      # -count=1 because the default cache would let a run report a stale pass.
+      # These are unit tests: nothing here reaches a database or the network.
+      - name: Test
+        run: go test -count=1 ./...
+
+  web:
+    name: Console
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # ci rather than install: the lockfile is committed, so the build should
+      # be the one the lockfile describes.
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # The console renders every route on demand, so the build needs no API.
+      # The two variables are the ones the image passes in; the defaults in
+      # next.config.ts are the same values, and they are set explicitly here so
+      # that changing one is a deliberate act.
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ""
+          API_PROXY_TARGET: http://localhost:8080
+
+  integration:
+    name: Integration
+    runs-on: ubuntu-latest
+    needs: [go, web]
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      # The suites are Node scripts run on the host, not in a container, and
+      # they use only the standard library — so this needs no npm install, but
+      # it does need a Node the runner image does not guarantee.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Build and start the stack
+        run: docker compose -f deploy/compose.yaml up -d --build
+
+      # The gateway and the console are what the suites talk to, but /readyz is
+      # the API's own answer, and it only turns green once the database is
+      # reachable and the migrations have run.
+      - name: Wait for the API
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8080/readyz > /dev/null; then
+              echo "API is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "The API never became ready."
+          docker compose -f deploy/compose.yaml logs --tail=100
+          exit 1
+
+      # smoke-pages.mjs drives a browser over the DevTools protocol, so Chrome
+      # has to be listening before the suites run. The runner image ships one,
+      # under whichever name its image generation used.
+      - name: Start headless Chrome
+        run: |
+          chrome="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          if [ -z "$chrome" ]; then
+            echo "No Chrome found on this runner."
+            exit 1
+          fi
+          echo "Using $chrome"
+          "$chrome" --headless=new --disable-gpu --no-sandbox \
+            --remote-debugging-port=9222 \
+            --user-data-dir="$RUNNER_TEMP/chrome" about:blank \
+            > /tmp/chrome.log 2>&1 &
+          for _ in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:9222/json/version > /dev/null; then
+              echo "Chrome is listening on 9222"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Chrome never came up."
+          cat /tmp/chrome.log
+          exit 1
+
+      # The suites share the API's per-IP rate-limit bucket, so they run one at
+      # a time with a gap between them. Running them in parallel would make them
+      # fail each other's limits rather than test anything.
+      - name: Run the smoke suites
+        run: make smoke-all
+
+      - name: Stack logs
+        if: failure()
+        run: docker compose -f deploy/compose.yaml logs --tail=200
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose -f deploy/compose.yaml down -v

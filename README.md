@@ -3,6 +3,7 @@
 A self-hosted URL shortener with an operations console: short links, click
 analytics, an audit trail, role-based access control and multi-user accounts.
 
+[![CI](https://github.com/puremixai/purels/actions/workflows/ci.yml/badge.svg)](https://github.com/puremixai/purels/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Go 1.27](https://img.shields.io/badge/Go-1.27-00ADD8.svg)](go.mod)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black.svg)](web/package.json)
@@ -289,8 +290,11 @@ Console checks:
 cd web && npm run typecheck && npm run build
 ```
 
-There is no CI configuration in this repository. The checks above are what a
-change is expected to pass; the smoke suites are the integration gate.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs all of this on every
+push to `main` and every pull request: the Go and console jobs in parallel, then
+the smoke suites against a stack built from the same Compose file you run
+locally. The integration job is the slow one and the one that matters — it is
+what makes the table above a promise rather than a suggestion.
 
 ### Conventions worth knowing
 
