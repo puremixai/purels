@@ -814,9 +814,50 @@ async function main() {
     const response = await call(path, options);
     const payload = await json(response);
     const body = typeof payload === "string" ? payload : JSON.stringify(payload);
-    record(`a malformed ${what} is not echoed back`, !leak.test(body), `body=${body.slice(0, 120)}`);
+    // Gated on the request having been processed: a 429 body contains no SQL
+    // either, so an ungated leak check passes for the wrong reason.
+    const processed = response.status !== 429;
+    record(
+      `a malformed ${what} is not echoed back`,
+      processed && !leak.test(body),
+      `status=${response.status} body=${body.slice(0, 120)}`,
+    );
     record(`a malformed ${what} reads as absent`, response.status === 404, `status=${response.status}`);
   }
+
+  // ---------- a deleted link stays deleted ----------
+  // The redirect, the preview page and PATCH all answered 404 for a deleted link
+  // while GET answered 200 with the whole record, because GetLink was the one
+  // query in the store that did not filter deleted_at.
+  const goneAlias = `api${STAMP}gone`;
+  const gone = await json(
+    await call("/api/v1/links", {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrf },
+      body: { destination_url: "https://example.net/gone", alias: goneAlias },
+    }),
+  );
+  const goneId = gone.link?.id;
+  const removed = await call(`/api/v1/links/${goneId}`, {
+    method: "DELETE",
+    headers: { "X-CSRF-Token": csrf },
+  });
+  record("a link can be deleted", removed.status === 204, `status=${removed.status}`);
+  const afterDelete = await call(`/${goneAlias}`);
+  // Gated on the delete having happened: without it a 404 here just means the
+  // link was never created, which would pass for the wrong reason.
+  const reallyDeleted = removed.status === 204;
+  record(
+    "a deleted link stops redirecting",
+    reallyDeleted && afterDelete.status === 404,
+    `delete=${removed.status} status=${afterDelete.status}`,
+  );
+  const reread = await call(`/api/v1/links/${goneId}`);
+  record(
+    "a deleted link is not readable by id",
+    reallyDeleted && reread.status === 404,
+    `delete=${removed.status} status=${reread.status}`,
+  );
 
   // ---------- cleanup ----------
   const stale = await json(await call(`/api/v1/links?search=api${STAMP}&limit=100`));

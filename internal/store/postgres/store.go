@@ -324,7 +324,10 @@ func (s *Store) FindLiveLinkByDestination(ctx context.Context, destination, owne
 // GetLink returns one link. ownerID nil means no restriction (the
 // administrator's view); otherwise the link must belong to that account.
 func (s *Store) GetLink(ctx context.Context, id string, ownerID *string) (domain.Link, error) {
-	return s.scanLink(s.Pool.QueryRow(ctx, `SELECT `+linkSingleColumns+` FROM links l WHERE l.id=$1 AND ($2::uuid IS NULL OR l.user_id=$2)`, id, ownerID))
+	// deleted_at IS NULL, like every other link query here. Without it a deleted
+	// link stayed readable by id — the redirect, the preview page and PATCH all
+	// 404'd while GET answered 200 with the full record.
+	return s.scanLink(s.Pool.QueryRow(ctx, `SELECT `+linkSingleColumns+` FROM links l WHERE l.id=$1 AND l.deleted_at IS NULL AND ($2::uuid IS NULL OR l.user_id=$2)`, id, ownerID))
 }
 
 func (s *Store) scanLink(row pgx.Row) (domain.Link, error) {

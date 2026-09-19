@@ -13,6 +13,13 @@ import (
 // *rightmost* entry — the one written by our own proxy — and ignore earlier
 // entries, which a client could have supplied itself. When there is no
 // forwarding header the TCP peer address is used.
+//
+// This holds only while the proxy is the sole way in. A caller who reaches the
+// API directly controls the whole header, so every entry looks proxy-written and
+// the rightmost one is simply whatever they chose. The deployment therefore
+// publishes the API port on loopback only (see deploy/compose.yaml); publishing
+// it on the network reopens a rate-limit bypass and lets a caller forge the
+// address recorded against their own audit entries.
 func ClientIP(r *http.Request) string {
 	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
 		parts := strings.Split(forwarded, ",")

@@ -144,7 +144,12 @@ services:
       # Guards the sign-in provider list and the OIDC start/callback endpoints.
       RATE_LIMIT_OIDC: "60"
     ports:
-      - "8080:8080"
+      # Loopback only. The gateway is the entry point, and the API trusts the
+      # X-Forwarded-For that Caddy appends — so a caller who can reach this port
+      # directly can name their own address, which hands them a fresh rate-limit
+      # bucket per request and lets them write whatever they like into the audit
+      # log. Published for the smoke scripts on this host, not for the network.
+      - "127.0.0.1:8080:8080"
 
   worker:
     build:
