@@ -15,8 +15,10 @@
 		reverse_proxy api:8080
 	}
 
-	# Admin UI and its build assets.
-	@web path / /_next/* /admin* /login* /register* /favicon.ico /robots.txt
+	# Admin UI, its build assets, and the files a crawler asks for.
+	# Every root-level path the console serves has to be named here: anything
+	# that is not is treated as a short code and answered by the API instead.
+	@web path / /_next/* /admin* /login* /register* /favicon.ico /robots.txt /sitemap.xml /icon.svg
 	handle @web {
 		reverse_proxy web:3000
 	}

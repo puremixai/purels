@@ -19,6 +19,17 @@ export const en = {
   "app.title": "Purels Admin",
   "app.description": "Purels link management and operations console",
 
+  // The public homepage. It carries its own title because app.title says
+  // "Admin" and belongs to the console, and the homepage is the one page here
+  // meant to be read by somebody who has not signed in.
+  "home.title": "Purels — self-hosted URL shortener",
+  "home.tagline": "Short links, click statistics and access control, on a server you run.",
+  "home.description": "Purels is a self-hosted URL shortener: create short links, follow the clicks they get, and control who manages them with role-based permissions and multiple sign-in methods.",
+  "home.feature.links": "Short links",
+  "home.feature.stats": "Click statistics",
+  "home.feature.access": "Role-based access",
+  "home.feature.signin": "Multiple sign-in methods",
+
   "nav.overview": "Overview",
   "nav.links": "Link management",
   "nav.stats": "Statistics",

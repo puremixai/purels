@@ -2,14 +2,25 @@ import type { Metadata } from "next";
 import { I18nProvider } from "@/components/i18n-provider";
 import { tFor } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
+import { requestOrigin } from "@/lib/request-origin";
 import "./globals.css";
 
 // Reading the locale cookie makes this layout request-time, which is why the
 // metadata is generated rather than a static export: Next refuses to build a
 // file that exports both `metadata` and `generateMetadata`.
+//
+// metadataBase is what turns a page's relative canonical into an absolute URL.
+// It is set here so every page gets it, but `alternates` is deliberately not:
+// metadata merges down the segment tree, so a canonical set at this level would
+// be inherited by /admin, /login and /register and point all three at the
+// homepage.
 export async function generateMetadata(): Promise<Metadata> {
   const t = tFor(await getLocale());
-  return { title: t("app.title"), description: t("app.description") };
+  return {
+    metadataBase: new URL(await requestOrigin()),
+    title: t("app.title"),
+    description: t("app.description"),
+  };
 }
 
 export default async function RootLayout({

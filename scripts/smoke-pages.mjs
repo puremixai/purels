@@ -25,6 +25,7 @@ const PASS = process.env.ADMIN_PASS || "change-me-now";
 const STAMP = Date.now().toString(36);
 
 const PAGES = [
+  { name: "home", path: "/", expect: ["Purels", "Short links", "Click statistics", "Role-based access", "Multiple sign-in methods", "Sign in", "Register"] },
   { name: "login", path: "/login", expect: ["Sign in", "Username"] },
   { name: "register", path: "/register", expect: ["Register", "Username"] },
   { name: "dashboard", path: "/admin", expect: ["Overview", "Total links", "Recent links"] },
@@ -1143,6 +1144,60 @@ async function main() {
   await go("/admin/links", 1500);
   const expired = await waitForPath("/login");
   record("expired session -> /login", expired, `path=${await path()}`);
+
+  // ---------- phase 9: the homepage and the files a crawler asks for ----------
+  // Deliberately after the logout above: none of this needs a session, and the
+  // point is that a stranger can read all of it. The two files are fetched
+  // through BASE rather than navigated to, because going through the gateway is
+  // half of what is in question — /sitemap.xml used to miss the console entirely
+  // and be answered by the API as an unknown short code.
+  await go("/", 1500);
+  const home = await evaluate(`(() => {
+    const canonical = document.querySelector('link[rel="canonical"]');
+    return {
+      canonical: canonical ? canonical.getAttribute("href") : "",
+      h1: document.querySelector("h1")?.textContent.trim() || "",
+      title: document.title,
+      signIn: Boolean(document.querySelector('a[href="/login"]')),
+      register: Boolean(document.querySelector('a[href="/register"]')),
+    };
+  })()`);
+  // Compared by origin and path rather than as one string: the origin is derived
+  // from the request host, which is the part worth asserting.
+  const canonicalUrl = (() => { try { return new URL(home.canonical); } catch { return null; } })();
+  record(
+    "the homepage points its canonical at itself",
+    canonicalUrl?.origin === new URL(BASE).origin && canonicalUrl?.pathname === "/",
+    `${home.canonical || "none"} against ${BASE}/`,
+  );
+  record(
+    "the homepage is a document, not a redirect",
+    home.h1 === "Purels" && home.signIn && home.register && !home.title.includes("Admin"),
+    `h1=${JSON.stringify(home.h1)} title=${JSON.stringify(home.title)} signIn=${home.signIn} register=${home.register}`,
+  );
+
+  const robotsResponse = await fetch(`${BASE}/robots.txt`);
+  const robots = await robotsResponse.text();
+  const robotsType = robotsResponse.headers.get("content-type") || "";
+  const robotsSitemap = robots.includes(`Sitemap: ${BASE}/sitemap.xml`);
+  record(
+    "robots.txt reaches the console through the gateway",
+    robotsResponse.status === 200
+      && robotsType.includes("text/plain")
+      && robots.includes("User-Agent: *")
+      && robots.includes("Disallow: /admin")
+      && robotsSitemap,
+    `status=${robotsResponse.status} type=${robotsType} sitemap=${robotsSitemap}`,
+  );
+
+  const sitemapResponse = await fetch(`${BASE}/sitemap.xml`);
+  const sitemap = await sitemapResponse.text();
+  const sitemapLoc = sitemap.includes(`<loc>${BASE}/</loc>`);
+  record(
+    "sitemap.xml reaches the console through the gateway",
+    sitemapResponse.status === 200 && sitemapLoc,
+    `status=${sitemapResponse.status} loc=${sitemapLoc}`,
+  );
 
   // Leave no tab behind: the profile is shared across runs, and abandoned tabs
   // accumulate until the browser itself starts misbehaving. Dispose the context

@@ -15,6 +15,14 @@ export const zhCN: Dictionary = {
   "app.title": "Purels 管理后台",
   "app.description": "Purels 链接管理与运营后台",
 
+  "home.title": "Purels — 自托管短链接服务",
+  "home.tagline": "短链接、点击统计与权限控制，跑在你自己服务器上。",
+  "home.description": "Purels 是自托管的短链接服务：创建短链、查看点击数据，并通过角色权限与多种登录方式管理访问。",
+  "home.feature.links": "短链接",
+  "home.feature.stats": "点击统计",
+  "home.feature.access": "角色权限",
+  "home.feature.signin": "多种登录方式",
+
   "nav.overview": "概览",
   "nav.links": "链接管理",
   "nav.stats": "数据统计",
