@@ -182,7 +182,10 @@ func (s *CaptchaService) Public(ctx context.Context) (domain.PublicCaptchaSettin
 	if err != nil {
 		return domain.PublicCaptchaSettings{}, err
 	}
-	public := domain.PublicCaptchaSettings{Provider: "turnstile"}
+	public := domain.PublicCaptchaSettings{
+		Provider:            "turnstile",
+		RegistrationEnabled: s.Config.RegistrationEnabled,
+	}
 	if settings.Enabled && settings.HasSecret && strings.TrimSpace(settings.SiteKey) != "" {
 		public.Enabled = true
 		public.SiteKey = settings.SiteKey

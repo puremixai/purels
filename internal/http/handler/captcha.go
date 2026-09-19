@@ -9,6 +9,12 @@ import (
 
 // PublicCaptcha returns only the registration-page metadata. The secret and
 // administrative matching fields never leave the API.
+//
+// The settings are the response body, not a field of it: this is the one captcha
+// read whose caller wants nothing but them, and the two administrative reads
+// below are the ones wrapped in a "captcha" envelope. A client that expects the
+// envelope here gets undefined rather than an error, so the difference is worth
+// knowing about.
 func (h *Handler) PublicCaptcha(w http.ResponseWriter, r *http.Request) {
 	settings, err := h.Captcha.Public(r.Context())
 	if err != nil {

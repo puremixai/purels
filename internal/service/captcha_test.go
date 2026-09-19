@@ -105,6 +105,32 @@ func TestCaptchaServiceVerifyDisabledDoesNotCallProvider(t *testing.T) {
 	}
 }
 
+// The registration flag rides on this projection because it is the one public
+// bootstrap call the console already makes. It has to survive with CAPTCHA off,
+// and it must not be confused with Enabled: a deployment can accept new accounts
+// without protecting the form, and can protect the form with sign-up closed.
+func TestCaptchaServicePublicProjectsRegistrationFlag(t *testing.T) {
+	store := &captchaStoreStub{settings: domain.CaptchaSettings{Provider: "turnstile"}}
+
+	open := &CaptchaService{Store: store, Config: config.Config{RegistrationEnabled: true}}
+	got, err := open.Public(context.Background())
+	if err != nil {
+		t.Fatalf("Public returned error: %v", err)
+	}
+	if !got.RegistrationEnabled || got.Enabled {
+		t.Fatalf("public settings = %#v", got)
+	}
+
+	closed := &CaptchaService{Store: store, Config: config.Config{RegistrationEnabled: false}}
+	got, err = closed.Public(context.Background())
+	if err != nil {
+		t.Fatalf("Public returned error: %v", err)
+	}
+	if got.RegistrationEnabled {
+		t.Fatalf("registration reported as open while it is closed")
+	}
+}
+
 func TestCaptchaServiceUpdateSealsNewSecret(t *testing.T) {
 	key := strings.Repeat("k", 32)
 	box, _ := security.NewSecretBox(key)

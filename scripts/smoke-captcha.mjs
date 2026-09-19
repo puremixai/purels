@@ -75,10 +75,17 @@ async function main() {
   const publicBefore = await call(session(), "/api/v1/auth/captcha");
   const publicBeforePayload = await json(publicBefore);
   const enabledAtStart = publicBeforePayload.enabled === true;
+  // registration_enabled is asserted as a boolean rather than merely present:
+  // the landing page reads it to decide whether to offer a Register link, so a
+  // refactor that dropped or stringified it has to fail here rather than show up
+  // as a missing button in a browser.
   record(
     "public metadata exposes only safe fields",
-    publicBefore.status === 200 && ["enabled", "provider", "site_key"].every((key) => Object.hasOwn(publicBeforePayload, key)) && !Object.hasOwn(publicBeforePayload, "secret"),
-    `status=${publicBefore.status} enabled=${enabledAtStart}`,
+    publicBefore.status === 200
+      && ["enabled", "provider", "site_key", "registration_enabled"].every((key) => Object.hasOwn(publicBeforePayload, key))
+      && typeof publicBeforePayload.registration_enabled === "boolean"
+      && !Object.hasOwn(publicBeforePayload, "secret"),
+    `status=${publicBefore.status} enabled=${enabledAtStart} registration=${publicBeforePayload.registration_enabled}`,
   );
 
   const adminBefore = await json(await call(admin, "/api/v1/captcha"));

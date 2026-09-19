@@ -266,6 +266,13 @@ export type PublicCaptchaSettings = {
   enabled: boolean;
   provider: string;
   site_key: string;
+  /**
+   * Whether this deployment accepts new accounts. Independent of `enabled`: a
+   * deployment can have sign-up closed with a CAPTCHA configured, or the other
+   * way round. Required rather than optional, because on a flag "absent" and
+   * "false" read the same to a caller and this is the case where they differ.
+   */
+  registration_enabled: boolean;
 };
 
 /** Fields accepted by the administrative CAPTCHA settings endpoint. */

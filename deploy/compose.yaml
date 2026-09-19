@@ -179,6 +179,13 @@ services:
       args:
         NEXT_PUBLIC_API_BASE_URL: ""
         API_PROXY_TARGET: http://api:8080
+    environment:
+      # The same value as the build arg above, but read at runtime: the console's
+      # server components talk to the API directly, because a server render has
+      # no browser origin for the client-side rewrite to resolve against. The
+      # build arg alone leaves this undefined in the standalone server, which is
+      # why the landing page's registration check needs it here too.
+      API_PROXY_TARGET: http://api:8080
     depends_on:
       api:
         condition: service_started

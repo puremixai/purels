@@ -25,7 +25,10 @@ const PASS = process.env.ADMIN_PASS || "change-me-now";
 const STAMP = Date.now().toString(36);
 
 const PAGES = [
-  { name: "home", path: "/", expect: ["Purels", "Short links", "Click statistics", "Role-based access", "Multiple sign-in methods", "Sign in", "Register"] },
+  // The landing page. The strings are the section headings rather than the
+  // header's anchors, because the anchors are hidden below the md breakpoint and
+  // innerText does not see a display:none element.
+  { name: "home", path: "/", expect: ["Purels", "Shorten links. Keep the data.", "Core features", "Link management", "Click statistics", "How it works", "Runs on your own machine", "Frequently asked questions", "Ready when you are", "Get started", "Sign in"] },
   { name: "login", path: "/login", expect: ["Sign in", "Username"] },
   { name: "register", path: "/register", expect: ["Register", "Username"] },
   { name: "dashboard", path: "/admin", expect: ["Overview", "Total links", "Recent links"] },
@@ -1154,12 +1157,22 @@ async function main() {
   await go("/", 1500);
   const home = await evaluate(`(() => {
     const canonical = document.querySelector('link[rel="canonical"]');
+    const headings = [...document.querySelectorAll("h1")];
+    const anchors = [...document.querySelectorAll('header a[href^="#"]')];
+    const header = document.querySelector("header");
     return {
       canonical: canonical ? canonical.getAttribute("href") : "",
-      h1: document.querySelector("h1")?.textContent.trim() || "",
+      h1: headings.length === 1 ? headings[0].textContent.trim() : "",
+      h1Count: headings.length,
       title: document.title,
       signIn: Boolean(document.querySelector('a[href="/login"]')),
       register: Boolean(document.querySelector('a[href="/register"]')),
+      anchors: anchors.map((a) => a.getAttribute("href")),
+      anchorsResolve: anchors.every((a) => {
+        try { return Boolean(document.querySelector(a.getAttribute("href"))); } catch { return false; }
+      }),
+      details: document.querySelectorAll("details").length,
+      headerPosition: header ? getComputedStyle(header).position : "",
     };
   })()`);
   // Compared by origin and path rather than as one string: the origin is derived
@@ -1170,10 +1183,55 @@ async function main() {
     canonicalUrl?.origin === new URL(BASE).origin && canonicalUrl?.pathname === "/",
     `${home.canonical || "none"} against ${BASE}/`,
   );
+  // One h1, and it is the marketing headline rather than the wordmark: the
+  // header and footer both show "Purels", and neither of them is a heading.
   record(
     "the homepage is a document, not a redirect",
-    home.h1 === "Purels" && home.signIn && home.register && !home.title.includes("Admin"),
-    `h1=${JSON.stringify(home.h1)} title=${JSON.stringify(home.title)} signIn=${home.signIn} register=${home.register}`,
+    home.h1Count === 1 && home.h1 === "Shorten links. Keep the data." && home.signIn && !home.title.includes("Admin"),
+    `h1=${JSON.stringify(home.h1)} count=${home.h1Count} title=${JSON.stringify(home.title)} signIn=${home.signIn}`,
+  );
+
+  // The one assertion that makes the API's registration flag mean something: the
+  // page has to agree with what the deployment actually does. The value is read
+  // from the API rather than from the page, so a page that hardcoded a Register
+  // link could not pass by agreeing with itself. Note the shape: this endpoint
+  // answers with the settings themselves, and only the administrative captcha
+  // reads wrap them in a "captcha" envelope.
+  const publicCaptcha = await fetch(`${BASE}/api/v1/auth/captcha`);
+  const publicCaptchaPayload = await publicCaptcha.json().catch(() => ({}));
+  const registrationOpen = publicCaptchaPayload?.registration_enabled;
+  record(
+    "the homepage offers Register only when the deployment does",
+    publicCaptcha.status === 200
+      && typeof registrationOpen === "boolean"
+      && home.register === registrationOpen,
+    `api=${registrationOpen} link=${home.register} status=${publicCaptcha.status}`,
+  );
+
+  record(
+    "every header anchor lands on a section",
+    home.anchors.length === 4 && home.anchorsResolve,
+    `anchors=${home.anchors.join(" ")} resolve=${home.anchorsResolve}`,
+  );
+  record(
+    "the homepage header stays at the top",
+    home.headerPosition === "sticky",
+    `position=${home.headerPosition}`,
+  );
+
+  // Opened from the script only so that innerText sees the answer; the point is
+  // that the mechanism is the browser's own, so the page needs no JavaScript for
+  // it.
+  const faqFirstAnswer = await evaluate(`(() => {
+    const first = document.querySelector("details");
+    if (!first) return null;
+    first.open = true;
+    return first.innerText.includes("Yes. Every write in the console needs a session");
+  })()`);
+  record(
+    "the FAQ is six native details elements",
+    home.details === 6 && faqFirstAnswer === true,
+    `details=${home.details} firstAnswer=${faqFirstAnswer}`,
   );
 
   const robotsResponse = await fetch(`${BASE}/robots.txt`);

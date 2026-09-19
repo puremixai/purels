@@ -19,16 +19,103 @@ export const en = {
   "app.title": "Purels Admin",
   "app.description": "Purels link management and operations console",
 
-  // The public homepage. It carries its own title because app.title says
-  // "Admin" and belongs to the console, and the homepage is the one page here
-  // meant to be read by somebody who has not signed in.
+  // The public landing page. It carries its own title because app.title says
+  // "Admin" and belongs to the console, and this is the one page here meant to
+  // be read by somebody who has not signed in.
+  //
+  // This is the only block in the dictionary that is marketing copy rather than
+  // UI labels, which is why it is long: the console is terse on purpose, and a
+  // landing page has to make its own case. Two rules hold here anyway, because
+  // breaking them would be a lie rather than a style choice: nothing is claimed
+  // that a stock deployment does not do out of the box, and anything that is off
+  // until an operator turns it on is named as such (see the FAQ).
   "home.title": "Purels — self-hosted URL shortener",
   "home.tagline": "Short links, click statistics and access control, on a server you run.",
   "home.description": "Purels is a self-hosted URL shortener: create short links, follow the clicks they get, and control who manages them with role-based permissions and multiple sign-in methods.",
-  "home.feature.links": "Short links",
-  "home.feature.stats": "Click statistics",
-  "home.feature.access": "Role-based access",
-  "home.feature.signin": "Multiple sign-in methods",
+
+  "home.nav.features": "Features",
+  "home.nav.how": "How it works",
+  "home.nav.selfHost": "Self-hosting",
+  "home.nav.faq": "FAQ",
+  "home.nav.signIn": "Sign in",
+  "home.nav.getStarted": "Get started",
+
+  "home.hero.badge": "Apache-2.0 · self-hosted",
+  "home.hero.title": "Shorten links. Keep the data.",
+  "home.hero.subhead": "Short links, click statistics, divert rules and role-based permissions, running from a single Docker Compose file.",
+  "home.hero.ctaPrimary": "Get started",
+  "home.hero.ctaSecondary": "Sign in to the console",
+  // Labels for the hand-drawn console card beside the hero. The card is
+  // decorative, so these are the only words on the page that are not read out
+  // to a screen reader — the whole card is marked aria-hidden.
+  "home.hero.mock.link": "Short link",
+  "home.hero.mock.links": "Links",
+  "home.hero.mock.clicks": "Clicks",
+  "home.hero.mock.visitors": "Unique visitors",
+  "home.hero.mock.trend": "Last 7 days",
+
+  "home.features.title": "Core features",
+  "home.feature.links.title": "Link management",
+  "home.feature.links.body": "Custom aliases or generated codes, with tags, bulk actions and CSV import and export.",
+  "home.feature.stats.title": "Click statistics",
+  "home.feature.stats.body": "Trends, referrers, devices and unique visitors, down to the raw record of every click.",
+  "home.feature.rules.title": "Divert rules",
+  "home.feature.rules.body": "Send one short link to different destinations by device or user agent, matched in order.",
+  "home.feature.access.title": "Roles and permissions",
+  "home.feature.access.body": "Ten scopes, editable roles, and an audit trail for every change made in the console.",
+  "home.feature.safety.title": "Confirm before the jump",
+  "home.feature.safety.body": "An optional interstitial shows the destination first, and each link sets how long it holds.",
+  "home.feature.privacy.title": "Privacy you control",
+  "home.feature.privacy.body": "Three modes for the visitor address, including storing nothing at all.",
+
+  // A row of small print under the feature grid. Each one is a real capability,
+  // so the qualifiers are load-bearing: extra short domains are display only,
+  // and the destination check is a button an operator presses.
+  "home.chip.qr": "QR codes",
+  "home.chip.csv": "CSV import and export",
+  "home.chip.token": "Scoped API tokens",
+  "home.chip.rateLimit": "Rate limiting",
+  "home.chip.domains": "Extra short domains (display only)",
+  "home.chip.probe": "Manual destination checks",
+
+  "home.how.title": "How it works",
+  "home.how.create.title": "Create",
+  "home.how.create.body": "Paste the long link and pick your own alias, or let Purels generate one.",
+  "home.how.share.title": "Share",
+  "home.how.share.body": "The short link, a QR code, or rules that divert by device and user agent.",
+  "home.how.measure.title": "Measure",
+  "home.how.measure.body": "Trends, referrers, devices and unique visitors, all on one dashboard.",
+
+  "home.selfHost.title": "Runs on your own machine",
+  "home.selfHost.body": "Everything Purels needs fits in one Compose file.",
+  "home.selfHost.point.stack": "One Go codebase (the api and worker processes), a Next.js console, PostgreSQL and Redis",
+  "home.selfHost.point.start": "One docker compose up -d and it is running",
+  "home.selfHost.point.data": "Links and click history stay in your own database",
+  "home.selfHost.point.quota": "A configurable link quota per account; administrators are exempt",
+
+  "home.faq.title": "Frequently asked questions",
+  // Numbered rather than given semantic slugs: the wording will be revised and a
+  // slug that no longer matches its question is worse than no slug at all.
+  "home.faq.q1": "Do I need an account to create a short link?",
+  "home.faq.a1": "Yes. Every write in the console needs a session, and a link belongs to the account that created it. Administrators can see all of them.",
+  "home.faq.q2": "Can I use my own domain?",
+  "home.faq.a2": "Yes. The short code itself is global — the domain only decides what the console displays and what the QR code encodes, so each one has to resolve to this deployment on its own.",
+  "home.faq.q3": "What happens to existing accounts if registration is closed?",
+  "home.faq.a3": "Nothing. Closing registration only stops new accounts being created; every existing account keeps working.",
+  "home.faq.q4": "Where is the visitor data stored?",
+  "home.faq.a4": "In your own PostgreSQL. A visitor's address can be dropped entirely, kept as a plain hash, or hashed with a key you supply — three modes.",
+  "home.faq.q5": "Are two-factor authentication and single sign-on supported?",
+  "home.faq.a5": "Both, and both are off until you configure them: TOTP with recovery codes, and OIDC providers. Each needs an encryption key set first.",
+  "home.faq.q6": "What licence is it under?",
+  "home.faq.a6": "Apache-2.0.",
+
+  "home.cta.title": "Ready when you are",
+  "home.cta.body": "One command, or go straight to the console and look around.",
+  "home.cta.button": "Get started",
+
+  "home.footer.tagline": "Self-hosted short links, on a server you run.",
+  "home.footer.license": "Apache-2.0",
+  "home.footer.copyright": "© 2026 Purels",
 
   "nav.overview": "Overview",
   "nav.links": "Link management",

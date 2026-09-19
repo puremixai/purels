@@ -259,10 +259,24 @@ type CaptchaSettings struct {
 
 // PublicCaptchaSettings is the unauthenticated registration-page view. It
 // contains only values that are intended to be sent to the browser.
+//
+// RegistrationEnabled is deployment configuration rather than CAPTCHA
+// configuration, and the type name is the narrower for it. It rides along
+// because this is the one public bootstrap call the registration page already
+// makes, and the landing page needs the same answer to decide whether to offer
+// a Register link at all — a second endpoint for one boolean would cost a
+// route, a handler and a second round trip on both pages. If a second
+// non-CAPTCHA public value turns up, that is the moment to split out
+// GET /api/v1/auth/config.
 type PublicCaptchaSettings struct {
 	Enabled  bool   `json:"enabled"`
 	Provider string `json:"provider"`
 	SiteKey  string `json:"site_key"`
+	// RegistrationEnabled reports whether this deployment accepts new accounts.
+	// False means POST /auth/register answers 403 registration_disabled.
+	// No omitempty: a client cannot tell false from absent on a boolean, and
+	// that is exactly the case where the difference matters.
+	RegistrationEnabled bool `json:"registration_enabled"`
 }
 
 type DailyStat struct {

@@ -19,6 +19,24 @@ body {
   min-height: 100%;
 }
 
+/*
+ * Matches the sticky header's height, so an in-page anchor jump does not land
+ * with the heading it jumped to hidden underneath the header.
+ */
+html {
+  scroll-padding-top: 5rem;
+}
+
+/*
+ * Reduced motion wins: a jump is a navigation, not a decoration, and turning
+ * the animation off costs the reader nothing.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 body {
   margin: 0;
   background: var(--canvas);
@@ -49,6 +67,13 @@ button:disabled {
   outline-offset: 2px;
 }
 
+/*
+ * Unlayered like `.field-control` below, and for the same reason: this is the
+ * console's default surface, and it has to win over whatever a component layer
+ * happens to set. The consequence is that `className="panel bg-…"` silently
+ * keeps the default background — a panel that needs a different one has to spell
+ * out the border, radius and shadow instead of borrowing this class.
+ */
 .panel {
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -82,6 +107,22 @@ button:disabled {
 .field-control:focus {
   border-color: #8295ef;
   box-shadow: 0 0 0 3px #e8ecff;
+}
+
+/*
+ * For a control that sits inline in a bar rather than filling a form, such as
+ * the language select in the landing page header.
+ *
+ * This has to be a class rather than a Tailwind utility. `.field-control` is
+ * unlayered, and an unlayered declaration beats everything inside `@layer
+ * utilities` no matter how specific the utility is — which is also why the
+ * `text-slate-600` every caller passes to LocaleSwitcher has never applied.
+ * Two unlayered rules are resolved by source order, so this one has to come
+ * after `.field-control`.
+ */
+.field-control-inline {
+  width: auto;
+  padding: 6px 10px;
 }
 
 .btn-primary,
