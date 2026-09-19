@@ -1,22 +1,24 @@
 "use client";
 
+import { useT } from "@/components/i18n-provider";
 import { LinkRuleInput } from "@/lib/api-client";
+import type { MessageKey } from "@/lib/i18n";
 
 /** Matches the API's cap, so the button disables before the request would fail. */
 const MAX_RULES = 10;
 
-const MATCH_TYPES = [
-  { value: "ua_contains", label: "UA 包含" },
-  { value: "device", label: "设备类型" },
+const MATCH_TYPES: Array<{ value: string; labelKey: MessageKey }> = [
+  { value: "ua_contains", labelKey: "rules.matchUa" },
+  { value: "device", labelKey: "rules.matchDevice" },
 ];
 
 /** The vocabulary DeviceClass can return, which is what a device rule matches. */
-const DEVICES = [
-  { value: "mobile", label: "手机" },
-  { value: "tablet", label: "平板" },
-  { value: "desktop", label: "桌面" },
-  { value: "bot", label: "爬虫" },
-  { value: "unknown", label: "未知" },
+const DEVICES: Array<{ value: string; labelKey: MessageKey }> = [
+  { value: "mobile", labelKey: "deviceRule.mobile" },
+  { value: "tablet", labelKey: "deviceRule.tablet" },
+  { value: "desktop", labelKey: "deviceRule.desktop" },
+  { value: "bot", labelKey: "deviceRule.bot" },
+  { value: "unknown", labelKey: "deviceRule.unknown" },
 ];
 
 export function emptyRule(): LinkRuleInput {
@@ -34,6 +36,8 @@ export function LinkRulesEditor({
   rules: LinkRuleInput[];
   onChange: (rules: LinkRuleInput[]) => void;
 }) {
+  const t = useT();
+
   function update(index: number, patch: Partial<LinkRuleInput>) {
     onChange(rules.map((rule, position) => (position === index ? { ...rule, ...patch } : rule)));
   }
@@ -41,25 +45,25 @@ export function LinkRulesEditor({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="field-label mb-0">分流规则</span>
+        <span className="field-label mb-0">{t("rules.title")}</span>
         <button
           type="button"
           className="btn-secondary"
           disabled={rules.length >= MAX_RULES}
           onClick={() => onChange([...rules, emptyRule()])}
         >
-          添加规则
+          {t("rules.add")}
         </button>
       </div>
 
       {rules.length === 0 ? (
-        <p className="text-sm text-[var(--muted)]">无</p>
+        <p className="text-sm text-[var(--muted)]">{t("rules.none")}</p>
       ) : (
         rules.map((rule, index) => (
           <div key={index} className="space-y-3 rounded-lg border border-[var(--line)] p-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
-                <span className="field-label">匹配方式</span>
+                <span className="field-label">{t("rules.matchType")}</span>
                 <select
                   className="field-control"
                   value={rule.match_type}
@@ -74,14 +78,14 @@ export function LinkRulesEditor({
                 >
                   {MATCH_TYPES.map((type) => (
                     <option key={type.value} value={type.value}>
-                      {type.label}
+                      {t(type.labelKey)}
                     </option>
                   ))}
                 </select>
               </label>
 
               <label className="block">
-                <span className="field-label">匹配值</span>
+                <span className="field-label">{t("rules.matchValue")}</span>
                 {rule.match_type === "device" ? (
                   <select
                     className="field-control"
@@ -90,7 +94,7 @@ export function LinkRulesEditor({
                   >
                     {DEVICES.map((device) => (
                       <option key={device.value} value={device.value}>
-                        {device.label}
+                        {t(device.labelKey)}
                       </option>
                     ))}
                   </select>
@@ -107,7 +111,7 @@ export function LinkRulesEditor({
             </div>
 
             <label className="block">
-              <span className="field-label">目标 URL</span>
+              <span className="field-label">{t("links.form.destination")}</span>
               <input
                 type="url"
                 className="field-control"
@@ -119,15 +123,15 @@ export function LinkRulesEditor({
 
             <div className="flex items-end gap-3">
               <label className="block flex-1">
-                <span className="field-label">跳转状态码</span>
+                <span className="field-label">{t("links.form.redirectCode")}</span>
                 <select
                   className="field-control"
                   value={String(rule.redirect_code)}
                   onChange={(event) => update(index, { redirect_code: Number(event.target.value) })}
                 >
-                  <option value="0">跟随链接</option>
-                  <option value="302">302 临时跳转</option>
-                  <option value="301">301 永久跳转</option>
+                  <option value="0">{t("links.redirect.follow")}</option>
+                  <option value="302">{t("links.redirect.temporary")}</option>
+                  <option value="301">{t("links.redirect.permanent")}</option>
                 </select>
               </label>
               <button
@@ -135,7 +139,7 @@ export function LinkRulesEditor({
                 className="btn-danger"
                 onClick={() => onChange(rules.filter((_, position) => position !== index))}
               >
-                删除
+                {t("common.delete")}
               </button>
             </div>
           </div>

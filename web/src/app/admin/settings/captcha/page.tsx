@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, ApiError, type CaptchaInput, type CaptchaSettings } from "@/lib/api-client";
+import { api, type CaptchaInput, type CaptchaSettings } from "@/lib/api-client";
+import { useT } from "@/components/i18n-provider";
+import { errorText, type MessageKey, type T } from "@/lib/i18n";
 
 type Draft = {
   enabled: boolean;
@@ -32,12 +34,17 @@ function toDraft(settings: CaptchaSettings): Draft {
   };
 }
 
-function describeError(error: unknown, fallback: string) {
-  if (error instanceof ApiError) return error.status === 403 ? "没有权限管理注册保护。" : error.message;
-  return fallback;
+/**
+ * An account without captcha:manage gets a 403 here. It is rendered as a
+ * permission boundary rather than as the API's own wording, so a page that is
+ * merely out of reach does not look like a page that broke.
+ */
+function describeError(t: T, e: unknown, fallback: MessageKey) {
+  return errorText(t, e, fallback, { 403: "settings.captcha.noPermission" });
 }
 
 export default function CaptchaSettingsPage() {
+  const t = useT();
   const [saved, setSaved] = useState<Draft>(emptyDraft);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [error, setError] = useState("");
@@ -53,11 +60,11 @@ export default function CaptchaSettingsPage() {
       setDraft(next);
       setError("");
     } catch (e) {
-      setError(describeError(e, "加载失败"));
+      setError(describeError(t, e, "error.load"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -85,9 +92,9 @@ export default function CaptchaSettingsPage() {
       const next = toDraft(await api.captcha.update(input));
       setSaved(next);
       setDraft(next);
-      setNotice("已保存");
+      setNotice(t("settings.saved"));
     } catch (e) {
-      setError(describeError(e, "保存失败"));
+      setError(describeError(t, e, "error.save"));
     } finally {
       setBusy(false);
     }
@@ -96,13 +103,13 @@ export default function CaptchaSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm text-[var(--muted)]">工作台 / 注册保护</p>
-        <h1 className="mt-1 text-2xl font-bold">注册保护</h1>
+        <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("settings.captcha.title")}</p>
+        <h1 className="mt-1 text-2xl font-bold">{t("settings.captcha.title")}</h1>
       </div>
 
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}
       {notice && <p className="rounded-lg bg-emerald-50 px-4 py-3 text-emerald-800">{notice}</p>}
-      {loading && <p className="text-sm text-[var(--muted)]">正在加载...</p>}
+      {loading && <p className="text-sm text-[var(--muted)]">{t("common.loading")}</p>}
 
       {!loading && (
         <section className="panel space-y-5 p-6">
@@ -112,39 +119,39 @@ export default function CaptchaSettingsPage() {
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" className="h-4 w-4" checked={draft.enabled} onChange={() => edit({ enabled: !draft.enabled })} />
-              启用
+              {t("settings.captcha.enable")}
             </label>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">站点密钥</span>
+              <span className="text-[var(--muted)]">{t("settings.captcha.siteKey")}</span>
               <input className="field-control" value={draft.site_key} onChange={(e) => edit({ site_key: e.target.value })} />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">密钥{draft.has_secret ? "（留空保持不变）" : ""}</span>
+              <span className="text-[var(--muted)]">{t("settings.captcha.secretKey")}{draft.has_secret ? t("settings.leaveBlank") : ""}</span>
               <input
                 className="field-control"
                 type="password"
                 autoComplete="new-password"
-                placeholder={draft.has_secret ? "已设置" : "未设置"}
+                placeholder={draft.has_secret ? t("settings.secretSet") : t("settings.secretUnset")}
                 value={draft.secret}
                 onChange={(e) => edit({ secret: e.target.value })}
               />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">预期主机名</span>
+              <span className="text-[var(--muted)]">{t("settings.captcha.expectedHostname")}</span>
               <input className="field-control" placeholder="example.com" value={draft.expected_hostname} onChange={(e) => edit({ expected_hostname: e.target.value })} />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">预期动作</span>
+              <span className="text-[var(--muted)]">{t("settings.captcha.expectedAction")}</span>
               <input className="field-control" placeholder="register" value={draft.expected_action} onChange={(e) => edit({ expected_action: e.target.value })} />
             </label>
           </div>
 
           <div className="flex justify-end">
             <button className="btn-primary" disabled={!dirty || busy} onClick={save}>
-              {busy ? "正在保存..." : "保存"}
+              {busy ? t("common.saving") : t("common.save")}
             </button>
           </div>
         </section>

@@ -1,28 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, ApiError, ClickPage, DateRange, LinkRecord, LinkStats, StatsOverview } from "@/lib/api-client";
+import { api, ClickPage, DateRange, LinkRecord, LinkStats, StatsOverview } from "@/lib/api-client";
+import { useLocale, useT } from "@/components/i18n-provider";
 import { downloadCsv } from "@/lib/csv";
+import { errorText, hasMessage, type Locale, type MessageKey, type T } from "@/lib/i18n";
 
 const CLICK_PAGE_SIZE = 20;
 
+// The label is a key rather than text: the preset list is built once at module
+// scope, before any locale is known, and resolved when it is rendered.
 const RANGE_PRESETS = [
-  { value: "today", label: "今天", days: 0 },
-  { value: "7d", label: "近 7 天", days: 6 },
-  { value: "30d", label: "近 30 天", days: 29 },
-  { value: "90d", label: "近 90 天", days: 89 },
-  { value: "365d", label: "近 365 天", days: 364 },
-] as const;
+  { value: "today", labelKey: "stats.range.today", days: 0 },
+  { value: "7d", labelKey: "stats.range.7d", days: 6 },
+  { value: "30d", labelKey: "stats.range.30d", days: 29 },
+  { value: "90d", labelKey: "stats.range.90d", days: 89 },
+  { value: "365d", labelKey: "stats.range.365d", days: 364 },
+] as const satisfies ReadonlyArray<{ value: string; labelKey: MessageKey; days: number }>;
 
 type PresetValue = (typeof RANGE_PRESETS)[number]["value"];
 
-const DEVICE_LABELS: Record<string, string> = {
-  desktop: "桌面",
-  mobile: "移动",
-  tablet: "平板",
-  bot: "机器人",
-  unknown: "未知",
-};
+function deviceLabel(t: T, device: string) {
+  const key = `deviceStat.${device}`;
+  return hasMessage(key) ? t(key) : device;
+}
 
 function toIsoDate(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -38,15 +39,16 @@ function rangeForPreset(preset: PresetValue): DateRange {
   return { from: toIsoDate(from), to: toIsoDate(to) };
 }
 
-function formatTimestamp(value: string) {
+function formatTimestamp(value: string, locale: Locale) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return date.toLocaleString(locale, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 function TrendChart({ points }: { points: StatsOverview["trend"] }) {
+  const t = useT();
   const max = points.reduce((peak, point) => Math.max(peak, point.clicks), 0);
-  if (!points.length) return <p className="text-sm text-[var(--muted)]">该区间暂无点击。</p>;
+  if (!points.length) return <p className="text-sm text-[var(--muted)]">{t("stats.noClicks")}</p>;
   const gap = points.length > 120 ? "gap-0" : points.length > 45 ? "gap-px" : "gap-[3px]";
   return (
     <div>
@@ -56,26 +58,26 @@ function TrendChart({ points }: { points: StatsOverview["trend"] }) {
             key={point.day}
             className="flex-1 rounded-t bg-[var(--brand)] opacity-80 hover:opacity-100"
             style={{ height: `${max ? Math.max(2, (point.clicks / max) * 100) : 2}%` }}
-            title={`${String(point.day).slice(0, 10)} · ${point.clicks} 次点击`}
+            title={t("stats.pointTitle", { day: String(point.day).slice(0, 10), count: point.clicks })}
           />
         ))}
       </div>
       <div className="mt-2 flex justify-between text-xs text-[var(--muted)]">
         <span>{String(points[0].day).slice(0, 10)}</span>
-        <span>单日峰值 {max}</span>
+        <span>{t("stats.peak", { count: max })}</span>
         <span>{String(points[points.length - 1].day).slice(0, 10)}</span>
       </div>
     </div>
   );
 }
 
-function BarList({ rows, emptyText }: { rows: Array<{ label: string; clicks: number }>; emptyText: string }) {
+function BarList({ rows, emptyText }: { rows: Array<{ key: string; label: string; clicks: number }>; emptyText: string }) {
   const max = rows.reduce((peak, row) => Math.max(peak, row.clicks), 0);
   if (!rows.length) return <p className="text-sm text-[var(--muted)]">{emptyText}</p>;
   return (
     <div className="space-y-3">
       {rows.map((row) => (
-        <div key={row.label}>
+        <div key={row.key}>
           <div className="flex items-baseline justify-between gap-3 text-sm">
             <span className="truncate" title={row.label}>{row.label}</span>
             <span className="shrink-0 tabular-nums text-[var(--muted)]">{row.clicks}</span>
@@ -90,6 +92,8 @@ function BarList({ rows, emptyText }: { rows: Array<{ label: string; clicks: num
 }
 
 export default function StatsPage() {
+  const t = useT();
+  const locale = useLocale();
   const [preset, setPreset] = useState<PresetValue>("30d");
   const [overview, setOverview] = useState<StatsOverview | null>(null);
   const [ranking, setRanking] = useState<LinkRecord[]>([]);
@@ -110,18 +114,18 @@ export default function StatsPage() {
     api.stats
       .overview(range)
       .then((result) => { if (!cancelled) { setOverview(result); setError(""); } })
-      .catch((e) => { if (!cancelled) setError(e instanceof ApiError ? e.message : "加载失败"); });
+      .catch((e) => { if (!cancelled) setError(errorText(t, e, "stats.loadFailed")); });
     return () => { cancelled = true; };
-  }, [range]);
+  }, [range, t]);
 
   useEffect(() => {
     let cancelled = false;
     api.stats
       .top(order, 10, range)
       .then((links) => { if (!cancelled) setRanking(links); })
-      .catch((e) => { if (!cancelled) setError(e instanceof ApiError ? e.message : "加载排行失败"); });
+      .catch((e) => { if (!cancelled) setError(errorText(t, e, "stats.loadRankingFailed")); });
     return () => { cancelled = true; };
-  }, [order, range]);
+  }, [order, range, t]);
 
   useEffect(() => {
     api.links
@@ -145,10 +149,10 @@ export default function StatsPage() {
     api.stats
       .link(selected, range)
       .then((result) => { if (!cancelled) setDetail(result.stats); })
-      .catch((e) => { if (!cancelled) setError(e instanceof ApiError ? e.message : "加载明细失败"); })
+      .catch((e) => { if (!cancelled) setError(errorText(t, e, "stats.loadDetailFailed")); })
       .finally(() => { if (!cancelled) setDetailLoading(false); });
     return () => { cancelled = true; };
-  }, [selected, range]);
+  }, [selected, range, t]);
 
   // A different link or window starts the log back at page one.
   useEffect(() => {
@@ -165,24 +169,24 @@ export default function StatsPage() {
     api.stats
       .linkClicks(selected, range, { limit: CLICK_PAGE_SIZE, offset: clickPage * CLICK_PAGE_SIZE })
       .then((result) => { if (!cancelled) setClickLog(result); })
-      .catch((e) => { if (!cancelled) setError(e instanceof ApiError ? e.message : "加载点击明细失败"); })
+      .catch((e) => { if (!cancelled) setError(errorText(t, e, "stats.loadClicksFailed")); })
       .finally(() => { if (!cancelled) setClickLoading(false); });
     return () => { cancelled = true; };
-  }, [selected, range, clickPage]);
+  }, [selected, range, clickPage, t]);
 
   const exportRanking = useCallback(() => {
     downloadCsv(`purels-ranking-${range.from}_${range.to}.csv`, [
-      ["排名", "短链接", "目标地址", "点击"],
+      [t("stats.csv.rank"), t("stats.table.short"), t("stats.csv.destination"), t("stats.table.clicks")],
       ...ranking.map((link, index) => [index + 1, `/${link.alias}`, link.destination_url, link.clicks ?? 0]),
     ]);
-  }, [ranking, range]);
+  }, [ranking, range, t]);
 
   const exportTrend = useCallback(() => {
     downloadCsv(`purels-trend-${range.from}_${range.to}.csv`, [
-      ["日期", "点击"],
+      [t("stats.csv.date"), t("stats.table.clicks")],
       ...(overview?.trend ?? []).map((point) => [String(point.day).slice(0, 10), point.clicks]),
     ]);
-  }, [overview, range]);
+  }, [overview, range, t]);
 
   const detailAlias = allLinks.find((link) => link.id === selected)?.alias
     ?? ranking.find((link) => link.id === selected)?.alias
@@ -196,8 +200,8 @@ export default function StatsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm text-[var(--muted)]">工作台 / 数据统计</p>
-          <h1 className="mt-1 text-2xl font-bold">数据统计</h1>
+          <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("stats.title")}</p>
+          <h1 className="mt-1 text-2xl font-bold">{t("stats.title")}</h1>
         </div>
         <div className="flex flex-wrap gap-2">
           {RANGE_PRESETS.map((option) => (
@@ -206,7 +210,7 @@ export default function StatsPage() {
               className={preset === option.value ? "btn-primary" : "btn-secondary"}
               onClick={() => setPreset(option.value)}
             >
-              {option.label}
+              {t(option.labelKey)}
             </button>
           ))}
         </div>
@@ -216,25 +220,25 @@ export default function StatsPage() {
 
       <div className={`grid gap-4 ${showVisitors ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         <div className="panel p-6">
-          <p className="text-sm text-[var(--muted)]">区间点击</p>
+          <p className="text-sm text-[var(--muted)]">{t("stats.clicksInRange")}</p>
           <p className="mt-3 text-4xl font-bold tabular-nums">{overview?.total_clicks ?? 0}</p>
         </div>
         {showVisitors && (
           <div className="panel p-6">
-            <p className="text-sm text-[var(--muted)]">独立访客</p>
+            <p className="text-sm text-[var(--muted)]">{t("stats.uniqueVisitors")}</p>
             <p className="mt-3 text-4xl font-bold tabular-nums">{overview?.unique_visitors ?? 0}</p>
           </div>
         )}
         <div className="panel p-6">
-          <p className="text-sm text-[var(--muted)]">总链接数</p>
+          <p className="text-sm text-[var(--muted)]">{t("stats.totalLinks")}</p>
           <p className="mt-3 text-4xl font-bold tabular-nums">{overview?.total_links ?? 0}</p>
         </div>
       </div>
 
       <section className="panel p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-semibold">全局点击趋势</h2>
-          <button className="btn-secondary" onClick={exportTrend}>导出 CSV</button>
+          <h2 className="font-semibold">{t("stats.trend")}</h2>
+          <button className="btn-secondary" onClick={exportTrend}>{t("stats.exportCsv")}</button>
         </div>
         <TrendChart points={overview?.trend ?? []} />
       </section>
@@ -242,10 +246,10 @@ export default function StatsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="panel overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-5 py-4">
-            <h2 className="font-semibold">点击排行</h2>
+            <h2 className="font-semibold">{t("stats.ranking")}</h2>
             <div className="flex gap-2">
-              <button className={order === "top" ? "btn-primary" : "btn-secondary"} onClick={() => setOrder("top")}>最多</button>
-              <button className={order === "bottom" ? "btn-primary" : "btn-secondary"} onClick={() => setOrder("bottom")}>最少</button>
+              <button className={order === "top" ? "btn-primary" : "btn-secondary"} onClick={() => setOrder("top")}>{t("stats.most")}</button>
+              <button className={order === "bottom" ? "btn-primary" : "btn-secondary"} onClick={() => setOrder("bottom")}>{t("stats.fewest")}</button>
             </div>
           </div>
           <div className="mobile-scroll">
@@ -253,8 +257,8 @@ export default function StatsPage() {
               <thead className="border-b border-[var(--line)] bg-slate-50 text-xs text-[var(--muted)]">
                 <tr>
                   <th className="w-10 px-5 py-3">#</th>
-                  <th className="px-5 py-3">短链接</th>
-                  <th className="px-5 py-3 text-right">点击</th>
+                  <th className="px-5 py-3">{t("stats.table.short")}</th>
+                  <th className="px-5 py-3 text-right">{t("stats.table.clicks")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--line)]">
@@ -271,27 +275,35 @@ export default function StatsPage() {
                 ))}
               </tbody>
             </table>
-            {!ranking.length && <p className="px-5 py-10 text-center text-sm text-[var(--muted)]">该区间暂无点击数据。</p>}
+            {!ranking.length && <p className="px-5 py-10 text-center text-sm text-[var(--muted)]">{t("stats.emptyRanking")}</p>}
           </div>
           <div className="border-t border-[var(--line)] px-5 py-3 text-right">
-            <button className="btn-secondary" onClick={exportRanking} disabled={!ranking.length}>导出排行 CSV</button>
+            <button className="btn-secondary" onClick={exportRanking} disabled={!ranking.length}>{t("stats.exportRanking")}</button>
           </div>
         </section>
 
         <div className="space-y-6">
           <section className="panel p-6">
-            <h2 className="mb-5 font-semibold">来源分布</h2>
+            <h2 className="mb-5 font-semibold">{t("stats.referrers")}</h2>
             <BarList
-              rows={(overview?.referrers ?? []).map((item) => ({ label: item.referrer || "直接访问", clicks: item.clicks }))}
-              emptyText="该区间暂无来源数据。"
+              rows={(overview?.referrers ?? []).map((item) => ({
+                key: item.referrer || "__direct__",
+                label: item.referrer || t("stats.direct"),
+                clicks: item.clicks,
+              }))}
+              emptyText={t("stats.emptyReferrers")}
             />
           </section>
 
           <section className="panel p-6">
-            <h2 className="mb-5 font-semibold">设备分布</h2>
+            <h2 className="mb-5 font-semibold">{t("stats.devices")}</h2>
             <BarList
-              rows={(overview?.devices ?? []).map((item) => ({ label: DEVICE_LABELS[item.device] ?? item.device, clicks: item.clicks }))}
-              emptyText="该区间暂无设备数据。"
+              rows={(overview?.devices ?? []).map((item) => ({
+                key: item.device,
+                label: deviceLabel(t, item.device),
+                clicks: item.clicks,
+              }))}
+              emptyText={t("stats.emptyDevices")}
             />
           </section>
         </div>
@@ -299,25 +311,25 @@ export default function StatsPage() {
 
       <section className="panel p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-semibold">单链接明细{detailAlias ? ` · /${detailAlias}` : ""}</h2>
+          <h2 className="font-semibold">{t("stats.linkDetail")}{detailAlias ? ` · /${detailAlias}` : ""}</h2>
           <select className="field-control w-auto min-w-[220px]" value={selected} onChange={(event) => setSelected(event.target.value)}>
-            <option value="">选择一条链接…</option>
+            <option value="">{t("stats.selectLink")}</option>
             {allLinks.map((link) => <option key={link.id} value={link.id}>/{link.alias}</option>)}
           </select>
         </div>
 
-        {!selected && <p className="text-sm text-[var(--muted)]">该区间暂无点击。</p>}
-        {selected && detailLoading && <p className="text-sm text-[var(--muted)]">加载中…</p>}
+        {!selected && <p className="text-sm text-[var(--muted)]">{t("stats.noClicks")}</p>}
+        {selected && detailLoading && <p className="text-sm text-[var(--muted)]">{t("stats.loading")}</p>}
 
         {selected && detail && !detailLoading && (
           <div className="space-y-6">
             <div className="rounded-lg bg-slate-50 px-4 py-3">
-              <p className="text-sm text-[var(--muted)]">累计点击</p>
+              <p className="text-sm text-[var(--muted)]">{t("stats.totalClicks")}</p>
               <p className="mt-1 text-2xl font-bold tabular-nums">{detail.total_clicks}</p>
             </div>
 
             <div>
-              <h3 className="mb-3 text-sm font-semibold">按天点击</h3>
+              <h3 className="mb-3 text-sm font-semibold">{t("stats.dailyClicks")}</h3>
               {detail.daily.length ? (
                 <div className="space-y-2">
                   {detail.daily.map((item) => (
@@ -329,22 +341,22 @@ export default function StatsPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-[var(--muted)]">该区间暂无点击。</p>
+                <p className="text-sm text-[var(--muted)]">{t("stats.noClicks")}</p>
               )}
             </div>
 
             <div>
-              <h3 className="mb-3 text-sm font-semibold">来源分布</h3>
+              <h3 className="mb-3 text-sm font-semibold">{t("stats.referrers")}</h3>
               {detail.referrers.length ? (
                 <div className="mobile-scroll">
                   <table className="w-full min-w-[420px] text-left text-sm">
                     <thead className="border-b border-[var(--line)] text-xs text-[var(--muted)]">
-                      <tr><th className="py-2">来源</th><th className="py-2 text-right">点击</th></tr>
+                      <tr><th className="py-2">{t("stats.table.referrer")}</th><th className="py-2 text-right">{t("stats.table.clicks")}</th></tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--line)]">
                       {detail.referrers.map((item) => (
                         <tr key={item.referrer || "__direct__"}>
-                          <td className="max-w-[420px] truncate py-3">{item.referrer || "直接访问"}</td>
+                          <td className="max-w-[420px] truncate py-3">{item.referrer || t("stats.direct")}</td>
                           <td className="py-3 text-right tabular-nums">{item.clicks}</td>
                         </tr>
                       ))}
@@ -352,38 +364,38 @@ export default function StatsPage() {
                   </table>
                 </div>
               ) : (
-                <p className="text-sm text-[var(--muted)]">该区间暂无来源数据。</p>
+                <p className="text-sm text-[var(--muted)]">{t("stats.emptyReferrers")}</p>
               )}
             </div>
 
             <div>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold">点击明细</h3>
+                <h3 className="text-sm font-semibold">{t("stats.clickLog")}</h3>
                 {(clickLog?.total ?? 0) > 0 && (
                   <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
-                    <button className="btn-secondary" disabled={clickPage === 0 || clickLoading} onClick={() => setClickPage((current) => Math.max(0, current - 1))}>上一页</button>
-                    <span className="tabular-nums">第 {clickPage + 1} / {Math.max(1, Math.ceil((clickLog?.total ?? 0) / CLICK_PAGE_SIZE))} 页</span>
-                    <button className="btn-secondary" disabled={(clickPage + 1) * CLICK_PAGE_SIZE >= (clickLog?.total ?? 0) || clickLoading} onClick={() => setClickPage((current) => current + 1)}>下一页</button>
+                    <button className="btn-secondary" disabled={clickPage === 0 || clickLoading} onClick={() => setClickPage((current) => Math.max(0, current - 1))}>{t("common.previous")}</button>
+                    <span className="tabular-nums">{t("common.page", { page: clickPage + 1, count: Math.max(1, Math.ceil((clickLog?.total ?? 0) / CLICK_PAGE_SIZE)) })}</span>
+                    <button className="btn-secondary" disabled={(clickPage + 1) * CLICK_PAGE_SIZE >= (clickLog?.total ?? 0) || clickLoading} onClick={() => setClickPage((current) => current + 1)}>{t("common.next")}</button>
                   </div>
                 )}
               </div>
               {clickLoading ? (
-                <p className="text-sm text-[var(--muted)]">加载中…</p>
+                <p className="text-sm text-[var(--muted)]">{t("stats.loading")}</p>
               ) : (clickLog?.clicks ?? []).length ? (
                 <div className="mobile-scroll">
                   <table className="w-full min-w-[560px] text-left text-sm">
                     <thead className="border-b border-[var(--line)] text-xs text-[var(--muted)]">
                       <tr>
-                        <th className="py-2">时间</th>
-                        <th className="py-2">来源</th>
+                        <th className="py-2">{t("stats.table.time")}</th>
+                        <th className="py-2">{t("stats.table.referrer")}</th>
                         <th className="py-2">User-Agent</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--line)]">
                       {(clickLog?.clicks ?? []).map((click, index) => (
                         <tr key={`${click.occurred_at}-${index}`}>
-                          <td className="whitespace-nowrap py-3 tabular-nums text-[var(--muted)]">{formatTimestamp(click.occurred_at)}</td>
-                          <td className="max-w-[200px] truncate py-3 text-[var(--muted)]">{click.referrer || "直接访问"}</td>
+                          <td className="whitespace-nowrap py-3 tabular-nums text-[var(--muted)]">{formatTimestamp(click.occurred_at, locale)}</td>
+                          <td className="max-w-[200px] truncate py-3 text-[var(--muted)]">{click.referrer || t("stats.direct")}</td>
                           <td className="max-w-[320px] truncate py-3 text-[var(--muted)]" title={click.user_agent}>{click.user_agent || "—"}</td>
                         </tr>
                       ))}
@@ -391,7 +403,7 @@ export default function StatsPage() {
                   </table>
                 </div>
               ) : (
-                <p className="text-sm text-[var(--muted)]">该区间暂无点击记录。</p>
+                <p className="text-sm text-[var(--muted)]">{t("stats.emptyClicks")}</p>
               )}
             </div>
           </div>
@@ -399,29 +411,29 @@ export default function StatsPage() {
       </section>
 
       <section className="panel overflow-hidden">
-        <div className="border-b border-[var(--line)] px-6 py-4 font-semibold">最近点击</div>
+        <div className="border-b border-[var(--line)] px-6 py-4 font-semibold">{t("stats.recentClicks")}</div>
         <div className="mobile-scroll">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="border-b border-[var(--line)] bg-slate-50 text-xs text-[var(--muted)]">
               <tr>
-                <th className="px-6 py-3">时间</th>
-                <th className="px-6 py-3">短链接</th>
-                <th className="px-6 py-3">来源</th>
+                <th className="px-6 py-3">{t("stats.table.time")}</th>
+                <th className="px-6 py-3">{t("stats.table.short")}</th>
+                <th className="px-6 py-3">{t("stats.table.referrer")}</th>
                 <th className="px-6 py-3">User-Agent</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--line)]">
               {(overview?.recent_clicks ?? []).map((click, index) => (
                 <tr key={`${click.link_id}-${click.occurred_at}-${index}`}>
-                  <td className="whitespace-nowrap px-6 py-3 tabular-nums text-[var(--muted)]">{formatTimestamp(click.occurred_at)}</td>
+                  <td className="whitespace-nowrap px-6 py-3 tabular-nums text-[var(--muted)]">{formatTimestamp(click.occurred_at, locale)}</td>
                   <td className="px-6 py-3 font-medium">/{click.alias || "—"}</td>
-                  <td className="max-w-[220px] truncate px-6 py-3 text-[var(--muted)]">{click.referrer || "直接访问"}</td>
+                  <td className="max-w-[220px] truncate px-6 py-3 text-[var(--muted)]">{click.referrer || t("stats.direct")}</td>
                   <td className="max-w-[360px] truncate px-6 py-3 text-[var(--muted)]" title={click.user_agent}>{click.user_agent || "—"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {!(overview?.recent_clicks ?? []).length && <p className="px-6 py-10 text-center text-sm text-[var(--muted)]">该区间暂无点击记录。</p>}
+          {!(overview?.recent_clicks ?? []).length && <p className="px-6 py-10 text-center text-sm text-[var(--muted)]">{t("stats.emptyClicks")}</p>}
         </div>
       </section>
 

@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, ApiError, OIDCProvider, OIDCProviderInput } from "@/lib/api-client";
+import { api, OIDCProvider, OIDCProviderInput } from "@/lib/api-client";
+import { useT } from "@/components/i18n-provider";
+import { errorText, type MessageKey, type T } from "@/lib/i18n";
 
 const DEFAULT_SCOPES = "openid profile email";
 
@@ -52,12 +54,12 @@ function parseScopes(value: string) {
  * boundary rather than as the API's own wording, so a page that is merely out of
  * reach does not look like a page that broke.
  */
-function describeError(e: unknown, fallback: string) {
-  if (e instanceof ApiError) return e.status === 403 ? "没有权限管理登录方式。" : e.message;
-  return fallback;
+function describeError(t: T, e: unknown, fallback: MessageKey) {
+  return errorText(t, e, fallback, { 403: "settings.oidc.noPermission" });
 }
 
 export default function OIDCSettingsPage() {
+  const t = useT();
   const [providers, setProviders] = useState<OIDCProvider[]>([]);
   const [redirectBase, setRedirectBase] = useState("");
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
@@ -78,11 +80,11 @@ export default function OIDCSettingsPage() {
       setDrafts(Object.fromEntries(list.map((provider) => [provider.id, toDraft(provider)])));
       setError("");
     } catch (e) {
-      setError(describeError(e, "加载失败"));
+      setError(describeError(t, e, "error.load"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -130,9 +132,9 @@ export default function OIDCSettingsPage() {
       if (draft.client_secret !== "") input.client_secret = draft.client_secret;
       await api.oidc.update(provider.id, input);
       await load();
-      setNotice(`已保存 ${draft.display_name || provider.slug}`);
+      setNotice(t("settings.oidc.saved", { name: draft.display_name || provider.slug }));
     } catch (e) {
-      setError(describeError(e, "保存失败"));
+      setError(describeError(t, e, "error.save"));
     } finally {
       setBusy("");
     }
@@ -146,9 +148,9 @@ export default function OIDCSettingsPage() {
       await api.oidc.remove(provider.id);
       setConfirming("");
       await load();
-      setNotice(`已删除 ${provider.display_name || provider.slug}`);
+      setNotice(t("settings.oidc.deleted", { name: provider.display_name || provider.slug }));
     } catch (e) {
-      setError(describeError(e, "保存失败"));
+      setError(describeError(t, e, "error.save"));
     } finally {
       setBusy("");
     }
@@ -172,9 +174,9 @@ export default function OIDCSettingsPage() {
       await api.oidc.create(input);
       setCreating(emptyNew);
       await load();
-      setNotice("已新增登录方式");
+      setNotice(t("settings.oidc.created"));
     } catch (e) {
-      setError(describeError(e, "创建失败"));
+      setError(describeError(t, e, "error.create"));
     } finally {
       setBusy("");
     }
@@ -185,19 +187,19 @@ export default function OIDCSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm text-[var(--muted)]">工作台 / 登录方式</p>
-        <h1 className="mt-1 text-2xl font-bold">登录方式</h1>
+        <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("settings.oidc.title")}</p>
+        <h1 className="mt-1 text-2xl font-bold">{t("settings.oidc.title")}</h1>
       </div>
 
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}
       {notice && <p className="rounded-lg bg-emerald-50 px-4 py-3 text-emerald-800">{notice}</p>}
       {!loading && !redirectBase && (
         <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          未确定回调地址前缀，请设置 OIDC_REDIRECT_BASE 后再配置登录方式。
+          {t("settings.oidc.noRedirectBase")}
         </p>
       )}
 
-      {loading && !providers.length && <p className="text-sm text-[var(--muted)]">正在加载...</p>}
+      {loading && !providers.length && <p className="text-sm text-[var(--muted)]">{t("common.loading")}</p>}
 
       {providers.map((provider) => {
         const draft = drafts[provider.id] || toDraft(provider);
@@ -209,25 +211,25 @@ export default function OIDCSettingsPage() {
                 <h2 className="font-semibold">{provider.display_name}</h2>
                 <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{provider.slug}</code>
                 <span className={`rounded-full px-2.5 py-1 text-xs ${provider.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                  {provider.enabled ? "已启用" : "已停用"}
+                  {provider.enabled ? t("settings.oidc.enabled") : t("settings.oidc.disabled")}
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <button className="btn-primary" disabled={!dirty(provider) || busy === provider.id} onClick={() => save(provider)}>
-                  {busy === provider.id ? "正在保存..." : "保存"}
+                  {busy === provider.id ? t("common.saving") : t("common.save")}
                 </button>
                 {confirming === provider.id ? (
                   <>
                     <button className="btn-danger" disabled={busy === provider.id} onClick={() => remove(provider)}>
-                      确认删除
+                      {t("settings.oidc.confirmDelete")}
                     </button>
                     <button className="btn-secondary" disabled={busy === provider.id} onClick={() => setConfirming("")}>
-                      取消
+                      {t("common.cancel")}
                     </button>
                   </>
                 ) : (
                   <button className="btn-secondary" disabled={busy === provider.id} onClick={() => setConfirming(provider.id)}>
-                    删除
+                    {t("common.delete")}
                   </button>
                 )}
               </div>
@@ -235,14 +237,14 @@ export default function OIDCSettingsPage() {
 
             {confirming === provider.id && (
               <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-                删除后绑定该登录方式的账号将无法登录，且应用内无法为它们设置密码。
-                {provider.identity_count > 0 ? ` 当前已绑定 ${provider.identity_count} 个账号。` : ""}
+                {t("settings.oidc.deleteWarning")}
+                {provider.identity_count > 0 ? ` ${t("settings.oidc.boundAccounts", { count: provider.identity_count })}` : ""}
               </p>
             )}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-1 text-sm">
-                <span className="text-[var(--muted)]">名称</span>
+                <span className="text-[var(--muted)]">{t("settings.oidc.name")}</span>
                 <input
                   className="field-control"
                   value={draft.display_name}
@@ -266,12 +268,12 @@ export default function OIDCSettingsPage() {
                 />
               </label>
               <label className="space-y-1 text-sm">
-                <span className="text-[var(--muted)]">Client Secret{provider.has_secret ? "（留空保持不变）" : ""}</span>
+                <span className="text-[var(--muted)]">Client Secret{provider.has_secret ? t("settings.leaveBlank") : ""}</span>
                 <input
                   className="field-control"
                   type="password"
                   autoComplete="new-password"
-                  placeholder={provider.has_secret ? "已设置" : "未设置"}
+                  placeholder={provider.has_secret ? t("settings.secretSet") : t("settings.secretUnset")}
                   value={draft.client_secret}
                   onChange={(e) => edit(provider.id, (current) => ({ ...current, client_secret: e.target.value }))}
                 />
@@ -292,7 +294,7 @@ export default function OIDCSettingsPage() {
                     checked={draft.auto_provision}
                     onChange={() => edit(provider.id, (current) => ({ ...current, auto_provision: !current.auto_provision }))}
                   />
-                  首次登录自动创建账号
+                  {t("settings.oidc.autoProvision")}
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -301,14 +303,14 @@ export default function OIDCSettingsPage() {
                     checked={draft.enabled}
                     onChange={() => edit(provider.id, (current) => ({ ...current, enabled: !current.enabled }))}
                   />
-                  启用
+                  {t("settings.oidc.enable")}
                 </label>
               </div>
             </div>
 
             {callback && (
               <div className="space-y-1 border-t border-[var(--line)] pt-4 text-sm">
-                <p className="text-[var(--muted)]">回调地址</p>
+                <p className="text-[var(--muted)]">{t("settings.oidc.callback")}</p>
                 <code className="block break-all rounded bg-slate-50 px-3 py-2 font-mono text-xs">{callback}</code>
               </div>
             )}
@@ -317,11 +319,11 @@ export default function OIDCSettingsPage() {
       })}
 
       <section className="panel space-y-4 p-6">
-        <h2 className="font-semibold">新增登录方式</h2>
+        <h2 className="font-semibold">{t("settings.oidc.newTitle")}</h2>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="space-y-1 text-sm">
-            <span className="text-[var(--muted)]">标识（用于回调地址，创建后不可改）</span>
+            <span className="text-[var(--muted)]">{t("settings.oidc.slug")}</span>
             <input
               className="field-control"
               placeholder="dex"
@@ -330,10 +332,10 @@ export default function OIDCSettingsPage() {
             />
           </label>
           <label className="space-y-1 text-sm">
-            <span className="text-[var(--muted)]">名称</span>
+            <span className="text-[var(--muted)]">{t("settings.oidc.name")}</span>
             <input
               className="field-control"
-              placeholder="公司账号"
+              placeholder={t("settings.oidc.namePlaceholder")}
               value={creating.display_name}
               onChange={(e) => setCreating((current) => ({ ...current, display_name: e.target.value }))}
             />
@@ -356,7 +358,7 @@ export default function OIDCSettingsPage() {
             />
           </label>
           <label className="space-y-1 text-sm">
-            <span className="text-[var(--muted)]">Client Secret（公开客户端可留空）</span>
+            <span className="text-[var(--muted)]">{t("settings.oidc.clientSecretNew")}</span>
             <input
               className="field-control"
               type="password"
@@ -383,7 +385,7 @@ export default function OIDCSettingsPage() {
               checked={creating.auto_provision}
               onChange={() => setCreating((current) => ({ ...current, auto_provision: !current.auto_provision }))}
             />
-            首次登录自动创建账号
+            {t("settings.oidc.autoProvision")}
           </label>
           <label className="flex items-center gap-2">
             <input
@@ -392,10 +394,10 @@ export default function OIDCSettingsPage() {
               checked={creating.enabled}
               onChange={() => setCreating((current) => ({ ...current, enabled: !current.enabled }))}
             />
-            启用
+            {t("settings.oidc.enable")}
           </label>
           <button className="btn-primary ml-auto" disabled={!canCreate || busy === "new"} onClick={create}>
-            {busy === "new" ? "正在新增..." : "新增"}
+            {busy === "new" ? t("settings.oidc.adding") : t("settings.oidc.add")}
           </button>
         </div>
       </section>

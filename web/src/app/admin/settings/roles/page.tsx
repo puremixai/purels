@@ -1,9 +1,36 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { allScopes, api, ApiError, roleLabels, RoleRecord } from "@/lib/api-client";
+import { api, RoleRecord } from "@/lib/api-client";
+import { useT } from "@/components/i18n-provider";
+import { errorText, hasMessage, type T } from "@/lib/i18n";
 
 type Draft = { scopes: string[]; unrestricted: boolean };
+
+// The permissions a role can grant, in the order the form lists them. The label
+// is a key resolved at render, because the list is built before a locale exists.
+const SCOPES = [
+  "links:read",
+  "links:write",
+  "stats:read",
+  "audit:read",
+  "tokens:manage",
+  "users:manage",
+  "roles:manage",
+  "oidc:manage",
+  "analytics:manage",
+  "captcha:manage",
+] as const;
+
+function scopeLabel(t: T, scope: string) {
+  const key = `scope.${scope}`;
+  return hasMessage(key) ? t(key) : scope;
+}
+
+function roleLabel(t: T, name: string) {
+  const key = `role.${name}`;
+  return hasMessage(key) ? t(key) : name;
+}
 
 function toDraft(role: RoleRecord): Draft {
   return { scopes: [...role.scopes].sort(), unrestricted: role.unrestricted };
@@ -14,6 +41,7 @@ function sameDraft(a: Draft, b: Draft) {
 }
 
 export default function RolesPage() {
+  const t = useT();
   const [roles, setRoles] = useState<RoleRecord[]>([]);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [error, setError] = useState("");
@@ -29,11 +57,11 @@ export default function RolesPage() {
       setDrafts(Object.fromEntries(list.map((role) => [role.name, toDraft(role)])));
       setError("");
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "加载失败");
+      setError(errorText(t, e, "error.load"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -62,9 +90,9 @@ export default function RolesPage() {
     try {
       await api.roles.update(name, draft);
       await load();
-      setNotice(`已保存 ${roleLabels[name] || name}`);
+      setNotice(t("settings.roles.saved", { name: roleLabel(t, name) }));
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "保存失败");
+      setError(errorText(t, e, "error.save"));
     } finally {
       setBusy("");
     }
@@ -73,14 +101,14 @@ export default function RolesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm text-[var(--muted)]">工作台 / 角色权限</p>
-        <h1 className="mt-1 text-2xl font-bold">角色权限</h1>
+        <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("settings.roles.title")}</p>
+        <h1 className="mt-1 text-2xl font-bold">{t("settings.roles.title")}</h1>
       </div>
 
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}
       {notice && <p className="rounded-lg bg-emerald-50 px-4 py-3 text-emerald-800">{notice}</p>}
 
-      {loading && !roles.length && <p className="text-sm text-[var(--muted)]">正在加载...</p>}
+      {loading && !roles.length && <p className="text-sm text-[var(--muted)]">{t("common.loading")}</p>}
 
       {roles.map((role) => {
         const draft = drafts[role.name] || toDraft(role);
@@ -88,22 +116,22 @@ export default function RolesPage() {
         return (
           <section className="panel space-y-4 p-6" key={role.name}>
             <div className="flex items-center justify-between gap-4">
-              <h2 className="font-semibold">{roleLabels[role.name] || role.name}</h2>
+              <h2 className="font-semibold">{roleLabel(t, role.name)}</h2>
               <button className="btn-primary" disabled={!dirty || busy === role.name} onClick={() => save(role.name)}>
-                {busy === role.name ? "正在保存..." : "保存"}
+                {busy === role.name ? t("common.saving") : t("common.save")}
               </button>
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2">
-              {allScopes.map((scope) => (
-                <label className="flex items-center gap-2 text-sm" key={scope.value}>
+              {SCOPES.map((scope) => (
+                <label className="flex items-center gap-2 text-sm" key={scope}>
                   <input
                     type="checkbox"
                     className="h-4 w-4"
-                    checked={draft.scopes.includes(scope.value)}
-                    onChange={() => toggleScope(role.name, scope.value)}
+                    checked={draft.scopes.includes(scope)}
+                    onChange={() => toggleScope(role.name, scope)}
                   />
-                  {scope.label}
+                  {scopeLabel(t, scope)}
                 </label>
               ))}
             </div>
@@ -115,7 +143,7 @@ export default function RolesPage() {
                 checked={draft.unrestricted}
                 onChange={() => edit(role.name, (current) => ({ ...current, unrestricted: !current.unrestricted }))}
               />
-              管理全部链接
+              {t("settings.roles.unrestricted")}
             </label>
           </section>
         );

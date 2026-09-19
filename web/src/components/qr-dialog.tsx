@@ -2,8 +2,11 @@
 
 import { useEffect } from "react";
 import { api, LinkRecord } from "@/lib/api-client";
+import { useT } from "@/components/i18n-provider";
 
 export function QrDialog({ link, onClose }: { link: LinkRecord | null; onClose: () => void }) {
+  const t = useT();
+
   useEffect(() => {
     if (!link) return;
     const onKey = (event: KeyboardEvent) => {
@@ -21,21 +24,27 @@ export function QrDialog({ link, onClose }: { link: LinkRecord | null; onClose: 
       <div className="panel w-full max-w-sm p-6" onClick={(event) => event.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 className="font-semibold">二维码</h2>
+            <h2 className="font-semibold">{t("links.qr")}</h2>
             <p className="truncate text-sm text-[var(--muted)]">/{link.alias}</p>
           </div>
-          <button className="rounded p-1 text-slate-400 hover:bg-slate-100" onClick={onClose} aria-label="关闭">✕</button>
+          <button
+            className="rounded p-1 text-slate-400 hover:bg-slate-100"
+            onClick={onClose}
+            aria-label={t("common.close")}
+          >
+            ✕
+          </button>
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageUrl}
-          alt={`/${link.alias} 的二维码`}
+          alt={t("qr.alt", { alias: link.alias })}
           width={320}
           height={320}
           className="mx-auto rounded-lg border border-[var(--line)] bg-white"
         />
         <a href={imageUrl} download={`${link.alias}.png`} className="btn-secondary mt-4 block w-full text-center">
-          下载 PNG
+          {t("qr.download")}
         </a>
       </div>
     </div>

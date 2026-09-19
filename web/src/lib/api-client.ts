@@ -30,14 +30,6 @@ export class ApiError extends Error {
  */
 export type RoleName = "admin" | "operator" | "readonly" | "user";
 
-/** Human labels for the shipped roles. */
-export const roleLabels: Record<string, string> = {
-  admin: "管理员",
-  operator: "运营",
-  readonly: "只读",
-  user: "用户",
-};
-
 export type AdminUser = {
   id?: string;
   username: string;
@@ -95,20 +87,6 @@ export type RoleRecord = {
   scopes: string[];
   unrestricted: boolean;
 };
-
-/** Every scope the API recognises, in the order the role editor shows them. */
-export const allScopes: Array<{ value: string; label: string }> = [
-  { value: "links:read", label: "查看链接" },
-  { value: "links:write", label: "创建和修改链接" },
-  { value: "stats:read", label: "查看统计" },
-  { value: "audit:read", label: "查看操作日志" },
-  { value: "tokens:manage", label: "管理自己的 API 令牌" },
-  { value: "users:manage", label: "管理用户" },
-  { value: "roles:manage", label: "管理角色权限" },
-  { value: "oidc:manage", label: "管理登录方式" },
-  { value: "analytics:manage", label: "管理埋点" },
-  { value: "captcha:manage", label: "管理注册保护" },
-];
 
 /** One configured sign-in provider, as the console sees it. */
 export type OIDCProvider = {

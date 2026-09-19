@@ -2,7 +2,9 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, ApiError, LinkRuleInput } from "@/lib/api-client";
+import { useT } from "@/components/i18n-provider";
+import { api, LinkRuleInput } from "@/lib/api-client";
+import { errorText } from "@/lib/i18n";
 import { LinkDomainPicker } from "@/components/link-domain-picker";
 import { LinkRulesEditor } from "@/components/link-rules-editor";
 
@@ -18,6 +20,7 @@ function parseTags(raw: string) {
 
 export default function NewLinkPage() {
   const router = useRouter();
+  const t = useT();
   const [url, setUrl] = useState("");
   const [alias, setAlias] = useState("");
   const [domain, setDomain] = useState("");
@@ -44,7 +47,7 @@ export default function NewLinkPage() {
       });
       router.push("/admin/links");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "创建失败");
+      setError(errorText(t, err, "error.create"));
     } finally {
       setLoading(false);
     }
@@ -53,39 +56,39 @@ export default function NewLinkPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <p className="text-sm text-[var(--muted)]">工作台 / 链接管理</p>
-        <h1 className="mt-1 text-2xl font-bold">创建链接</h1>
+        <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("links.title")}</p>
+        <h1 className="mt-1 text-2xl font-bold">{t("links.form.submit")}</h1>
       </div>
       <form onSubmit={submit} className="panel space-y-5 p-6">
         <label className="block">
-          <span className="field-label">目标 URL</span>
+          <span className="field-label">{t("links.form.destination")}</span>
           <input required type="url" className="field-control" placeholder="https://example.com" value={url} onChange={(e) => setUrl(e.target.value)} />
         </label>
         <label className="block">
-          <span className="field-label">自定义别名（可选）</span>
-          <input className="field-control" placeholder="留空自动生成" value={alias} onChange={(e) => setAlias(e.target.value)} />
+          <span className="field-label">{t("links.form.alias")}</span>
+          <input className="field-control" placeholder={t("links.form.aliasPlaceholder")} value={alias} onChange={(e) => setAlias(e.target.value)} />
         </label>
         <LinkDomainPicker value={domain} onChange={setDomain} />
         <label className="block">
-          <span className="field-label">标题（可选）</span>
+          <span className="field-label">{t("links.form.title")}</span>
           <input className="field-control" maxLength={255} value={title} onChange={(e) => setTitle(e.target.value)} />
         </label>
         <label className="block">
-          <span className="field-label">标签（可选）</span>
-          <input className="field-control" placeholder="多个标签用逗号分隔" value={tags} onChange={(e) => setTags(e.target.value)} />
+          <span className="field-label">{t("links.form.tags")}</span>
+          <input className="field-control" placeholder={t("links.form.tagsPlaceholder")} value={tags} onChange={(e) => setTags(e.target.value)} />
         </label>
         <label className="block">
-          <span className="field-label">跳转状态码</span>
+          <span className="field-label">{t("links.form.redirectCode")}</span>
           <select className="field-control" value={code} onChange={(e) => setCode(e.target.value)}>
-            <option value="302">302 临时跳转</option>
-            <option value="301">301 永久跳转</option>
+            <option value="302">{t("links.redirect.temporary")}</option>
+            <option value="301">{t("links.redirect.permanent")}</option>
           </select>
         </label>
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <LinkRulesEditor rules={rules} onChange={setRules} />
         <div className="flex justify-end gap-3">
-          <button type="button" className="btn-secondary" onClick={() => router.back()}>取消</button>
-          <button className="btn-primary" disabled={loading}>{loading ? "创建中..." : "创建链接"}</button>
+          <button type="button" className="btn-secondary" onClick={() => router.back()}>{t("common.cancel")}</button>
+          <button className="btn-primary" disabled={loading}>{loading ? t("links.form.submitting") : t("links.form.submit")}</button>
         </div>
       </form>
     </div>

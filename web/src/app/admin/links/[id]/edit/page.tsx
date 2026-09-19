@@ -2,14 +2,16 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { api, ApiError, LinkRecord, LinkRuleInput } from "@/lib/api-client";
+import { useLocale, useT } from "@/components/i18n-provider";
+import { api, LinkRecord, LinkRuleInput } from "@/lib/api-client";
+import { errorText } from "@/lib/i18n";
 import { LinkDomainPicker } from "@/components/link-domain-picker";
 import { LinkRulesEditor } from "@/components/link-rules-editor";
 import { parseTags } from "@/lib/tags";
 
-function formatTime(value: string) {
+function formatTime(value: string, locale: string) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN", { hour12: false });
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(locale, { hour12: false });
 }
 
 /** The stored rules, reduced to the fields the editor edits. */
@@ -24,6 +26,8 @@ function toRuleInputs(link: LinkRecord): LinkRuleInput[] {
 
 export default function EditLinkPage() {
   const router = useRouter();
+  const t = useT();
+  const locale = useLocale();
   const params = useParams<{ id: string }>();
   const id = typeof params?.id === "string" ? params.id : "";
 
@@ -61,7 +65,7 @@ export default function EditLinkPage() {
         setRules(toRuleInputs(record));
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof ApiError ? e.message : "加载失败");
+        if (!cancelled) setError(errorText(t, e, "error.load"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -69,7 +73,8 @@ export default function EditLinkPage() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+    // t is stable per locale, so this refetches only when the language changes.
+  }, [id, t]);
 
   async function checkNow() {
     setChecking(true);
@@ -80,10 +85,11 @@ export default function EditLinkPage() {
         current ? { ...current, last_checked_at: result.checked_at, last_status_code: result.status_code } : current,
       );
       // A destination that could not be reached at all is reported here rather
-      // than stored: the recorded status code is 0.
+      // than stored: the recorded status code is 0. The probe's own message is
+      // not translated — it names what the network did.
       if (result.error) setError(result.error);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "检查失败");
+      setError(errorText(t, e, "error.check"));
     } finally {
       setChecking(false);
     }
@@ -109,7 +115,7 @@ export default function EditLinkPage() {
       });
       router.push("/admin/links");
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "保存失败");
+      setError(errorText(t, e, "error.save"));
     } finally {
       setSaving(false);
     }
@@ -118,30 +124,33 @@ export default function EditLinkPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <p className="text-sm text-[var(--muted)]">工作台 / 链接管理 / 编辑</p>
-        <h1 className="mt-1 text-2xl font-bold">编辑链接</h1>
+        <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("links.title")} / {t("links.edit.breadcrumbTail")}</p>
+        <h1 className="mt-1 text-2xl font-bold">{t("links.edit.title")}</h1>
       </div>
 
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}
 
       {loading ? (
-        <p className="panel p-6 text-sm text-[var(--muted)]">加载中…</p>
+        <p className="panel p-6 text-sm text-[var(--muted)]">{t("links.edit.loading")}</p>
       ) : link ? (
         <div className="space-y-6">
           <div className="panel flex flex-wrap items-center justify-between gap-3 p-4">
             <span className="text-sm text-[var(--muted)]">
               {link.last_checked_at
-                ? `上次检查 ${formatTime(link.last_checked_at)}${link.last_status_code ? ` · ${link.last_status_code}` : " · 无法连接"}`
-                : "尚未检查"}
+                ? <>
+                    {t("links.edit.lastChecked", { time: formatTime(link.last_checked_at, locale) })}
+                    {link.last_status_code ? ` · ${link.last_status_code}` : ` · ${t("links.edit.checkUnreachable")}`}
+                  </>
+                : t("links.edit.neverChecked")}
             </span>
             <button type="button" className="btn-secondary" disabled={checking} onClick={checkNow}>
-              {checking ? "检查中..." : "立即检查"}
+              {checking ? t("links.edit.checking") : t("links.edit.checkNow")}
             </button>
           </div>
 
           <form onSubmit={submit} className="panel space-y-5 p-6">
           <div>
-            <span className="field-label">短链接</span>
+            <span className="field-label">{t("links.table.short")}</span>
             <p className="mt-1 font-medium">
               {link.domain ? `${link.domain}/` : "/"}
               {link.alias}
@@ -152,7 +161,7 @@ export default function EditLinkPage() {
                   rel="noreferrer"
                   className="ml-3 text-sm font-normal text-[var(--brand)] hover:underline"
                 >
-                  预览
+                  {t("links.edit.preview")}
                 </a>
               )}
             </p>
@@ -161,51 +170,51 @@ export default function EditLinkPage() {
           <LinkDomainPicker value={domain} onChange={setDomain} />
 
           <label className="block">
-            <span className="field-label">目标 URL</span>
+            <span className="field-label">{t("links.form.destination")}</span>
             <input required type="url" className="field-control" placeholder="https://example.com" value={url} onChange={(event) => setUrl(event.target.value)} />
           </label>
 
           <label className="block">
-            <span className="field-label">标题（可选）</span>
+            <span className="field-label">{t("links.form.title")}</span>
             <input className="field-control" maxLength={255} value={title} onChange={(event) => setTitle(event.target.value)} />
           </label>
 
           <label className="block">
-            <span className="field-label">标签（可选）</span>
-            <input className="field-control" placeholder="多个标签用逗号分隔" value={tags} onChange={(event) => setTags(event.target.value)} />
+            <span className="field-label">{t("links.form.tags")}</span>
+            <input className="field-control" placeholder={t("links.form.tagsPlaceholder")} value={tags} onChange={(event) => setTags(event.target.value)} />
           </label>
 
           <label className="block">
-            <span className="field-label">跳转状态码</span>
+            <span className="field-label">{t("links.form.redirectCode")}</span>
             <select className="field-control" value={code} onChange={(event) => setCode(event.target.value)}>
-              <option value="302">302 临时跳转</option>
-              <option value="301">301 永久跳转</option>
+              <option value="302">{t("links.redirect.temporary")}</option>
+              <option value="301">{t("links.redirect.permanent")}</option>
             </select>
           </label>
 
           <label className="block">
-            <span className="field-label">状态</span>
+            <span className="field-label">{t("links.edit.status")}</span>
             <select className="field-control" value={status} onChange={(event) => setStatus(event.target.value)}>
-              <option value="active">启用</option>
-              <option value="disabled">停用</option>
+              <option value="active">{t("links.edit.statusActive")}</option>
+              <option value="disabled">{t("links.edit.statusDisabled")}</option>
             </select>
           </label>
 
           <label className="block">
-            <span className="field-label">过期日期（留空为永久）</span>
+            <span className="field-label">{t("links.edit.expires")}</span>
             <input type="date" className="field-control" value={expires} onChange={(event) => setExpires(event.target.value)} />
           </label>
 
           <LinkRulesEditor rules={rules} onChange={setRules} />
 
           <div className="flex justify-end gap-3">
-            <button type="button" className="btn-secondary" onClick={() => router.back()}>取消</button>
-            <button className="btn-primary" disabled={saving}>{saving ? "保存中..." : "保存修改"}</button>
+            <button type="button" className="btn-secondary" onClick={() => router.back()}>{t("common.cancel")}</button>
+            <button className="btn-primary" disabled={saving}>{saving ? t("links.form.saving") : t("links.form.save")}</button>
           </div>
           </form>
         </div>
       ) : (
-        <p className="panel p-6 text-sm text-[var(--muted)]">未找到该链接。</p>
+        <p className="panel p-6 text-sm text-[var(--muted)]">{t("links.edit.notFound")}</p>
       )}
     </div>
   );

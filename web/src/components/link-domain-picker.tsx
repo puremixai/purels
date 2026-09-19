@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, AppConfig } from "@/lib/api-client";
+import { useT } from "@/components/i18n-provider";
 
 /**
  * Picks which configured short domain a link is filed under. It renders
@@ -9,6 +10,7 @@ import { api, AppConfig } from "@/lib/api-client";
  * install sees no new control.
  */
 export function LinkDomainPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const t = useT();
   const [config, setConfig] = useState<AppConfig | null>(null);
 
   useEffect(() => {
@@ -34,7 +36,7 @@ export function LinkDomainPicker({ value, onChange }: { value: string; onChange:
 
   return (
     <label className="block">
-      <span className="field-label">短域名</span>
+      <span className="field-label">{t("links.form.domain")}</span>
       <select className="field-control" value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">{config.default_domain}</option>
         {config.short_domains.map((domain) => (

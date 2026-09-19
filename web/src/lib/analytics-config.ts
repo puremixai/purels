@@ -13,6 +13,7 @@
  */
 
 import type { AnalyticsInput } from "@/lib/api-client";
+import type { MessageKey } from "@/lib/i18n";
 
 /** The validated configuration, in the shape the snippets are built from. */
 export type AnalyticsConfig = {
@@ -98,35 +99,37 @@ export function parseAnalyticsConfig(payload: unknown): AnalyticsConfig | null {
 }
 
 /**
- * Checks a form submission and returns a message for the first bad field, or
- * null when the whole thing is acceptable.
+ * Checks a form submission and returns a key for the first bad field, or null
+ * when the whole thing is acceptable.
  *
- * This runs before the request so the operator gets a sentence naming the field
- * rather than a 400 carrying the service's English message. It is a convenience,
- * not the gate — the service and the render boundary both check again.
+ * The caller translates the key, so the sentence naming the field is written in
+ * the operator's language. This runs before the request, so a bad value comes
+ * back as a sentence rather than a 400 carrying the service's English message.
+ * It is a convenience, not the gate — the service and the render boundary both
+ * check again.
  */
-export function validateAnalyticsInput(input: AnalyticsInput): string | null {
+export function validateAnalyticsInput(input: AnalyticsInput): MessageKey | null {
   const ga4 = input.ga4_measurement_id.trim().toUpperCase();
   if (!acceptable(ga4, GA4_PATTERN, MAX_ID_LENGTH)) {
-    return "GA4 衡量 ID 格式不正确，应形如 G-XXXXXXXXXX。";
+    return "settings.analytics.invalidGa4";
   }
 
   const gtm = input.gtm_container_id.trim().toUpperCase();
   if (!acceptable(gtm, GTM_PATTERN, MAX_ID_LENGTH)) {
-    return "GTM 容器 ID 格式不正确，应形如 GTM-XXXXXXX。";
+    return "settings.analytics.invalidGtm";
   }
 
   const matomoUrl = foldScheme(input.matomo_url.trim()).replace(/\/+$/, "");
   if (!acceptable(matomoUrl, MATOMO_URL_PATTERN, MAX_URL_LENGTH)) {
-    return "Matomo 地址格式不正确，应是不带凭据、查询串和片段的 http(s) 地址。";
+    return "settings.analytics.invalidMatomoUrl";
   }
 
   const matomoSiteId = input.matomo_site_id.trim();
   if (matomoUrl !== "" && matomoSiteId === "") {
-    return "填写了 Matomo 地址，还需要站点 ID。";
+    return "settings.analytics.missingMatomoSiteId";
   }
   if (matomoSiteId !== "" && !acceptable(matomoSiteId, MATOMO_SITE_PATTERN, MAX_ID_LENGTH)) {
-    return "Matomo 站点 ID 格式不正确，应为正整数。";
+    return "settings.analytics.invalidMatomoSiteId";
   }
 
   return null;

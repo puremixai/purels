@@ -6,6 +6,12 @@
 //   node scripts/smoke-pages.mjs
 //
 // Env: CDP_PORT (9222), BASE_URL (http://localhost), ADMIN_USER, ADMIN_PASS
+//
+// The console ships English and Chinese. Everything below asserts the English
+// wording, because that is what a fresh browser context gets — the locale cookie
+// is only written once the switcher has been used. Phase 1b is the one exception:
+// it drives the switcher and asserts the Chinese wording, then puts the language
+// back so the rest of the run stays in English.
 
 import { setTimeout as sleep } from "node:timers/promises";
 import { writeFileSync, unlinkSync } from "node:fs";
@@ -19,31 +25,36 @@ const PASS = process.env.ADMIN_PASS || "change-me-now";
 const STAMP = Date.now().toString(36);
 
 const PAGES = [
-  { name: "login", path: "/login", expect: ["登录", "用户名"] },
-  { name: "register", path: "/register", expect: ["注册", "用户名"] },
-  { name: "dashboard", path: "/admin", expect: ["概览", "总链接数", "最近链接"] },
-  { name: "links", path: "/admin/links", expect: ["链接管理", "目标地址", "点击", "上一页"] },
-  { name: "new-link", path: "/admin/links/new", expect: ["创建链接", "目标 URL"] },
-  { name: "stats", path: "/admin/stats", expect: ["数据统计", "区间点击", "独立访客", "全局点击趋势", "点击排行", "来源分布", "设备分布", "单链接明细", "最近点击"] },
-  { name: "audit", path: "/admin/audit", expect: ["操作日志", "操作人", "动作"] },
-  { name: "users", path: "/admin/users", expect: ["用户管理", "用户名", "角色"] },
-  { name: "roles", path: "/admin/settings/roles", expect: ["角色权限", "管理用户", "管理角色权限", "管理全部链接"] },
-  { name: "oidc", path: "/admin/settings/oidc", expect: ["登录方式", "新增登录方式", "Issuer", "Client ID", "Scopes"] },
-  { name: "analytics", path: "/admin/settings/analytics", expect: ["埋点统计", "GA4 衡量 ID", "GTM 容器 ID", "Matomo 地址", "Matomo 站点 ID"] },
-  { name: "captcha", path: "/admin/settings/captcha", expect: ["注册保护", "Cloudflare Turnstile", "站点密钥", "预期主机名", "预期动作"] },
-  { name: "security", path: "/admin/settings/security", expect: ["两步验证", "API Token", "创建 Token"] },
+  { name: "login", path: "/login", expect: ["Sign in", "Username"] },
+  { name: "register", path: "/register", expect: ["Register", "Username"] },
+  { name: "dashboard", path: "/admin", expect: ["Overview", "Total links", "Recent links"] },
+  { name: "links", path: "/admin/links", expect: ["Link management", "Destination", "Clicks", "Previous"] },
+  { name: "new-link", path: "/admin/links/new", expect: ["Create link", "Destination URL"] },
+  { name: "stats", path: "/admin/stats", expect: ["Statistics", "Clicks in range", "Unique visitors", "Clicks over time", "Top links", "Referrers", "Devices", "Link detail", "Recent clicks"] },
+  { name: "audit", path: "/admin/audit", expect: ["Audit log", "Actor", "Action"] },
+  { name: "users", path: "/admin/users", expect: ["User management", "Username", "Role"] },
+  { name: "roles", path: "/admin/settings/roles", expect: ["Role permissions", "Manage users", "Manage role permissions", "Manage every link"] },
+  { name: "oidc", path: "/admin/settings/oidc", expect: ["Sign-in methods", "Add a sign-in method", "Issuer", "Client ID", "Scopes"] },
+  { name: "analytics", path: "/admin/settings/analytics", expect: ["Tracking settings", "GA4 measurement ID", "GTM container ID", "Matomo URL", "Matomo site ID"] },
+  { name: "captcha", path: "/admin/settings/captcha", expect: ["Registration protection", "Cloudflare Turnstile", "Site key", "Expected hostname", "Expected action"] },
+  { name: "security", path: "/admin/settings/security", expect: ["Two-factor authentication", "API tokens", "Create a token"] },
 ];
 
+// Matched without their trailing punctuation: the same sentence is worded per
+// page ("Failed to load." on a list, "Failed to load the ranking." on stats), and
+// the prefix catches every variant. None of these appear in ordinary copy.
 const ERROR_MARKERS = [
-  "加载失败",
-  "无法连接到 API",
-  "请求失败",
-  "创建失败",
-  "撤销失败",
-  "保存失败",
-  "加载排行失败",
-  "加载明细失败",
-  "加载点击明细失败",
+  "Failed to load",
+  "Cannot reach the API server",
+  "Request failed (",
+  "Failed to create",
+  "Failed to revoke",
+  "Failed to save",
+  "Failed to check the destination",
+  "The bulk action failed",
+  "Failed to export",
+  "Failed to import",
+  "You do not have permission",
   "Application error",
   "An error occurred",
 ];
@@ -90,7 +101,8 @@ function connect(wsUrl) {
 // Each run gets its own browser context, and therefore its own cookie jar.
 // Sharing the default context means concurrent runs clobber each other: the
 // logout and expired-session steps of one run wipe the session every other run
-// is still using, which shows up as 401s with no Cookie header at all.
+// is still using, which shows up as 401s with no Cookie header at all. A private
+// jar is also what makes the language phase start from English every time.
 async function openTarget() {
   for (let i = 0; i < 40; i++) {
     try {
@@ -133,9 +145,16 @@ async function main() {
   const authCalls = new Map();
   const sentCookies = new Map();
   const sentMethods = new Map();
+  // Every authenticated /api/v1 request, with the time it went out. The API
+  // allows RATE_LIMIT_API (120 by default) per IP per rolling minute and this
+  // suite is chatty enough to reach that on its own, so the peak is measured
+  // rather than guessed at — a 429 is otherwise indistinguishable from a broken
+  // page.
+  const apiHits = [];
   c.on((msg) => {
     if (msg.method === "Network.requestWillBeSent") {
       const { requestId, request } = msg.params;
+      if (request.url.includes("/api/v1/")) apiHits.push({ at: Date.now(), path: request.url.replace(BASE, "") });
       if (request.url.includes("/api/v1/auth/")) authCalls.set(requestId, `${request.method} ${request.url.replace(BASE, "")}`);
       return;
     }
@@ -213,6 +232,21 @@ async function main() {
     return r.result.value;
   };
 
+  // The API allows RATE_LIMIT_API requests per IP per minute, and a page sweep
+  // with thirteen loads reaches that on its own — measured, not guessed at. A
+  // 429 would otherwise land on whichever write happened to be next and read as
+  // a broken button, so hold off while the trailing minute is close to the
+  // limit. This is a no-op whenever there is headroom, which is most of the run.
+  const RATE_LIMIT_PER_MINUTE = Number(process.env.RATE_LIMIT_API || 120);
+  const pace = async (headroom = 25) => {
+    for (;;) {
+      const cutoff = Date.now() - 60000;
+      const recent = apiHits.filter((hit) => hit.at >= cutoff).length;
+      if (recent + headroom <= RATE_LIMIT_PER_MINUTE) return;
+      await sleep(1000);
+    }
+  };
+
   const waitReady = async (settle = 1200) => {
     for (let i = 0; i < 60; i++) {
       const state = await evaluate("document.readyState").catch(() => null);
@@ -224,6 +258,7 @@ async function main() {
 
   const go = async (path, settle) => {
     pageErrors = [];
+    await pace();
     await c.send("Page.navigate", { url: `${BASE}${path}` });
     await waitReady(settle);
     // Probe with a raw fetch so the client's own 401 handler cannot mask the truth.
@@ -239,6 +274,7 @@ async function main() {
 
   const text = () => evaluate("document.body.innerText").catch(() => "");
   const path = () => evaluate("location.pathname");
+  const lang = () => evaluate("document.documentElement.lang").catch(() => null);
   // A 401 triggers a second, client-side navigation once the page's API call
   // comes back. Poll for the landing path instead of sleeping a fixed amount:
   // the round trip is not bounded by the page load.
@@ -246,6 +282,17 @@ async function main() {
     for (let waited = 0; waited < timeout; waited += 100) {
       if ((await path().catch(() => null)) === expected) return true;
       await sleep(100);
+    }
+    return false;
+  };
+  // The language switch is a Server Action, so it re-renders in the same round
+  // trip with the new cookie attached. Waiting on <html lang> rather than on any
+  // string is what makes this a test of the mechanism: a switcher that wrote a
+  // cookie and did nothing else would leave the attribute alone.
+  const waitForLang = async (expected, timeout = 10000) => {
+    for (let waited = 0; waited < timeout; waited += 150) {
+      if ((await lang()) === expected) return true;
+      await sleep(150);
     }
     return false;
   };
@@ -307,6 +354,21 @@ async function main() {
     button.click();
     return true;
   })()`);
+  // The language switcher is the only select whose options are locale codes.
+  // Those values are the same in every language, so this can drive the control
+  // without knowing which language the page is currently showing — which is the
+  // whole point of the phase below.
+  const LOCALE_SELECT = `[...document.querySelectorAll("select")].find(s => [...s.options].some(o => o.value === "zh-CN"))`;
+  const switchLocale = async (code) => {
+    const clicked = await evaluate(`(() => {
+      const select = ${LOCALE_SELECT};
+      if (!select) return false;
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(select, ${JSON.stringify(code)});
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      return true;
+    })()`);
+    return clicked && (await waitForLang(code));
+  };
 
   const results = [];
   const record = (name, ok, detail) => results.push({ name, ok, detail });
@@ -325,6 +387,7 @@ async function main() {
       autoComplete: inputs.map(i => i.getAttribute("autocomplete") || ""),
       button: button ? button.textContent.trim() : "",
       providerLinks: [...document.querySelectorAll("a[href*='/auth/oidc/']")].length,
+      switcherOutsideForm: Boolean(${LOCALE_SELECT} && !(${LOCALE_SELECT}).closest("form")),
     };
   })()`);
   record(
@@ -332,9 +395,14 @@ async function main() {
     loginShape.inputs === 2
       && loginShape.autoComplete[0] === "username"
       && loginShape.autoComplete[1] === "current-password"
-      && loginShape.button === "登录"
+      && loginShape.button === "Sign in"
       && loginShape.providerLinks === 0,
     `inputs=${loginShape.inputs} autocomplete=${loginShape.autoComplete.join(",")} button=${loginShape.button} providerLinks=${loginShape.providerLinks}`,
+  );
+  record(
+    "the login page offers the language switcher outside its form",
+    loginShape.switcherOutsideForm === true,
+    `switcherOutsideForm=${loginShape.switcherOutsideForm}`,
   );
 
   // Registration owns CAPTCHA; the login form must remain untouched. The
@@ -348,7 +416,8 @@ async function main() {
       autoComplete: inputs.map(i => i.getAttribute("autocomplete") || ""),
       button: document.querySelector("form button")?.textContent.trim() || "",
       turnstile: [...document.querySelectorAll('script[src*="challenges.cloudflare.com/turnstile/"]')].length,
-      captchaError: [...document.querySelectorAll("p")].some(p => p.textContent.includes("验证加载失败")),
+      captchaError: [...document.querySelectorAll("p")].some(p => p.textContent.includes("Could not load the registration check")),
+      switcherOutsideForm: Boolean(${LOCALE_SELECT} && !(${LOCALE_SELECT}).closest("form")),
     };
   })()`);
   record(
@@ -356,8 +425,9 @@ async function main() {
     registerShape.inputs === 2
       && registerShape.autoComplete[0] === "username"
       && registerShape.autoComplete[1] === "new-password"
-      && registerShape.button === "注册"
-      && registerShape.turnstile >= 0,
+      && registerShape.button === "Register"
+      && registerShape.turnstile >= 0
+      && registerShape.switcherOutsideForm === true,
     `inputs=${registerShape.inputs} autocomplete=${registerShape.autoComplete.join(",")} button=${registerShape.button} turnstile=${registerShape.turnstile} captchaError=${registerShape.captchaError}`,
   );
 
@@ -392,6 +462,47 @@ async function main() {
     record(`page ${page.path}`, missing.length === 0 && markers.length === 0 && pageErrors.length === 0, detail || "rendered");
   }
 
+  // ---------- phase 1b: the language switcher ----------
+  // Run against the shell, which is where an operator would reach for it, and
+  // put the language back before anything else asserts on wording. The switch is
+  // a Server Action rather than a cookie write plus a refresh, so the page must
+  // re-render in place — the URL stays put and the attribute changes with it.
+  await go("/admin", 1800);
+  const startsEnglish = (await lang()) === "en";
+  const bodyBeforeSwitch = await text();
+  record(
+    "a fresh session gets English",
+    startsEnglish && bodyBeforeSwitch.includes("Overview") && bodyBeforeSwitch.includes("Link management"),
+    `lang=${await lang()} overview=${bodyBeforeSwitch.includes("Overview")}`,
+  );
+
+  const toChinese = await switchLocale("zh-CN");
+  const chineseBody = await text();
+  const chinesePath = await path();
+  record(
+    "switching to Chinese re-renders the shell in place",
+    toChinese
+      && chinesePath === "/admin"
+      && chineseBody.includes("概览")
+      && chineseBody.includes("链接管理")
+      && !chineseBody.includes("Link management"),
+    `lang=${await lang()} path=${chinesePath} overview=${chineseBody.includes("概览")} nav=${chineseBody.includes("链接管理")}`,
+  );
+
+  // A reload is the only way to prove the choice was remembered rather than held
+  // in the client: the cookie has to survive a full navigation.
+  await go("/admin", 1500);
+  const survivedReload = (await lang()) === "zh-CN" && (await text()).includes("概览");
+  record("the language choice survives a reload", survivedReload, `lang=${await lang()}`);
+
+  const backToEnglish = await switchLocale("en");
+  const englishBody = await text();
+  record(
+    "switching back to English restores the wording",
+    backToEnglish && (await lang()) === "en" && englishBody.includes("Overview") && !englishBody.includes("概览"),
+    `lang=${await lang()} overview=${englishBody.includes("Overview")}`,
+  );
+
   // The role dropdown is built from the API's role list, so it has to offer all
   // four presets rather than the two the console used to hard-code.
   await go("/admin/users", 1800);
@@ -407,7 +518,7 @@ async function main() {
 
   // ---------- phase 2: create a link ----------
   const alias = `smoke${STAMP}`;
-  const TITLE = "Smoke 标题";
+  const TITLE = "Smoke title";
   const TAG = "smoketag";
   // The divert rule is matched on a marker no real browser sends, so the check
   // cannot be confused by the headless Chrome user agent.
@@ -415,10 +526,11 @@ async function main() {
   const RULE_DEST = "https://example.org/rule";
   await go("/admin/links/new");
   await fill('input[type="url"]', "https://example.org/before");
-  await fill('input[placeholder="留空自动生成"]', alias);
-  const titled = await fillByLabel("标题", TITLE);
-  const tagged = await fillByLabel("标签", `SmokeTag, qa`);
-  await clickText("form button", "创建链接");
+  await fill('input[placeholder="Leave blank to generate one"]', alias);
+  const titled = await fillByLabel("Title", TITLE);
+  const tagged = await fillByLabel("Tags", `SmokeTag, qa`);
+  await pace();
+  await clickText("form button", "Create link");
   await sleep(2500);
   const afterCreate = await path();
   const listBody = await text();
@@ -461,11 +573,12 @@ async function main() {
   // ---------- phase 2b: CSV import and export ----------
   const csvPath = join(tmpdir(), `purels-smoke-${STAMP}.csv`);
   const csvAlias = `smokecsv${STAMP}`;
+  const CSV_TITLE = "CSV title";
   writeFileSync(
     csvPath,
     [
       "alias,destination_url,title,tags,redirect_code",
-      `${csvAlias},https://example.org/csv,CSV 标题,csvtag|qa,301`,
+      `${csvAlias},https://example.org/csv,${CSV_TITLE},csvtag|qa,301`,
     ].join("\r\n"),
     "utf8",
   );
@@ -473,14 +586,15 @@ async function main() {
   await go("/admin/links");
   // The picker is hidden by design, so drive it through the protocol instead of
   // clicking it — that is also the only way to hand a real file to the input.
+  await pace();
   const fileNode = await c.send("Runtime.evaluate", { expression: `document.querySelector('input[type="file"]')` });
   if (fileNode.result?.objectId) {
     await c.send("DOM.setFileInputFiles", { files: [csvPath], objectId: fileNode.result.objectId });
   }
   await sleep(3000);
   const importBody = await text();
-  const importSummary = importBody.split("\n").find((line) => line.includes("导入成功")) || "";
-  record("import csv reports the created count", /导入成功\s+1\s+条/.test(importSummary), importSummary || "no report banner");
+  const importSummary = importBody.split("\n").find((line) => line.includes("Imported")) || "";
+  record("import csv reports the created count", /Imported 1 link/.test(importSummary), importSummary || "no report banner");
 
   const importedRow = await evaluate(`(() => {
     const row = [...document.querySelectorAll("tbody tr")].find(r => r.textContent.includes(${JSON.stringify(csvAlias)}));
@@ -489,7 +603,7 @@ async function main() {
   })()`);
   record(
     "imported row shows its title, tags and code",
-    Boolean(importedRow && importedRow.text.includes("CSV 标题") && importedRow.chips.includes("csvtag") && importedRow.text.includes("301")),
+    Boolean(importedRow && importedRow.text.includes(CSV_TITLE) && importedRow.chips.includes("csvtag") && importedRow.text.includes("301")),
     JSON.stringify(importedRow),
   );
 
@@ -499,12 +613,13 @@ async function main() {
     URL.createObjectURL = (blob) => { window.__downloads.push(blob.size); return original.call(URL, blob); };
     return true;
   })()`);
-  const exportClicked = await clickText("button", "导出 CSV");
+  const exportClicked = await clickText("button", "Export CSV");
   await sleep(2500);
   const downloads = await evaluate("window.__downloads || []");
   record("export csv downloads a file", Boolean(exportClicked) && downloads.length === 1 && downloads[0] > 0, `clicked=${exportClicked} sizes=${JSON.stringify(downloads)}`);
 
-  const csvDeleted = await clickRowButton(csvAlias, "删除");
+  await pace();
+  const csvDeleted = await clickRowButton(csvAlias, "Delete");
   await sleep(2500);
   const csvGone = await evaluate(`!([...document.querySelectorAll('tbody tr')].some(r => r.textContent.includes(${JSON.stringify(csvAlias)})))`);
   record("imported link can be deleted", csvDeleted && csvGone, `clicked=${csvDeleted} gone=${csvGone}`);
@@ -514,10 +629,10 @@ async function main() {
   const editHref = await evaluate(`(() => {
     const row = [...document.querySelectorAll("tbody tr")].find(r => r.textContent.includes(${JSON.stringify(alias)}));
     if (!row) return "";
-    const link = [...row.querySelectorAll("a")].find(a => a.textContent.trim() === "编辑");
+    const link = [...row.querySelectorAll("a")].find(a => a.textContent.trim() === "Edit");
     return link ? link.getAttribute("href") : "";
   })()`);
-  record("edit action present", Boolean(editHref), editHref || "no 编辑 link in the row");
+  record("edit action present", Boolean(editHref), editHref || "no Edit link in the row");
 
   if (editHref) {
     await go(editHref);
@@ -526,31 +641,31 @@ async function main() {
       const input = document.querySelector('input[type="url"]');
       return input ? input.value : "";
     })()`);
-    record("edit page prefills", editBody.includes("编辑链接") && prefilled === "https://example.org/before", `value=${prefilled}`);
+    record("edit page prefills", editBody.includes("Edit link") && prefilled === "https://example.org/before", `value=${prefilled}`);
 
-    const editTitle = await valueByLabel("标题");
-    const editTags = await valueByLabel("标签");
+    const editTitle = await valueByLabel("Title");
+    const editTags = await valueByLabel("Tags");
     record("edit page prefills the title and tags", editTitle === TITLE && editTags.includes(TAG), `title=${JSON.stringify(editTitle)} tags=${JSON.stringify(editTags)}`);
 
     // The check button is asserted on the panel's own state, not on the status
     // code: a reachable destination and an unreachable one both record a time,
     // and only the second is allowed to depend on the network.
     const checkBefore = await text();
-    const checkClicked = await clickText("button", "立即检查");
-    const checkSettled = await waitForText("上次检查");
+    const checkClicked = await clickText("button", "Check now");
+    const checkSettled = await waitForText("Last checked");
     const checkAfter = await text();
     record(
       "edit page checks the destination",
-      checkClicked && checkBefore.includes("尚未检查") && checkSettled,
-      `clicked=${checkClicked} before=${checkBefore.includes("尚未检查")} after=${checkAfter.includes("上次检查")}`,
+      checkClicked && checkBefore.includes("Not checked yet") && checkSettled,
+      `clicked=${checkClicked} before=${checkBefore.includes("Not checked yet")} after=${checkAfter.includes("Last checked")}`,
     );
 
     await fill('input[type="url"]', "https://example.org/after");
-    await fillByLabel("标题", "Smoke 标题 v2");
+    await fillByLabel("Title", "Smoke title v2");
 
     // A divert rule is added here and saved by the same button, so this also
     // covers the rule editor riding along with an ordinary edit.
-    const ruleAdded = await clickText("button", "添加规则");
+    const ruleAdded = await clickText("button", "Add rule");
     await sleep(400);
     // The rule's value field has a stable placeholder, and its destination is
     // the second url input on the page.
@@ -565,12 +680,12 @@ async function main() {
     })()`);
     record("edit page adds a divert rule", ruleAdded && ruleTyped && ruleUrlSet, `added=${ruleAdded} typed=${ruleTyped} url=${ruleUrlSet}`);
     const previewHref = await evaluate(`(() => {
-      const link = [...document.querySelectorAll("a")].find(a => a.textContent.trim() === "预览");
+      const link = [...document.querySelectorAll("a")].find(a => a.textContent.trim() === "Preview");
       return link ? link.getAttribute("href") : "";
     })()`);
-    record("edit page links to the preview page", previewHref.endsWith(`${alias}+`), previewHref || "no 预览 link");
+    record("edit page links to the preview page", previewHref.endsWith(`${alias}+`), previewHref || "no Preview link");
 
-    await clickText("form button", "保存修改");
+    await clickText("form button", "Save changes");
     await sleep(2500);
     const savedPath = await path();
     const savedBody = await text();
@@ -581,8 +696,8 @@ async function main() {
     })()`);
     record(
       "edit keeps the tags and saves the title",
-      Boolean(editedRow && editedRow.text.includes("Smoke 标题 v2") && editedRow.chips.includes(TAG)),
-      JSON.stringify({ title: editedRow?.text?.includes("Smoke 标题 v2"), chips: editedRow?.chips }),
+      Boolean(editedRow && editedRow.text.includes("Smoke title v2") && editedRow.chips.includes(TAG)),
+      JSON.stringify({ title: editedRow?.text?.includes("Smoke title v2"), chips: editedRow?.chips }),
     );
 
     // Reopening is what proves the rule was stored rather than only held in the
@@ -614,6 +729,8 @@ async function main() {
       `${undiverted?.status} -> ${undiverted?.headers.get("location")}`,
     );
 
+    // The preview page follows Accept-Language, and this fetch sends none, so it
+    // falls back to the default locale rather than to any remembered choice.
     const previewPage = await fetch(`${BASE}/${alias}+`).then((r) => r.text()).catch(() => "");
     record("the preview page shows the destination", previewPage.includes("https://example.org/after"), `${previewPage.length} bytes`);
 
@@ -622,22 +739,22 @@ async function main() {
   }
 
   // ---------- phase 4: QR dialog ----------
-  const qrOpened = await clickRowButton(alias, "二维码");
+  const qrOpened = await clickRowButton(alias, "QR code");
   await sleep(1500);
   const qrImage = await evaluate(`(() => {
-    const img = document.querySelector('img[alt*="二维码"]');
+    const img = document.querySelector('img[alt*="QR code"]');
     if (!img) return null;
     return { complete: img.complete, width: img.naturalWidth, height: img.naturalHeight };
   })()`);
   record("qr dialog renders image", Boolean(qrOpened && qrImage && qrImage.width > 0), JSON.stringify(qrImage));
   await evaluate(`(() => {
-    const close = document.querySelector('button[aria-label="关闭"]');
+    const close = document.querySelector('button[aria-label="Close"]');
     if (close) close.click();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     return true;
   })()`);
   await sleep(600);
-  const dialogClosed = await evaluate(`!document.querySelector('img[alt*="二维码"]')`);
+  const dialogClosed = await evaluate(`!document.querySelector('img[alt*="QR code"]')`);
   record("qr dialog closes", dialogClosed, dialogClosed ? "closed" : "still open");
 
   // ---------- phase 4b: bulk operations ----------
@@ -664,28 +781,31 @@ async function main() {
 
   const picked = await selectRow();
   await sleep(500);
-  const barShown = (await text()).includes("已选 1 条");
+  const barShown = (await text()).includes("1 selected");
   record("selecting a row opens the bulk bar", picked && barShown, `picked=${picked} bar=${barShown}`);
 
+  await pace();
   const choseDisable = await chooseBulk("disable");
-  const ranDisable = await clickText("button", "执行");
+  const ranDisable = await clickText("button", "Run");
   await sleep(2500);
   // The alias, the destination and the title are all free of the word, so it can
   // only come from the status badge.
   const disabledRow = await rowStatus();
   record("the bulk bar disables the selected link", choseDisable && ranDisable && disabledRow.includes("disabled"), `chose=${choseDisable} ran=${ranDisable} row=${JSON.stringify(disabledRow.slice(0, 40))}`);
-  record("the bulk bar closes once the batch has run", !(await text()).includes("已选 1 条"), "selection cleared");
+  record("the bulk bar closes once the batch has run", !(await text()).includes("1 selected"), "selection cleared");
 
   await selectRow();
   await sleep(400);
+  await pace();
   const choseEnable = await chooseBulk("enable");
-  const ranEnable = await clickText("button", "执行");
+  const ranEnable = await clickText("button", "Run");
   await sleep(2500);
   const enabledRow = await rowStatus();
   record("the bulk bar restarts the selected link", choseEnable && ranEnable && enabledRow.includes("active"), `chose=${choseEnable} ran=${ranEnable}`);
 
   // ---------- phase 5: delete that link ----------
-  const deleted = await clickRowButton(alias, "删除");
+  await pace();
+  const deleted = await clickRowButton(alias, "Delete");
   await sleep(2500);
   // Assert on the table itself: the alias also appears in the search box and other
   // chrome, so a whole-page substring check reports false negatives.
@@ -697,12 +817,12 @@ async function main() {
   // Newest first, so match the create entry explicitly rather than the first row
   // that mentions the alias (the later update also carries it).
   const auditRow = await evaluate(`(() => {
-    const row = [...document.querySelectorAll("tbody tr")].find(r => r.textContent.includes(${JSON.stringify(alias)}) && r.textContent.includes("创建链接"));
+    const row = [...document.querySelectorAll("tbody tr")].find(r => r.textContent.includes(${JSON.stringify(alias)}) && r.textContent.includes("Created a link"));
     return row ? row.innerText.replace(/\\s+/g, " ").trim() : "";
   })()`);
   record(
     "audit page shows the actor and the recorded action",
-    auditRow.includes("admin") && auditRow.includes("创建链接") && auditRow.includes(`alias: ${alias}`),
+    auditRow.includes("admin") && auditRow.includes("Created a link") && auditRow.includes(`alias: ${alias}`),
     auditRow || "no row for the created link",
   );
 
@@ -716,17 +836,18 @@ async function main() {
   await sleep(1800);
   const filteredAudit = await evaluate(`(() => {
     const rows = [...document.querySelectorAll("tbody tr")];
-    return { count: rows.length, allDelete: rows.length > 0 && rows.every(r => r.textContent.includes("删除链接")) };
+    return { count: rows.length, allDelete: rows.length > 0 && rows.every(r => r.textContent.includes("Deleted a link")) };
   })()`);
   record("audit action filter narrows the list", Boolean(auditFilter) && filteredAudit.allDelete, `rows=${filteredAudit.count} allDelete=${filteredAudit.allDelete}`);
 
   // ---------- phase 6: create + revoke an API token ----------
   const tokenName = `smoke-token-${STAMP}`;
   await go("/admin/settings/security");
-  await fill('input[placeholder="Token 名称"]', tokenName);
-  await clickText("button", "创建");
+  await pace();
+  await fill('input[placeholder="Token name"]', tokenName);
+  await clickText("button", "Create");
   await sleep(2000);
-  const secretShown = (await text()).includes("请立即保存 Token");
+  const secretShown = (await text()).includes("Save the token now");
   record("create token", secretShown, secretShown ? "secret displayed" : `secret banner missing (path=${await path()})`);
 
   // The token list is fetched client-side after readyState completes, so poll for
@@ -750,7 +871,7 @@ async function main() {
 
   // ---------- phase 7: stats dashboard interactions ----------
   await go("/admin/stats", 2200);
-  const autoSelected = await evaluate(`document.body.innerText.includes("单链接明细 · /")`);
+  const autoSelected = await evaluate(`document.body.innerText.includes("Link detail · /")`);
   record("stats auto-selects a link", autoSelected, autoSelected ? "detail header shows an alias" : "nothing auto-selected");
 
   const drillDown = await evaluate(`(() => {
@@ -761,33 +882,33 @@ async function main() {
   })()`);
   await sleep(1500);
   const drillBody = await text();
-  record("stats row click drills down", drillDown && drillBody.includes("单链接明细 · /"), `clicked=${drillDown}`);
+  record("stats row click drills down", drillDown && drillBody.includes("Link detail · /"), `clicked=${drillDown}`);
 
   // The detail panel is always seeded from the ranking, so the selected link is
   // guaranteed to have clicks in the range — the log must therefore have rows.
   const clickLogState = await evaluate(`(() => {
-    const heading = [...document.querySelectorAll("h3")].find(h => h.textContent.trim() === "点击明细");
+    const heading = [...document.querySelectorAll("h3")].find(h => h.textContent.trim() === "Click log");
     if (!heading) return "missing";
     const panel = heading.closest("div").parentElement;
     return panel.querySelectorAll("tbody tr").length > 0 ? "rows" : "empty";
   })()`);
   record("stats click log lists the raw clicks", clickLogState === "rows", `log=${clickLogState}`);
 
-  const rangeSwitched = await clickText("button", "近 7 天");
+  const rangeSwitched = await clickText("button", "Last 7 days");
   await sleep(2200);
   const rangeBody = await text();
   record(
     "stats range switch reloads",
-    rangeSwitched && rangeBody.includes("全局点击趋势") && !ERROR_MARKERS.some((m) => rangeBody.includes(m)),
+    rangeSwitched && rangeBody.includes("Clicks over time") && !ERROR_MARKERS.some((m) => rangeBody.includes(m)),
     `clicked=${rangeSwitched}`,
   );
 
-  const todaySwitched = await clickText("button", "今天");
+  const todaySwitched = await clickText("button", "Today");
   await sleep(2200);
   const todayBody = await text();
   record("stats today range", todaySwitched && !ERROR_MARKERS.some((m) => todayBody.includes(m)), `clicked=${todaySwitched}`);
 
-  const csvButtons = await evaluate(`[...document.querySelectorAll("button")].filter(b => b.textContent.includes("导出")).length`);
+  const csvButtons = await evaluate(`[...document.querySelectorAll("button")].filter(b => b.textContent.includes("Export")).length`);
   record("stats csv export buttons", csvButtons >= 2, `${csvButtons} buttons`);
 
   // ---------- phase 7b: a sign-in button appears only once a provider exists ----------
@@ -798,16 +919,18 @@ async function main() {
   // which the suite drives by position, and the provider's own screen is
   // smoke-oidc.mjs's business.
   const providerSlug = `page${STAMP}`;
+  const providerName = "Smoke sign-in";
   const apiCall = (expression) => evaluate(`(async () => {
     const csrf = document.cookie.split("; ").find((c) => c.startsWith("purels_csrf="))?.split("=")[1] || "";
     ${expression}
   })()`);
 
+  await pace();
   const providerCreated = await apiCall(`const response = await fetch("/api/v1/oidc/providers", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
-      body: JSON.stringify({ slug: ${JSON.stringify(providerSlug)}, display_name: "冒烟登录", issuer: "https://idp.example.com", client_id: "purels" }),
+      body: JSON.stringify({ slug: ${JSON.stringify(providerSlug)}, display_name: ${JSON.stringify(providerName)}, issuer: "https://idp.example.com", client_id: "purels" }),
     });
     return response.status;`);
   record("a sign-in provider can be configured", providerCreated === 201, `status=${providerCreated}`);
@@ -821,7 +944,7 @@ async function main() {
   })()`);
   record(
     "a configured provider adds a sign-in link without disturbing the form",
-    withProvider.inputs === 2 && withProvider.button === "登录" && withProvider.link === "冒烟登录",
+    withProvider.inputs === 2 && withProvider.button === "Sign in" && withProvider.link === providerName,
     `inputs=${withProvider.inputs} button=${withProvider.button} link=${withProvider.link || "none"}`,
   );
 
@@ -841,6 +964,7 @@ async function main() {
   // tracker. The load failure that produces is the one console error this phase
   // tolerates, and it is matched by URL below.
   const TRACKER_HOST = "127.0.0.1:45999";
+  await pace();
   const analyticsSaved = await apiCall(`const response = await fetch("/api/v1/analytics", {
       method: "PUT",
       credentials: "include",
@@ -892,7 +1016,7 @@ async function main() {
 
   // ---------- phase 8: logout, then an expired session redirects to /login ----------
   await go("/admin");
-  const loggedOut = await clickText("button", "退出登录");
+  const loggedOut = await clickText("button", "Sign out");
   const reachedLogin = await waitForPath("/login");
   record("logout -> /login", Boolean(loggedOut) && reachedLogin, `clicked=${loggedOut} path=${await path()}`);
 
@@ -917,6 +1041,24 @@ async function main() {
 
   // Diagnostics are noisy and only meaningful when something failed.
   if (failed) {
+    // The busiest rolling minute, which is the number the API's limiter acts on.
+    let peak = 0;
+    let peakFrom = 0;
+    for (let i = 0, j = 0; i < apiHits.length; i++) {
+      while (apiHits[i].at - apiHits[j].at >= 60000) j++;
+      if (i - j + 1 > peak) {
+        peak = i - j + 1;
+        peakFrom = j;
+      }
+    }
+    console.log(`\n/api/v1 requests: ${apiHits.length}, busiest minute: ${peak}`);
+    if (peak) {
+      const window = apiHits.slice(peakFrom, peakFrom + peak);
+      console.log(`  that minute ran from +${((window[0].at - apiHits[0].at) / 1000).toFixed(0)}s to +${((window[window.length - 1].at - apiHits[0].at) / 1000).toFixed(0)}s`);
+      const counts = new Map();
+      for (const hit of window) counts.set(hit.path.split("?")[0], (counts.get(hit.path.split("?")[0]) || 0) + 1);
+      for (const [route, count] of [...counts].sort((a, b) => b[1] - a[1]).slice(0, 8)) console.log(`    ${count}  ${route}`);
+    }
     if (httpErrors.length) {
       console.log("\nHTTP responses >= 400 observed:");
       for (const entry of httpErrors) console.log(`  ${entry}`);

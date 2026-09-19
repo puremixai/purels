@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, AnalyticsInput, AnalyticsSettings, ApiError } from "@/lib/api-client";
+import { api, AnalyticsInput, AnalyticsSettings } from "@/lib/api-client";
+import { useT } from "@/components/i18n-provider";
+import { errorText, type MessageKey, type T } from "@/lib/i18n";
 import { validateAnalyticsInput } from "@/lib/analytics-config";
 
 const emptyDraft: AnalyticsInput = {
@@ -25,12 +27,12 @@ function toDraft(settings: AnalyticsSettings): AnalyticsInput {
  * permission boundary rather than as the API's own wording, so a page that is
  * merely out of reach does not look like a page that broke.
  */
-function describeError(e: unknown, fallback: string) {
-  if (e instanceof ApiError) return e.status === 403 ? "没有权限管理埋点。" : e.message;
-  return fallback;
+function describeError(t: T, e: unknown, fallback: MessageKey) {
+  return errorText(t, e, fallback, { 403: "settings.analytics.noPermission" });
 }
 
 export default function AnalyticsSettingsPage() {
+  const t = useT();
   const [saved, setSaved] = useState<AnalyticsInput>(emptyDraft);
   const [draft, setDraft] = useState<AnalyticsInput>(emptyDraft);
   const [error, setError] = useState("");
@@ -46,11 +48,11 @@ export default function AnalyticsSettingsPage() {
       setDraft(next);
       setError("");
     } catch (e) {
-      setError(describeError(e, "加载失败"));
+      setError(describeError(t, e, "error.load"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -69,7 +71,7 @@ export default function AnalyticsSettingsPage() {
     const invalid = validateAnalyticsInput(draft);
     if (invalid) {
       setNotice("");
-      setError(invalid);
+      setError(t(invalid));
       return;
     }
     setBusy(true);
@@ -79,9 +81,9 @@ export default function AnalyticsSettingsPage() {
       const next = toDraft(await api.analytics.update(draft));
       setSaved(next);
       setDraft(next);
-      setNotice("已保存");
+      setNotice(t("settings.saved"));
     } catch (e) {
-      setError(describeError(e, "保存失败"));
+      setError(describeError(t, e, "error.save"));
     } finally {
       setBusy(false);
     }
@@ -90,19 +92,19 @@ export default function AnalyticsSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm text-[var(--muted)]">工作台 / 埋点统计</p>
-        <h1 className="mt-1 text-2xl font-bold">埋点统计</h1>
+        <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("settings.analytics.title")}</p>
+        <h1 className="mt-1 text-2xl font-bold">{t("settings.analytics.title")}</h1>
       </div>
 
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-red-700">{error}</p>}
       {notice && <p className="rounded-lg bg-emerald-50 px-4 py-3 text-emerald-800">{notice}</p>}
-      {loading && <p className="text-sm text-[var(--muted)]">正在加载...</p>}
+      {loading && <p className="text-sm text-[var(--muted)]">{t("common.loading")}</p>}
 
       {!loading && (
         <section className="panel space-y-4 p-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">GA4 衡量 ID</span>
+              <span className="text-[var(--muted)]">{t("settings.analytics.ga4")}</span>
               <input
                 className="field-control"
                 placeholder="G-XXXXXXXXXX"
@@ -111,7 +113,7 @@ export default function AnalyticsSettingsPage() {
               />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">GTM 容器 ID</span>
+              <span className="text-[var(--muted)]">{t("settings.analytics.gtm")}</span>
               <input
                 className="field-control"
                 placeholder="GTM-XXXXXXX"
@@ -120,7 +122,7 @@ export default function AnalyticsSettingsPage() {
               />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">Matomo 地址</span>
+              <span className="text-[var(--muted)]">{t("settings.analytics.matomoUrl")}</span>
               <input
                 className="field-control"
                 placeholder="https://matomo.example.com"
@@ -129,7 +131,7 @@ export default function AnalyticsSettingsPage() {
               />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">Matomo 站点 ID</span>
+              <span className="text-[var(--muted)]">{t("settings.analytics.matomoSiteId")}</span>
               <input
                 className="field-control"
                 placeholder="1"
@@ -140,7 +142,7 @@ export default function AnalyticsSettingsPage() {
           </div>
           <div className="flex justify-end">
             <button className="btn-primary" disabled={!dirty || busy} onClick={save}>
-              {busy ? "正在保存..." : "保存"}
+              {busy ? t("common.saving") : t("common.save")}
             </button>
           </div>
         </section>
