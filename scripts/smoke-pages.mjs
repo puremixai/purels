@@ -902,9 +902,46 @@ async function main() {
   record("revoke token", revoked === "clicked" && !afterRevoke.includes(tokenName), `${revoked}, gone=${!afterRevoke.includes(tokenName)}`);
 
   // ---------- phase 7: stats dashboard interactions ----------
+  //
+  // Every panel below reads from the ranking, which lists only links with clicks
+  // in the range (TopLinks). Phase 5 deleted the link this run created, so the
+  // dashboard is given a link of its own: leaning on whatever the database
+  // already held made these three checks pass against a seeded database and fail
+  // against an empty one, so they were testing the fixture rather than the page.
+  const apiCall = (expression) => evaluate(`(async () => {
+    const csrf = document.cookie.split("; ").find((c) => c.startsWith("purels_csrf="))?.split("=")[1] || "";
+    ${expression}
+  })()`);
+
+  const statsAlias = `pagestats${STAMP}`;
+  const statsSeeded = await apiCall(`const response = await fetch("/api/v1/links", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+      body: JSON.stringify({ destination_url: "https://example.org/stats", alias: ${JSON.stringify(statsAlias)} }),
+    });
+    return response.status;`);
+  // RecordClick runs before the redirect is written, so the raw events exist by
+  // the time these return.
+  for (let hit = 0; hit < 3; hit += 1) {
+    await fetch(`${BASE}/${statsAlias}`, { redirect: "manual" }).catch(() => null);
+  }
+
+  // The ranking reads link_click_daily, which the worker rebuilds from the raw
+  // events on its own tick (5s), so a fresh click is not ranked immediately. The
+  // dashboard reads the ranking once per range change and never re-polls, so
+  // wait for the rollup here instead of loading a page that will stay empty.
+  let ranked = false;
+  for (let waited = 0; waited < 30000 && !ranked; waited += 1000) {
+    await pace();
+    ranked = await apiCall(`const payload = await (await fetch("/api/v1/stats/top?order=top&limit=10", { credentials: "include" })).json();
+      return (payload.links || []).some((link) => link.alias === ${JSON.stringify(statsAlias)});`);
+    if (!ranked) await sleep(1000);
+  }
+
   await go("/admin/stats", 2200);
   const autoSelected = await evaluate(`document.body.innerText.includes("Link detail · /")`);
-  record("stats auto-selects a link", autoSelected, autoSelected ? "detail header shows an alias" : "nothing auto-selected");
+  record("stats auto-selects a link", autoSelected, autoSelected ? "detail header shows an alias" : `nothing auto-selected (seeded=${statsSeeded} ranked=${ranked})`);
 
   const drillDown = await evaluate(`(() => {
     const row = document.querySelector("tbody tr");
@@ -943,6 +980,14 @@ async function main() {
   const csvButtons = await evaluate(`[...document.querySelectorAll("button")].filter(b => b.textContent.includes("Export")).length`);
   record("stats csv export buttons", csvButtons >= 2, `${csvButtons} buttons`);
 
+  // The link seeded above belongs to this phase alone, so it goes back out with
+  // it rather than being left for the next run to rank.
+  await apiCall(`const list = await (await fetch("/api/v1/links?limit=100", { credentials: "include" })).json();
+    const row = (list.links || []).find((link) => link.alias === ${JSON.stringify(statsAlias)});
+    if (!row) return 0;
+    const response = await fetch("/api/v1/links/" + row.id, { method: "DELETE", credentials: "include", headers: { "X-CSRF-Token": csrf } });
+    return response.status;`);
+
   // ---------- phase 7b: a sign-in button appears only once a provider exists ----------
   //
   // The login page renders its provider links from the API, so the only way to
@@ -952,10 +997,6 @@ async function main() {
   // smoke-oidc.mjs's business.
   const providerSlug = `page${STAMP}`;
   const providerName = "Smoke sign-in";
-  const apiCall = (expression) => evaluate(`(async () => {
-    const csrf = document.cookie.split("; ").find((c) => c.startsWith("purels_csrf="))?.split("=")[1] || "";
-    ${expression}
-  })()`);
 
   await pace();
   const providerCreated = await apiCall(`const response = await fetch("/api/v1/oidc/providers", {
