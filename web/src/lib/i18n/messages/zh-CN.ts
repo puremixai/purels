@@ -143,6 +143,8 @@ export const zhCN: Dictionary = {
   "links.form.tags": "标签（可选）",
   "links.form.tagsPlaceholder": "多个标签用逗号分隔",
   "links.form.redirectCode": "跳转状态码",
+  "links.form.interstitial": "先显示要跳转的地址",
+  "links.form.interstitialUnit": "秒后跳转",
   "links.form.submit": "创建链接",
   "links.form.submitting": "创建中...",
   "links.form.save": "保存修改",

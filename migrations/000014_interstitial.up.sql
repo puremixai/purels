@@ -1,0 +1,18 @@
+-- A link can show its destination before sending the visitor on, so the visitor
+-- sees where they are about to land rather than being moved without warning.
+--
+-- The value is the number of seconds to hold that page for. Zero means the link
+-- redirects immediately, which is what every link did before this column
+-- existed; the default of 2 is therefore a deliberate change of behaviour for
+-- existing rows, not an accident of the default.
+--
+-- There is deliberately no separate "enabled" column. "Zero means off" already
+-- expresses enablement, and a second source of truth for the same fact would
+-- eventually disagree with the first — the same reasoning that keeps
+-- analytics_settings free of an enabled flag.
+--
+-- The range is validated in the service rather than by a CHECK. A 23514 is not
+-- mapped by normalizeDBError, so a violation would leak the constraint text to
+-- the client, and the constraint would be a second copy of a rule the service
+-- already owns.
+ALTER TABLE links ADD COLUMN IF NOT EXISTS interstitial_seconds smallint NOT NULL DEFAULT 2;

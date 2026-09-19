@@ -226,3 +226,30 @@ func TestNormalizeDomain(t *testing.T) {
 		t.Error("expected a rejection when no short domains are configured")
 	}
 }
+
+func TestInterstitialSeconds(t *testing.T) {
+	// An omitted value takes the default, which is what makes the option on by
+	// default rather than something every caller has to remember to ask for.
+	if got, err := interstitialSeconds(nil); err != nil || got != DefaultInterstitialSeconds {
+		t.Errorf("an omitted value must take the default, got %d (%v)", got, err)
+	}
+
+	// Zero is a real value here — it means redirect immediately — so it has to
+	// survive as itself rather than being folded into the default.
+	off := int16(0)
+	if got, err := interstitialSeconds(&off); err != nil || got != 0 {
+		t.Errorf("zero must mean off, got %d (%v)", got, err)
+	}
+
+	// The bounds are inclusive at the top.
+	top := int16(MaxInterstitialSeconds)
+	if got, err := interstitialSeconds(&top); err != nil || got != MaxInterstitialSeconds {
+		t.Errorf("%d must be accepted, got %d (%v)", MaxInterstitialSeconds, got, err)
+	}
+
+	for _, rejected := range []int16{-1, MaxInterstitialSeconds + 1} {
+		if _, err := interstitialSeconds(&rejected); err == nil {
+			t.Errorf("%d: expected a rejection", rejected)
+		}
+	}
+}

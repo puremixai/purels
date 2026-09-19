@@ -35,6 +35,15 @@ const (
 	MatchDevice     = "device"
 )
 
+// The interstitial holds the visitor on a page showing the destination for this
+// many seconds before sending them on. Zero turns it off, and the default is
+// what a link gets when the caller does not say; the cap keeps a link from
+// looking broken, since a long hold reads as a dead end rather than a warning.
+const (
+	DefaultInterstitialSeconds = 2
+	MaxInterstitialSeconds     = 60
+)
+
 // Bulk action names. Kept as constants so the service, the handler and the
 // front-end agree on the vocabulary.
 const (
@@ -113,6 +122,10 @@ func (l *LinkService) Create(ctx context.Context, req domain.CreateLinkRequest) 
 	if code != 301 && code != 302 {
 		return CreateResult{}, errors.New("redirect_code must be 301 or 302")
 	}
+	interstitial, err := interstitialSeconds(req.InterstitialSeconds)
+	if err != nil {
+		return CreateResult{}, err
+	}
 	// Every route that reaches here is authenticated, so the actor is present.
 	// A nil owner (no actor) would leave the link owned by nobody, which is the
 	// pre-ownership state and is visible to administrators only.
@@ -131,7 +144,7 @@ func (l *LinkService) Create(ctx context.Context, req domain.CreateLinkRequest) 
 		if err := l.checkQuota(ctx); err != nil {
 			return CreateResult{}, err
 		}
-		link := newLink(alias, req.DestinationURL, title, tags, code, req.ExpiresAt)
+		link := newLink(alias, req.DestinationURL, title, tags, code, req.ExpiresAt, interstitial)
 		link.Rules = rules
 		link.Domain = shortDomain
 		if err := l.Store.CreateLink(ctx, link, owner); err != nil {
@@ -168,7 +181,7 @@ func (l *LinkService) Create(ctx context.Context, req domain.CreateLinkRequest) 
 		if security.AliasReserved(alias) {
 			continue
 		}
-		candidate := newLink(alias, req.DestinationURL, title, tags, code, req.ExpiresAt)
+		candidate := newLink(alias, req.DestinationURL, title, tags, code, req.ExpiresAt, interstitial)
 		candidate.Rules = rules
 		candidate.Domain = shortDomain
 		if err := l.Store.CreateLink(ctx, candidate, owner); err == nil {
@@ -221,7 +234,7 @@ func (l *LinkService) nextAlias(ctx context.Context) (string, error) {
 	return security.EncodeBase36(value), nil
 }
 
-func newLink(alias, destination, title string, tags []string, code int16, expires string) domain.Link {
+func newLink(alias, destination, title string, tags []string, code int16, expires string, interstitial int16) domain.Link {
 	var expiresAt *time.Time
 	if expires != "" {
 		if parsed, err := time.Parse(time.RFC3339, expires); err == nil {
@@ -233,7 +246,20 @@ func newLink(alias, destination, title string, tags []string, code int16, expire
 		tags = []string{}
 	}
 	now := time.Now().UTC()
-	return domain.Link{ID: postgres.NewID(), Alias: alias, DestinationURL: destination, Title: title, Tags: tags, RedirectCode: code, Status: "active", Version: 1, ExpiresAt: expiresAt, CreatedAt: now, UpdatedAt: now}
+	return domain.Link{ID: postgres.NewID(), Alias: alias, DestinationURL: destination, Title: title, Tags: tags, RedirectCode: code, Status: "active", Version: 1, ExpiresAt: expiresAt, CreatedAt: now, UpdatedAt: now, InterstitialSeconds: interstitial}
+}
+
+// interstitialSeconds resolves the requested delay: nil takes the default, and
+// anything out of range is refused here rather than by a CHECK constraint, so
+// the caller gets a sentence instead of a SQLSTATE.
+func interstitialSeconds(requested *int16) (int16, error) {
+	if requested == nil {
+		return DefaultInterstitialSeconds, nil
+	}
+	if *requested < 0 || *requested > MaxInterstitialSeconds {
+		return 0, fmt.Errorf("interstitial_seconds must be between 0 and %d", MaxInterstitialSeconds)
+	}
+	return *requested, nil
 }
 
 func (l *LinkService) Resolve(ctx context.Context, alias string) (domain.Link, error) {
@@ -299,6 +325,15 @@ func (l *LinkService) Update(ctx context.Context, id string, req domain.UpdateLi
 			return link, errors.New("redirect_code must be 301 or 302")
 		}
 		link.RedirectCode = req.RedirectCode
+	}
+	// A pointer, so an omitted field leaves the delay alone while an explicit
+	// zero turns the interstitial off.
+	if req.InterstitialSeconds != nil {
+		interstitial, interstitialErr := interstitialSeconds(req.InterstitialSeconds)
+		if interstitialErr != nil {
+			return link, interstitialErr
+		}
+		link.InterstitialSeconds = interstitial
 	}
 	if req.Status != "" && req.Status != "active" && req.Status != "disabled" {
 		return link, errors.New("invalid status")

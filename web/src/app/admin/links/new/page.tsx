@@ -27,6 +27,10 @@ export default function NewLinkPage() {
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState("");
   const [code, setCode] = useState("302");
+  // On by default, matching the column default: the point of the option is that
+  // a visitor sees where they are going unless the operator says otherwise.
+  const [interstitialOn, setInterstitialOn] = useState(true);
+  const [interstitialSeconds, setInterstitialSeconds] = useState("2");
   const [rules, setRules] = useState<LinkRuleInput[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,6 +48,8 @@ export default function NewLinkPage() {
         redirect_code: Number(code),
         rules,
         domain,
+        // Unchecking sends 0, which is what turns the interstitial off.
+        interstitial_seconds: interstitialOn ? Number(interstitialSeconds) : 0,
       });
       router.push("/admin/links");
     } catch (err) {
@@ -84,6 +90,25 @@ export default function NewLinkPage() {
             <option value="301">{t("links.redirect.permanent")}</option>
           </select>
         </label>
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" className="h-4 w-4" checked={interstitialOn} onChange={(e) => setInterstitialOn(e.target.checked)} />
+            {t("links.form.interstitial")}
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="number"
+              className="field-control w-20"
+              min={1}
+              max={60}
+              required={interstitialOn}
+              disabled={!interstitialOn}
+              value={interstitialSeconds}
+              onChange={(e) => setInterstitialSeconds(e.target.value)}
+            />
+            {t("links.form.interstitialUnit")}
+          </label>
+        </div>
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <LinkRulesEditor rules={rules} onChange={setRules} />
         <div className="flex justify-end gap-3">

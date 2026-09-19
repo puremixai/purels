@@ -156,6 +156,8 @@ export const en = {
   "links.form.tags": "Tags (optional)",
   "links.form.tagsPlaceholder": "Separate tags with commas",
   "links.form.redirectCode": "Redirect code",
+  "links.form.interstitial": "Show the destination first",
+  "links.form.interstitialUnit": "seconds before redirecting",
   "links.form.submit": "Create link",
   "links.form.submitting": "Creating...",
   "links.form.save": "Save changes",

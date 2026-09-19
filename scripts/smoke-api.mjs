@@ -134,6 +134,10 @@ async function main() {
         title: "Release notes",
         // Mixed case, padding and a duplicate must all collapse to ["docs","news"].
         tags: ["News", " news ", "docs"],
+        // This link is here for the query-forwarding check below, which reads
+        // the Location header — so it has to redirect rather than hold the
+        // visitor on the interstitial page.
+        interstitial_seconds: 0,
       },
     }),
   );
@@ -256,11 +260,14 @@ async function main() {
       (exported.headers.get("content-disposition") || "").includes("attachment"),
     `status=${exported.status} type=${exported.headers.get("content-type")}`,
   );
-  record("export writes the header row", csvLines[0] === "alias,destination_url,title,tags,redirect_code", csvLines[0]);
+  record("export writes the header row", csvLines[0] === "alias,destination_url,title,tags,redirect_code,interstitial_seconds", csvLines[0]);
   const exportedOne = csvLines.find((line) => line.startsWith(`api${STAMP}csv1,`));
   record(
     "export round-trips title, tags and code",
-    Boolean(exportedOne) && exportedOne.includes("CSV 一") && exportedOne.includes("docs|news") && exportedOne.endsWith(",301"),
+    // The trailing 2 is the delay the importer defaulted to: the file above has
+    // no interstitial_seconds column, and an absent column must take the
+    // default rather than switching the interstitial off.
+    Boolean(exportedOne) && exportedOne.includes("CSV 一") && exportedOne.includes("docs|news") && exportedOne.endsWith(",301,2"),
     exportedOne || "row missing",
   );
 
@@ -313,7 +320,13 @@ async function main() {
     await call("/api/v1/links", {
       method: "POST",
       headers: { "X-CSRF-Token": csrf },
-      body: { destination_url: `https://example.org/case-${STAMP}`, alias: mixedAlias },
+      body: {
+        destination_url: `https://example.org/case-${STAMP}`,
+        alias: mixedAlias,
+        // The check below reads the redirect status, so this link must not be
+        // holding visitors on the interstitial page.
+        interstitial_seconds: 0,
+      },
     }),
   );
   record("an alias is stored lower-cased", mixedCreate.link?.alias === mixedAlias.toLowerCase(), `alias=${mixedCreate.link?.alias}`);
@@ -347,6 +360,9 @@ async function main() {
         { match_type: "ua_contains", match_value: RULE_UA, destination_url: "https://example.org/rule-ua" },
         { match_type: "device", match_value: "tablet", destination_url: "https://example.org/rule-tablet", redirect_code: 301 },
       ],
+      // Every check below reads the status and the Location a rule produces, so
+      // this link has to redirect. The interstitial has its own phase.
+      interstitial_seconds: 0,
     },
   });
   const ruleBody = await json(ruleCreate);
@@ -774,7 +790,12 @@ async function main() {
   const plain = await call("/api/v1/links", {
     method: "POST",
     headers: { "X-CSRF-Token": csrf },
-    body: { destination_url: "https://example.com/plain-domain", alias: plainAlias },
+    body: {
+      destination_url: "https://example.com/plain-domain",
+      alias: plainAlias,
+      // The check below resolves this link and expects a redirect.
+      interstitial_seconds: 0,
+    },
   });
   const plainPayload = await json(plain);
   record("a link with no domain is created", plain.status === 201, `status=${plain.status}`);
@@ -795,6 +816,135 @@ async function main() {
   record("the short link still resolves", plainRedirect.status === 302, `status=${plainRedirect.status}`);
 
   record("the overview reports the IP mode", (today.ip_mode ?? "") !== "", today.ip_mode);
+
+  // ---------- the interstitial ----------
+  // A link can hold the visitor on a page showing the destination before sending
+  // them on. Omitting the field has to take the default rather than switch the
+  // page off, which is the whole reason the column has one.
+  const holdAlias = `api${STAMP}hold`;
+  const holdCreated = await json(
+    await call("/api/v1/links", {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrf },
+      body: { destination_url: "https://example.org/hold", alias: holdAlias },
+    }),
+  );
+  record(
+    "a link with no delay takes the default",
+    holdCreated.link?.interstitial_seconds === 2,
+    `interstitial_seconds=${holdCreated.link?.interstitial_seconds}`,
+  );
+
+  const held = await call(`/${holdAlias}`);
+  const heldBody = await held.text();
+  record(
+    "a delayed link serves a page instead of a redirect",
+    held.status === 200 && (held.headers.get("content-type") || "").includes("text/html"),
+    `status=${held.status} type=${held.headers.get("content-type")}`,
+  );
+  record(
+    "the page shows the destination and how long it will hold",
+    heldBody.includes("https://example.org/hold") &&
+      heldBody.includes('content="2;url=https://example.org/hold"') &&
+      heldBody.includes("Redirecting in 2 seconds"),
+    heldBody.includes("https://example.org/hold") ? "destination present" : "destination missing",
+  );
+  record(
+    "the page keeps search engines out",
+    heldBody.includes("noindex") && (held.headers.get("x-robots-tag") || "").includes("noindex"),
+    held.headers.get("x-robots-tag") || "no x-robots-tag",
+  );
+
+  // A HEAD gets the headers and no body, which is what HEAD means.
+  const heldHead = await call(`/${holdAlias}`, { method: "HEAD" });
+  record(
+    "a HEAD on a delayed link carries no body",
+    heldHead.status === 200 && (await heldHead.text()).length === 0,
+    `status=${heldHead.status}`,
+  );
+
+  // An explicit zero is the way back to a plain redirect, and it must survive as
+  // itself rather than being read as "not supplied".
+  const shortAlias = `api${STAMP}short`;
+  const shortCreated = await json(
+    await call("/api/v1/links", {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrf },
+      body: { destination_url: "https://example.org/short", alias: shortAlias, interstitial_seconds: 0 },
+    }),
+  );
+  record(
+    "zero round-trips as zero rather than as omitted",
+    shortCreated.link?.interstitial_seconds === 0,
+    `interstitial_seconds=${shortCreated.link?.interstitial_seconds}`,
+  );
+  const shortRedirect = await call(`/${shortAlias}`);
+  record(
+    "an explicit zero redirects immediately",
+    shortRedirect.status === 302 && shortRedirect.headers.get("location") === "https://example.org/short",
+    `${shortRedirect.status} -> ${shortRedirect.headers.get("location")}`,
+  );
+
+  const customDelay = await json(
+    await call(`/api/v1/links/${holdCreated.link?.id}`, {
+      method: "PATCH",
+      headers: { "X-CSRF-Token": csrf },
+      body: { interstitial_seconds: 5 },
+    }),
+  );
+  record(
+    "an update sets the delay",
+    customDelay.link?.interstitial_seconds === 5,
+    `interstitial_seconds=${customDelay.link?.interstitial_seconds}`,
+  );
+  const customPage = await call(`/${holdAlias}`);
+  const customBody = await customPage.text();
+  record(
+    "the new delay reaches the page",
+    customBody.includes('content="5;url=https://example.org/hold"') && customBody.includes("Redirecting in 5 seconds"),
+    `refresh=${customBody.includes('content="5;url=')} label=${customBody.includes("Redirecting in 5 seconds")}`,
+  );
+
+  // The list is a different projection from the single-link read, so it has to
+  // carry the delay too.
+  const holdList = await json(await call(`/api/v1/links?search=${STAMP}hold&limit=10`));
+  const holdListed = (holdList.links || []).find((entry) => entry.alias === holdAlias);
+  record(
+    "the list carries the delay",
+    holdListed?.interstitial_seconds === 5,
+    `interstitial_seconds=${holdListed?.interstitial_seconds}`,
+  );
+
+  const untouched = await json(
+    await call(`/api/v1/links/${holdCreated.link?.id}`, {
+      method: "PATCH",
+      headers: { "X-CSRF-Token": csrf },
+      body: { title: "Held" },
+    }),
+  );
+  record(
+    "an update that omits the delay leaves it alone",
+    untouched.link?.interstitial_seconds === 5,
+    `interstitial_seconds=${untouched.link?.interstitial_seconds}`,
+  );
+
+  for (const [seconds, label] of [
+    [61, "above the cap"],
+    [-1, "below zero"],
+  ]) {
+    const rejected = await call("/api/v1/links", {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrf },
+      body: { destination_url: `https://example.org/range-${STAMP}-${seconds}`, interstitial_seconds: seconds },
+    });
+    record(`a delay ${label} is refused`, rejected.status === 400, `status=${rejected.status}`);
+  }
+
+  // exportHeader is also the import contract, so a delay has to survive a round
+  // trip rather than being reset by one.
+  const holdExport = (await (await call(`/api/v1/links/export?search=${STAMP}hold`)).text()).replace(/^\uFEFF/, "");
+  const holdExportRow = holdExport.split(/\r?\n/).find((line) => line.startsWith(`${holdAlias},`));
+  record("export carries the delay", Boolean(holdExportRow) && holdExportRow.endsWith(",5"), holdExportRow || "row missing");
 
   // ---------- error hygiene ----------
   // A malformed id must not reach Postgres, and Postgres' own text must not reach

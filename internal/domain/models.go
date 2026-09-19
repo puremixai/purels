@@ -36,6 +36,10 @@ type Link struct {
 	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
+	// InterstitialSeconds is how long to show the destination before sending the
+	// visitor on. Zero means redirect immediately, which is the only other
+	// behaviour there has ever been; the column defaults to 2.
+	InterstitialSeconds int16 `json:"interstitial_seconds"`
 	// Domain is the configured short domain the link is filed under. Empty means
 	// the default host from PUBLIC_URL, which is also what a NULL column means.
 	// It is display only: the code resolves on every configured host, so this

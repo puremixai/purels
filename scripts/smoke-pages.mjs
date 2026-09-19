@@ -346,6 +346,27 @@ async function main() {
     const el = field && field.querySelector("input, textarea");
     return el ? el.value : "";
   })()`);
+  // The interstitial control is a checkbox and a number in one row, so it is
+  // found by its own label rather than by .field-label like the text fields.
+  const INTERSTITIAL_LABEL = "Show the destination first";
+  const interstitialState = () => evaluate(`(() => {
+    const label = [...document.querySelectorAll("label")].find(l => l.textContent.includes(${JSON.stringify(INTERSTITIAL_LABEL)}));
+    const box = label && label.querySelector('input[type="checkbox"]');
+    const seconds = label && label.parentElement.querySelector('input[type="number"]');
+    return {
+      present: Boolean(box),
+      checked: box ? box.checked : false,
+      seconds: seconds ? seconds.value : "",
+      secondsDisabled: seconds ? seconds.disabled : null,
+    };
+  })()`);
+  const toggleInterstitial = () => evaluate(`(() => {
+    const label = [...document.querySelectorAll("label")].find(l => l.textContent.includes(${JSON.stringify(INTERSTITIAL_LABEL)}));
+    const box = label && label.querySelector('input[type="checkbox"]');
+    if (!box) return false;
+    box.click();
+    return true;
+  })()`);
   const clickText = (selector, label) => evaluate(`(() => {
     const el = [...document.querySelectorAll(${JSON.stringify(selector)})].find(n => n.textContent.trim() === ${JSON.stringify(label)});
     if (!el) return false;
@@ -557,6 +578,23 @@ async function main() {
   const RULE_UA = `smoke-ua-${STAMP}`;
   const RULE_DEST = "https://example.org/rule";
   await go("/admin/links/new");
+  const createDefaults = await interstitialState();
+  record(
+    "the create form offers the interstitial checked by default",
+    createDefaults.present && createDefaults.checked && createDefaults.secondsDisabled === false && createDefaults.seconds === "2",
+    JSON.stringify(createDefaults),
+  );
+  // Turned off for this link because phase 4 reads the Location it produces, and
+  // a held visitor has none. What the page itself renders is smoke-api's
+  // business; what the console has to get right is the control, above and below.
+  const toggled = await toggleInterstitial();
+  await sleep(300);
+  const afterUncheck = await interstitialState();
+  record(
+    "unchecking the interstitial disables its seconds field",
+    toggled && afterUncheck.checked === false && afterUncheck.secondsDisabled === true,
+    JSON.stringify(afterUncheck),
+  );
   await fill('input[type="url"]', "https://example.org/before");
   await fill('input[placeholder="Leave blank to generate one"]', alias);
   const titled = await fillByLabel("Title", TITLE);
@@ -678,6 +716,15 @@ async function main() {
     const editTitle = await valueByLabel("Title");
     const editTags = await valueByLabel("Tags");
     record("edit page prefills the title and tags", editTitle === TITLE && editTags.includes(TAG), `title=${JSON.stringify(editTitle)} tags=${JSON.stringify(editTags)}`);
+
+    // The link was created with the box unchecked, so the edit page has to come
+    // back showing it that way rather than defaulting to on.
+    const editInterstitial = await interstitialState();
+    record(
+      "edit page reflects the stored interstitial setting",
+      editInterstitial.present && editInterstitial.checked === false && editInterstitial.secondsDisabled === true,
+      JSON.stringify(editInterstitial),
+    );
 
     // The check button is asserted on the panel's own state, not on the status
     // code: a reachable destination and an unreachable one both record a time,

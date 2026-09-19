@@ -18,7 +18,7 @@ import (
 const (
 	// exportHeader is both the exported column set and the import contract, so a
 	// file written by ExportCSV can be fed straight back into ImportCSV.
-	exportHeader = "alias,destination_url,title,tags,redirect_code"
+	exportHeader = "alias,destination_url,title,tags,redirect_code,interstitial_seconds"
 	// maxExportRows bounds a single export. The whole table is never streamed
 	// unbounded, and the admin can always narrow the list with filters.
 	maxExportRows = 50000
@@ -57,6 +57,7 @@ func (l *LinkService) ExportCSV(ctx context.Context, filter domain.ListFilter) (
 			link.Title,
 			strings.Join(link.Tags, tagSeparator),
 			strconv.Itoa(int(link.RedirectCode)),
+			strconv.Itoa(int(link.InterstitialSeconds)),
 		}
 		if err := out.Write(row); err != nil {
 			return "", err
@@ -107,6 +108,7 @@ func (l *LinkService) ImportCSV(ctx context.Context, r io.Reader) (domain.Import
 	}
 	aliasColumn, titleColumn := columnIndex(columns, "alias"), columnIndex(columns, "title")
 	tagsColumn, codeColumn := columnIndex(columns, "tags"), columnIndex(columns, "redirect_code")
+	interstitialColumn := columnIndex(columns, "interstitial_seconds")
 
 	line := 1 // the header occupies line 1
 	for {
@@ -140,6 +142,18 @@ func (l *LinkService) ImportCSV(ctx context.Context, r io.Reader) (domain.Import
 				continue
 			}
 			req.RedirectCode = int16(code)
+		}
+		// Left nil when the column is absent or empty, so a file written before
+		// this column existed imports with the default rather than with the
+		// interstitial switched off.
+		if raw := fieldAt(record, interstitialColumn); raw != "" {
+			seconds, convErr := strconv.Atoi(raw)
+			if convErr != nil || seconds < 0 || seconds > MaxInterstitialSeconds {
+				failRow(&report, line, req.Alias, fmt.Sprintf("interstitial_seconds must be between 0 and %d", MaxInterstitialSeconds))
+				continue
+			}
+			value := int16(seconds)
+			req.InterstitialSeconds = &value
 		}
 		if _, err := l.Create(ctx, req); err != nil {
 			failRow(&report, line, req.Alias, rowError(err))

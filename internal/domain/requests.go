@@ -13,6 +13,10 @@ type CreateLinkRequest struct {
 	// Rules are applied in the order they are sent; the position column is
 	// assigned from that order rather than trusted from the caller.
 	Rules []LinkRuleInput `json:"rules"`
+	// InterstitialSeconds is a pointer because zero is a real value here — it
+	// means "redirect immediately" — so it cannot double as "not supplied" the
+	// way RedirectCode's zero does. Nil takes the default, which is 2.
+	InterstitialSeconds *int16 `json:"interstitial_seconds"`
 }
 
 // LinkRuleInput is one divert rule as submitted. It carries no id or position:
@@ -42,6 +46,9 @@ type UpdateLinkRequest struct {
 	// Rules follows the same convention: nil leaves the existing rules alone,
 	// an empty slice removes them all.
 	Rules *[]LinkRuleInput `json:"rules"`
+	// InterstitialSeconds follows the same convention: nil leaves the delay
+	// alone, zero turns the interstitial off.
+	InterstitialSeconds *int16 `json:"interstitial_seconds"`
 }
 
 type LoginRequest struct {

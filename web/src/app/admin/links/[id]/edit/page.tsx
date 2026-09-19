@@ -33,6 +33,10 @@ export default function EditLinkPage() {
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState("");
   const [code, setCode] = useState("302");
+  // Hydrated from the record below. The seconds are kept as their own state so
+  // unchecking the box does not throw away the number the operator typed.
+  const [interstitialOn, setInterstitialOn] = useState(false);
+  const [interstitialSeconds, setInterstitialSeconds] = useState("2");
   const [domain, setDomain] = useState("");
   const [status, setStatus] = useState("active");
   const [expires, setExpires] = useState("");
@@ -55,6 +59,8 @@ export default function EditLinkPage() {
         setTitle(record.title || "");
         setTags((record.tags || []).join(", "));
         setCode(String(record.redirect_code));
+        setInterstitialOn(record.interstitial_seconds > 0);
+        setInterstitialSeconds(String(record.interstitial_seconds || 2));
         setDomain(record.domain || "");
         setStatus(record.status);
         setExpires(record.expires_at ? record.expires_at.slice(0, 10) : "");
@@ -108,6 +114,8 @@ export default function EditLinkPage() {
         // Sent unconditionally: the form shows the whole state, so an empty
         // value here means "move it back to the default domain".
         domain,
+        // Unchecking sends 0, which is what turns the interstitial off.
+        interstitial_seconds: interstitialOn ? Number(interstitialSeconds) : 0,
       });
       router.push("/admin/links");
     } catch (e) {
@@ -200,6 +208,26 @@ export default function EditLinkPage() {
             <span className="field-label">{t("links.edit.expires")}</span>
             <input type="date" className="field-control" value={expires} onChange={(event) => setExpires(event.target.value)} />
           </label>
+
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" className="h-4 w-4" checked={interstitialOn} onChange={(event) => setInterstitialOn(event.target.checked)} />
+              {t("links.form.interstitial")}
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="number"
+                className="field-control w-20"
+                min={1}
+                max={60}
+                required={interstitialOn}
+                disabled={!interstitialOn}
+                value={interstitialSeconds}
+                onChange={(event) => setInterstitialSeconds(event.target.value)}
+              />
+              {t("links.form.interstitialUnit")}
+            </label>
+          </div>
 
           <LinkRulesEditor rules={rules} onChange={setRules} />
 

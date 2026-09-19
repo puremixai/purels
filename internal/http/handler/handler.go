@@ -302,7 +302,35 @@ func (h *Handler) Redirect(w http.ResponseWriter, r *http.Request) {
 		destination = mergeQuery(destination, r.URL.RawQuery)
 	}
 	w.Header().Set("Cache-Control", "no-store")
+	// The interstitial comes after the rule and the query merge so that it shows
+	// the address the visitor is actually about to land on, not the link's
+	// stored one. The click above is recorded either way: the visitor did reach
+	// the link, whether or not they wait the delay out.
+	if link.InterstitialSeconds > 0 {
+		h.interstitial(w, r, link.Alias, destination, link.InterstitialSeconds)
+		return
+	}
 	http.Redirect(w, r, destination, int(code))
+}
+
+// interstitial renders the page a link configured with a delay asks for: the
+// destination, shown before the visitor is sent on. It is not a preview — the
+// visit has already been recorded by the caller — but it is the same shape of
+// document, and it reuses the preview's escaping and its header set.
+func (h *Handler) interstitial(w http.ResponseWriter, r *http.Request, alias, destination string, seconds int16) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	// The page echoes a destination, so it has no business in a search index —
+	// the same reason the preview page carries this.
+	w.Header().Set("X-Robots-Tag", "noindex, nofollow")
+	w.WriteHeader(http.StatusOK)
+	// A HEAD gets the headers and no body, which is what HEAD means. It follows
+	// that a crawler doing HEAD never learns the destination; that is inherent
+	// to holding the visitor on a page rather than redirecting them.
+	if r.Method == http.MethodHead {
+		return
+	}
+	_, _ = io.WriteString(w, interstitialPage(alias, destination, seconds, preferredLang(r.Header.Get("Accept-Language"))))
 }
 
 // preview renders the page a trailing "+" asks for: where this link would send
@@ -346,6 +374,31 @@ func previewPage(alias, destination, language string) string {
 	page.WriteString(`<main style="width:min(560px,calc(100% - 32px));padding:28px;border:1px solid #e6e9ef;border-radius:14px;background:#fff;box-shadow:0 2px 8px rgb(32 43 75 / 4%)">`)
 	page.WriteString(`<h1 style="margin:0 0 16px;font-size:20px">` + html.EscapeString(alias) + `</h1>`)
 	page.WriteString(`<p style="margin:0 0 24px;color:#67738a;word-break:break-all">` + escaped + `</p>`)
+	page.WriteString(`<a href="` + escaped + `" style="display:inline-block;padding:10px 18px;border-radius:10px;background:#3855d9;color:#fff;text-decoration:none">` + previewContinueLabel(language) + `</a>`)
+	page.WriteString(`</main></body></html>`)
+	return page.String()
+}
+
+// interstitialPage renders the page a link holds its visitor on before sending
+// them on. It shares the preview page's shape, its escaping and its inline
+// styling, and adds one meta refresh, which is what performs the jump: that
+// needs no script, so the page behaves the same wherever the destination does.
+//
+// seconds is range-checked by the service and language is one of the constants
+// in lang.go, so neither is escaped; the destination is caller-supplied and is.
+func interstitialPage(alias, destination string, seconds int16, language string) string {
+	escaped := html.EscapeString(destination)
+	var page strings.Builder
+	page.WriteString(`<!doctype html><html lang="` + language + `"><head><meta charset="utf-8">`)
+	page.WriteString(`<meta name="viewport" content="width=device-width, initial-scale=1">`)
+	page.WriteString(`<meta name="robots" content="noindex, nofollow">`)
+	page.WriteString(`<meta http-equiv="refresh" content="` + strconv.Itoa(int(seconds)) + `;url=` + escaped + `">`)
+	page.WriteString(`<title>` + html.EscapeString(alias) + `</title></head>`)
+	page.WriteString(`<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f6f7fb;color:#172033;font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif">`)
+	page.WriteString(`<main style="width:min(560px,calc(100% - 32px));padding:28px;border:1px solid #e6e9ef;border-radius:14px;background:#fff;box-shadow:0 2px 8px rgb(32 43 75 / 4%)">`)
+	page.WriteString(`<h1 style="margin:0 0 16px;font-size:20px">` + html.EscapeString(alias) + `</h1>`)
+	page.WriteString(`<p style="margin:0 0 8px;color:#67738a;word-break:break-all">` + escaped + `</p>`)
+	page.WriteString(`<p style="margin:0 0 24px;font-size:14px;color:#67738a">` + interstitialWaitLabel(language, seconds) + `</p>`)
 	page.WriteString(`<a href="` + escaped + `" style="display:inline-block;padding:10px 18px;border-radius:10px;background:#3855d9;color:#fff;text-decoration:none">` + previewContinueLabel(language) + `</a>`)
 	page.WriteString(`</main></body></html>`)
 	return page.String()

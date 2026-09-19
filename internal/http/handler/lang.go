@@ -76,10 +76,22 @@ func matchLanguage(tag string) string {
 	return ""
 }
 
-// previewContinueLabel is the page's only piece of copy.
+// previewContinueLabel is the page's only piece of copy. The interstitial page
+// uses it too: both are offering the visitor the same thing, which is to go on
+// now rather than wait.
 func previewContinueLabel(language string) string {
 	if language == langChinese {
 		return "继续"
 	}
 	return "Continue"
+}
+
+// interstitialWaitLabel says how long the page will hold. seconds is an int16
+// the service has already range-checked, so the result carries nothing a caller
+// could have supplied.
+func interstitialWaitLabel(language string, seconds int16) string {
+	if language == langChinese {
+		return strconv.Itoa(int(seconds)) + " 秒后自动跳转"
+	}
+	return "Redirecting in " + strconv.Itoa(int(seconds)) + " seconds"
 }

@@ -91,6 +91,56 @@ func TestPreviewPageFollowsTheRequestedLanguage(t *testing.T) {
 	}
 }
 
+func TestInterstitialPageEscapes(t *testing.T) {
+	// The destination is interpolated twice — once as visible text and once as
+	// the meta refresh target — so markup in it must come out escaped in both.
+	page := interstitialPage(`ab"c<script>`, `https://example.com/?q=<script>alert(1)</script>"`, 2, langEnglish)
+	if strings.Contains(page, "<script>") {
+		t.Fatal("the interstitial page must not emit an unescaped value")
+	}
+	if !strings.Contains(page, "&lt;script&gt;") {
+		t.Fatal("expected the destination to be escaped rather than dropped")
+	}
+	if !strings.Contains(page, "noindex") {
+		t.Fatal("expected the interstitial page to keep search engines out")
+	}
+}
+
+func TestInterstitialPageCarriesTheDelay(t *testing.T) {
+	// The meta refresh is the whole mechanism: without the right number of
+	// seconds and the destination in its content attribute, the page never
+	// moves the visitor on.
+	page := interstitialPage("abc", "https://example.com/landing", 7, langEnglish)
+	if !strings.Contains(page, `<meta http-equiv="refresh" content="7;url=https://example.com/landing">`) {
+		t.Fatalf("expected a 7 second refresh to the destination, got %q", page)
+	}
+	// The delay also has to reach the visitor as text, not only as an attribute.
+	if !strings.Contains(page, "Redirecting in 7 seconds") {
+		t.Fatal("expected the page to say how long it will hold")
+	}
+}
+
+func TestInterstitialPageFollowsTheRequestedLanguage(t *testing.T) {
+	chinese := interstitialPage("abc", "https://example.com", 2, preferredLang("zh-CN,zh;q=0.9,en;q=0.8"))
+	if !strings.Contains(chinese, `<html lang="zh-CN">`) {
+		t.Fatal("expected a Chinese request to get the Chinese lang attribute")
+	}
+	if !strings.Contains(chinese, "2 秒后自动跳转") {
+		t.Fatal("expected a Chinese request to get the Chinese wait label")
+	}
+	if !strings.Contains(chinese, ">继续</a>") {
+		t.Fatal("expected a Chinese request to get the Chinese button")
+	}
+
+	english := interstitialPage("abc", "https://example.com", 2, preferredLang("en-US,en;q=0.9"))
+	if !strings.Contains(english, `<html lang="en">`) {
+		t.Fatal("expected an English request to get the English lang attribute")
+	}
+	if !strings.Contains(english, "Redirecting in 2 seconds") {
+		t.Fatal("expected an English request to get the English wait label")
+	}
+}
+
 func TestMergeQuery(t *testing.T) {
 	cases := []struct {
 		destination string

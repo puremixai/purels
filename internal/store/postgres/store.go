@@ -44,7 +44,7 @@ const linkRulesColumn = `COALESCE((SELECT jsonb_agg(jsonb_build_object(
 	'redirect_code', COALESCE(r.redirect_code, 0)) ORDER BY r.position, r.created_at)
 	FROM link_rules r WHERE r.link_id = l.id), '[]')`
 
-const linkSelectColumns = `l.id, l.alias, l.destination_url, l.title, l.redirect_code, l.status, l.version, l.expires_at, l.created_at, l.updated_at, l.last_checked_at, l.last_status_code, COALESCE(c.clicks,0), ` + linkTagsColumn + `, COALESCE(l.domain,'')`
+const linkSelectColumns = `l.id, l.alias, l.destination_url, l.title, l.redirect_code, l.status, l.version, l.expires_at, l.created_at, l.updated_at, l.last_checked_at, l.last_status_code, COALESCE(c.clicks,0), ` + linkTagsColumn + `, COALESCE(l.domain,''), l.interstitial_seconds`
 
 // linkSingleColumns is the column list for lookups that do not join the daily
 // aggregation: linkSelectColumns without the click count, plus the divert rules.
@@ -52,7 +52,7 @@ const linkSelectColumns = `l.id, l.alias, l.destination_url, l.title, l.redirect
 // Rules are appended here and deliberately not to linkSelectColumns: a rule is
 // a property of one redirect, so the list, the export and the rankings have no
 // use for them and would pay a subquery per row for nothing.
-const linkSingleColumns = `l.id, l.alias, l.destination_url, l.title, l.redirect_code, l.status, l.version, l.expires_at, l.created_at, l.updated_at, l.last_checked_at, l.last_status_code, ` + linkTagsColumn + `, ` + linkRulesColumn + `, COALESCE(l.domain,'')`
+const linkSingleColumns = `l.id, l.alias, l.destination_url, l.title, l.redirect_code, l.status, l.version, l.expires_at, l.created_at, l.updated_at, l.last_checked_at, l.last_status_code, ` + linkTagsColumn + `, ` + linkRulesColumn + `, COALESCE(l.domain,''), l.interstitial_seconds`
 
 // linkClickJoin aggregates each link's clicks from the daily rollup. COALESCE
 // keeps links that have never been clicked out of the NULL bucket.
@@ -230,8 +230,8 @@ func (s *Store) CreateLink(ctx context.Context, link domain.Link, ownerID *strin
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	_, err = tx.Exec(ctx, `INSERT INTO links (id, alias, destination_url, title, redirect_code, status, version, expires_at, created_at, updated_at, user_id, domain) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,NULLIF($11,''))`,
-		link.ID, link.Alias, link.DestinationURL, link.Title, link.RedirectCode, link.Status, link.Version, link.ExpiresAt, link.CreatedAt, ownerID, link.Domain)
+	_, err = tx.Exec(ctx, `INSERT INTO links (id, alias, destination_url, title, redirect_code, status, version, expires_at, created_at, updated_at, user_id, domain, interstitial_seconds) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,NULLIF($11,''),$12)`,
+		link.ID, link.Alias, link.DestinationURL, link.Title, link.RedirectCode, link.Status, link.Version, link.ExpiresAt, link.CreatedAt, ownerID, link.Domain, link.InterstitialSeconds)
 	if err != nil {
 		return normalizeDBError(err)
 	}
@@ -333,7 +333,7 @@ func (s *Store) GetLink(ctx context.Context, id string, ownerID *string) (domain
 func (s *Store) scanLink(row pgx.Row) (domain.Link, error) {
 	var link domain.Link
 	var rawRules []byte
-	err := row.Scan(&link.ID, &link.Alias, &link.DestinationURL, &link.Title, &link.RedirectCode, &link.Status, &link.Version, &link.ExpiresAt, &link.CreatedAt, &link.UpdatedAt, &link.LastCheckedAt, &link.LastStatusCode, &link.Tags, &rawRules, &link.Domain)
+	err := row.Scan(&link.ID, &link.Alias, &link.DestinationURL, &link.Title, &link.RedirectCode, &link.Status, &link.Version, &link.ExpiresAt, &link.CreatedAt, &link.UpdatedAt, &link.LastCheckedAt, &link.LastStatusCode, &link.Tags, &rawRules, &link.Domain, &link.InterstitialSeconds)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return link, ErrNotFound
 	}
@@ -404,7 +404,7 @@ func scanLinkRanks(rows pgx.Rows) ([]domain.LinkRank, error) {
 	links := make([]domain.LinkRank, 0)
 	for rows.Next() {
 		var rank domain.LinkRank
-		if err := rows.Scan(&rank.ID, &rank.Alias, &rank.DestinationURL, &rank.Title, &rank.RedirectCode, &rank.Status, &rank.Version, &rank.ExpiresAt, &rank.CreatedAt, &rank.UpdatedAt, &rank.LastCheckedAt, &rank.LastStatusCode, &rank.Clicks, &rank.Tags, &rank.Domain); err != nil {
+		if err := rows.Scan(&rank.ID, &rank.Alias, &rank.DestinationURL, &rank.Title, &rank.RedirectCode, &rank.Status, &rank.Version, &rank.ExpiresAt, &rank.CreatedAt, &rank.UpdatedAt, &rank.LastCheckedAt, &rank.LastStatusCode, &rank.Clicks, &rank.Tags, &rank.Domain, &rank.InterstitialSeconds); err != nil {
 			return nil, err
 		}
 		links = append(links, rank)
@@ -511,8 +511,8 @@ func (s *Store) UpdateLink(ctx context.Context, link domain.Link, tags *[]string
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	result, err := tx.Exec(ctx, `UPDATE links SET destination_url=$1, title=$2, redirect_code=$3, status=$4, expires_at=$5, domain=NULLIF($6,''), version=version+1, updated_at=now() WHERE id=$7 AND deleted_at IS NULL AND ($8::uuid IS NULL OR user_id=$8)`,
-		link.DestinationURL, link.Title, link.RedirectCode, link.Status, link.ExpiresAt, link.Domain, link.ID, ownerID)
+	result, err := tx.Exec(ctx, `UPDATE links SET destination_url=$1, title=$2, redirect_code=$3, status=$4, expires_at=$5, domain=NULLIF($6,''), interstitial_seconds=$7, version=version+1, updated_at=now() WHERE id=$8 AND deleted_at IS NULL AND ($9::uuid IS NULL OR user_id=$9)`,
+		link.DestinationURL, link.Title, link.RedirectCode, link.Status, link.ExpiresAt, link.Domain, link.InterstitialSeconds, link.ID, ownerID)
 	if err != nil {
 		return normalizeDBError(err)
 	}

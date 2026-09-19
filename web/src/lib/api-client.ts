@@ -177,6 +177,11 @@ export type LinkRecord = {
    * default host, which is also what an empty string means on the wire.
    */
   domain?: string;
+  /**
+   * Seconds to hold the visitor on a page showing the destination before
+   * sending them on. 0 redirects immediately.
+   */
+  interstitial_seconds: number;
 };
 
 /** Outcome of one destination check. */
@@ -208,6 +213,11 @@ export type LinkInput = {
   rules?: LinkRuleInput[];
   /** An empty string moves the link back to the default domain. */
   domain?: string;
+  /**
+   * Omitting it on create takes the default (2); omitting it on update leaves
+   * the delay alone. 0 turns the interstitial off.
+   */
+  interstitial_seconds?: number;
 };
 
 /** The deployment's own settings, as the console needs to know them. */
