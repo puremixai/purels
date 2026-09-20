@@ -38,6 +38,22 @@ func TestLinkServiceUsesRuntimeSettingsOverStaticDefaults(t *testing.T) {
 	}
 }
 
+func TestListRanksIncludeShortURLs(t *testing.T) {
+	service := &LinkService{PublicURL: "https://sho.rt", ShortDomains: []string{"go.example.com"}}
+	input := []domain.LinkRank{
+		{Link: domain.Link{Alias: "AbC"}, Clicks: 4},
+		{Link: domain.Link{Alias: "news", Domain: "go.example.com"}},
+	}
+
+	got := service.withShortURLs(input)
+	if got[0].ShortURL != "https://sho.rt/AbC" || got[1].ShortURL != "https://go.example.com/news" {
+		t.Fatalf("short URLs = %#v", []string{got[0].ShortURL, got[1].ShortURL})
+	}
+	if got[0].Clicks != 4 {
+		t.Fatalf("withShortURLs changed the click count: %d", got[0].Clicks)
+	}
+}
+
 func TestNormalizeIDs(t *testing.T) {
 	first := "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
 	second := "3f2504e0-4f89-11d3-9a0c-0305e82c3302"

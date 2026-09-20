@@ -351,11 +351,14 @@ export type AuditPage = {
 };
 
 export type LinkPage = {
-  links: LinkRecord[];
+  links: LinkListRecord[];
   total: number;
   limit: number;
   offset: number;
 };
+
+/** A list row includes the authoritative public URL used by the shortener. */
+export type LinkListRecord = LinkRecord & { short_url: string };
 
 export type LinkSort = "created_at_desc" | "created_at_asc" | "alias_asc" | "alias_desc" | "clicks_desc" | "clicks_asc";
 export type LinkStatusFilter = "all" | "active" | "disabled" | "expired";

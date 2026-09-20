@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useT } from "@/components/i18n-provider";
+import { CopyLinkButton } from "@/components/copy-link-button";
 import { QrDialog } from "@/components/qr-dialog";
-import { api, BulkAction, BulkLinkInput, ImportReport, LinkRecord, LinkSort, LinkStatusFilter, TagStat } from "@/lib/api-client";
+import { api, BulkAction, BulkLinkInput, ImportReport, LinkListRecord, LinkRecord, LinkSort, LinkStatusFilter, TagStat } from "@/lib/api-client";
 import { downloadCsvText } from "@/lib/csv";
 import { errorText, type MessageKey, type T } from "@/lib/i18n";
 import { parseTags } from "@/lib/tags";
@@ -59,7 +60,7 @@ function checkLabel(t: T, link: LinkRecord) {
 
 export default function LinksPage() {
   const t = useT();
-  const [links, setLinks] = useState<LinkRecord[]>([]);
+  const [links, setLinks] = useState<LinkListRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
@@ -376,10 +377,11 @@ export default function LinksPage() {
                   <td className="px-5 py-4">
                     <input type="checkbox" aria-label={t("links.selectOne", { alias: link.alias })} checked={selected.has(link.id)} onChange={() => toggleOne(link.id)} />
                   </td>
-                  <td className="px-5 py-4 font-medium">
-                    {link.domain ? `${link.domain}/` : "/"}
-                    {link.alias}
-                    {link.title && <span className="mt-0.5 block max-w-[200px] truncate text-xs font-normal text-[var(--muted)]">{link.title}</span>}
+                  <td className="px-5 py-4">
+                    <div className="max-w-[320px] space-y-1">
+                      <CopyLinkButton value={link.short_url} compact />
+                      {link.title && <span className="mt-0.5 block max-w-[200px] truncate text-xs font-normal text-[var(--muted)]">{link.title}</span>}
+                    </div>
                   </td>
                   <td className="max-w-[300px] truncate px-5 py-4 text-[var(--muted)]">{link.destination_url}</td>
                   <td className="px-5 py-4">

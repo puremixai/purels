@@ -13,6 +13,10 @@ type ReferrerStat struct {
 type LinkRank struct {
 	Link
 	Clicks int64 `json:"clicks"`
+	// ShortURL is filled for link-list responses. It is optional here because
+	// the same rank type also powers statistics, where rendering a public URL
+	// is unnecessary.
+	ShortURL string `json:"short_url,omitempty"`
 }
 
 // LinkStats is the full statistics payload for a single link.

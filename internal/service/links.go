@@ -329,7 +329,15 @@ func (l *LinkService) List(ctx context.Context, filter domain.ListFilter) (domai
 	if err != nil {
 		return domain.LinkPage{}, err
 	}
+	links = l.withShortURLs(links)
 	return domain.LinkPage{Links: links, Total: total, Limit: filter.Limit, Offset: filter.Offset}, nil
+}
+
+func (l *LinkService) withShortURLs(links []domain.LinkRank) []domain.LinkRank {
+	for index := range links {
+		links[index].ShortURL = l.ShortURL(links[index].Link)
+	}
+	return links
 }
 
 func (l *LinkService) Update(ctx context.Context, id string, req domain.UpdateLinkRequest) (domain.Link, error) {
