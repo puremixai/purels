@@ -101,18 +101,20 @@ export default function CaptchaSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("settings.captcha.title")}</p>
-        <h1 className="mt-1 text-2xl font-bold">{t("settings.captcha.title")}</h1>
+    <div className="console-page">
+      <div className="console-page-header">
+        <div className="console-page-heading">
+          <p className="console-breadcrumb">{t("shell.workspace")} / {t("settings.captcha.title")}</p>
+          <h1 className="console-page-title">{t("settings.captcha.title")}</h1>
+        </div>
       </div>
 
-      {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
-      {notice && <p className="rounded-lg bg-success-tint px-4 py-3 text-success">{notice}</p>}
-      {loading && <p className="text-sm text-[var(--muted)]">{t("common.loading")}</p>}
+      {error && <p className="console-alert" role="alert">{error}</p>}
+      {notice && <p className="console-notice" role="status">{notice}</p>}
+      {loading && <span className="console-skeleton w-32" role="status" aria-label={t("common.loading")} />}
 
       {!loading && (
-        <section className="panel space-y-5 p-6">
+        <section className="console-panel space-y-4 p-4 sm:p-5">
           <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="font-semibold">Cloudflare Turnstile</h2>

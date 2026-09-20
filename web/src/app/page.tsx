@@ -49,80 +49,80 @@ export default async function HomePage() {
       <main>
         <section className="relative overflow-hidden border-b border-[var(--line)] bg-canvas">
           <div className="absolute -right-40 top-20 hidden opacity-20 blur-3xl lg:block"><FluidOrb size={520} color="var(--brand)" /></div>
-          <div className="mx-auto grid w-full max-w-6xl items-center gap-14 px-5 py-18 sm:py-20 lg:grid-cols-[0.88fr_1.12fr] lg:gap-16 lg:py-28">
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-5 py-14 sm:py-16 lg:grid-cols-[0.88fr_1.12fr] lg:gap-14 lg:py-20">
             <div className="relative z-10 max-w-3xl">
               <p className="inline-flex items-center rounded-full border border-[var(--line)] bg-surface px-3 py-1 text-2xs font-semibold tracking-wide text-[var(--muted)]">
                 {t("home.hero.badge")}
               </p>
-              <h1 className="mt-6 max-w-3xl text-5xl font-bold leading-[0.98] tracking-[-0.05em] text-balance sm:text-6xl lg:text-7xl">{t("home.hero.title")}</h1>
-              <p className="mt-6 max-w-[52ch] text-lg leading-relaxed text-pretty text-[var(--muted)]">{t("home.hero.subhead")}</p>
-              <div className="mt-8 flex flex-wrap gap-3">
+              <h1 className="mt-4 max-w-3xl text-5xl font-bold leading-[0.98] tracking-[-0.05em] text-balance sm:text-6xl lg:text-7xl">{t("home.hero.title")}</h1>
+              <p className="mt-4 max-w-[52ch] text-lg leading-relaxed text-pretty text-[var(--muted)]">{t("home.hero.subhead")}</p>
+              <div className="mt-6 flex flex-wrap gap-3">
                 {registrationOpen && <Link className="btn-primary" href="/register">{t("home.hero.ctaPrimary")}</Link>}
                 <Link className={registrationOpen ? "btn-secondary" : "btn-primary"} href="/login">{t("home.hero.ctaSecondary")}</Link>
               </div>
-              <div className="mt-10 grid max-w-xl grid-cols-3 border-t border-[var(--line)] pt-5 text-2xs text-[var(--muted)]">
+              <div className="mt-8 grid max-w-xl grid-cols-3 border-t border-[var(--line)] pt-4 text-2xs text-[var(--muted)]">
                 <div><AnimatedCounter value={100} suffix="%" className="block text-lg font-semibold text-[var(--ink)]" />self-hosted</div>
                 <div><AnimatedCounter value={10} className="block text-lg font-semibold text-[var(--ink)]" />permission scopes</div>
                 <div><AnimatedCounter value={0} className="block text-lg font-semibold text-[var(--ink)]" />vendor lock-in</div>
               </div>
             </div>
-            <div className="relative min-h-[420px] lg:min-h-[520px]">
+            <div className="relative min-h-[360px] lg:min-h-[440px]">
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-90"><FluidOrb size={360} color="var(--brand)" /></div>
               <div className="absolute inset-x-0 top-1/2 z-10 -translate-y-1/2 rotate-[1.5deg] lg:left-4 lg:right-[-2rem]"><HeroMock t={t} /></div>
             </div>
           </div>
         </section>
 
-        <section id="features" className="border-b border-[var(--line)] bg-[var(--canvas)] py-16 lg:py-24">
+        <section id="features" className="border-b border-[var(--line)] bg-[var(--canvas)] py-12 lg:py-16">
           <div className="mx-auto w-full max-w-6xl px-5">
             <h2 className="text-2xl font-bold sm:text-3xl">{t("home.features.title")}</h2>
-            <div className="mt-10 grid gap-px overflow-hidden rounded-[14px] border border-[var(--line)] bg-[var(--line)] md:grid-cols-12">
+            <div className="mt-8 grid gap-px overflow-hidden rounded-[14px] border border-[var(--line)] bg-[var(--line)] md:grid-cols-12">
               {FEATURES.map((feature, index) => (
-                <article key={feature.title} className={`bg-surface p-6 sm:p-8 ${index % 3 === 1 ? "md:col-span-7" : "md:col-span-5"}`}>
+                <article key={feature.title} className={`bg-surface p-5 sm:p-6 ${index % 3 === 1 ? "md:col-span-7" : "md:col-span-5"}`}>
                   <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-tint text-[var(--brand)]"><Icon name={feature.icon} size={20} /></span>
-                  <h3 className="mt-5 text-lg font-semibold">{t(feature.title)}</h3>
+                  <h3 className="mt-4 text-lg font-semibold">{t(feature.title)}</h3>
                   <p className="mt-2 max-w-[42ch] text-sm leading-relaxed text-[var(--muted)]">{t(feature.body)}</p>
                   {feature.icon === "chart" && <MiniChart />}
                   {feature.icon === "pulse" && <RuleDiagram />}
                 </article>
               ))}
             </div>
-            <ul className="mt-8 flex flex-wrap gap-2">
+            <ul className="mt-6 flex flex-wrap gap-2">
               {CHIPS.map((chip) => <li key={chip} className="rounded-full border border-[var(--line)] bg-surface px-3 py-1 text-2xs text-[var(--muted)]">{t(chip)}</li>)}
             </ul>
           </div>
         </section>
 
-        <section id="how" className="border-b border-[var(--line)] bg-surface py-16 lg:py-24">
+        <section id="how" className="border-b border-[var(--line)] bg-surface py-12 lg:py-16">
           <div className="mx-auto w-full max-w-6xl px-5">
             <h2 className="text-2xl font-bold sm:text-3xl">{t("home.how.title")}</h2>
-            <ol className="mt-10 grid gap-8 sm:grid-cols-3 sm:gap-0">
+            <ol className="mt-8 grid gap-6 sm:grid-cols-3 sm:gap-0">
               {STEPS.map((step, index) => <li key={step.title} className={`p-1 sm:px-8 ${index > 0 ? "sm:border-l sm:border-[var(--line)]" : ""}`}>
                 <span className="text-4xl font-semibold tracking-tight text-[var(--brand)]">0{index + 1}</span>
-                <h3 className="mt-5 text-lg font-semibold">{t(step.title)}</h3>
+                <h3 className="mt-4 text-lg font-semibold">{t(step.title)}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">{t(step.body)}</p>
               </li>)}
             </ol>
           </div>
         </section>
 
-        <section id="self-hosted" className="border-b border-[var(--line)] bg-[var(--canvas)] py-16 lg:py-24">
-          <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 lg:grid-cols-2">
+        <section id="self-hosted" className="border-b border-[var(--line)] bg-[var(--canvas)] py-12 lg:py-16">
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-5 lg:grid-cols-2">
             <div>
               <h2 className="text-2xl font-bold sm:text-3xl">{t("home.selfHost.title")}</h2>
-              <p className="mt-4 text-base text-[var(--muted)]">{t("home.selfHost.body")}</p>
-              <ul className="mt-6 grid gap-3">{POINTS.map((point) => <li key={point} className="flex items-start gap-2.5 text-sm"><Icon name="check" size={16} className="mt-0.5 shrink-0 text-[var(--brand)]" />{t(point)}</li>)}</ul>
+              <p className="mt-3 text-base text-[var(--muted)]">{t("home.selfHost.body")}</p>
+              <ul className="mt-4 grid gap-2.5">{POINTS.map((point) => <li key={point} className="flex items-start gap-2.5 text-sm"><Icon name="check" size={16} className="mt-0.5 shrink-0 text-[var(--brand)]" />{t(point)}</li>)}</ul>
             </div>
             <TerminalCard />
           </div>
         </section>
 
-        <section id="faq" className="border-b border-[var(--line)] bg-surface py-16 lg:py-24">
+        <section id="faq" className="border-b border-[var(--line)] bg-surface py-12 lg:py-16">
           <div className="mx-auto w-full max-w-3xl px-5"><h2 className="text-2xl font-bold sm:text-3xl">{t("home.faq.title")}</h2><Faq t={t} /></div>
         </section>
 
-        <section className="bg-[var(--brand)] py-16 lg:py-20">
-          <div className="mx-auto w-full max-w-3xl px-5 text-center"><h2 className="text-2xl font-bold text-[#100b08] sm:text-3xl">{t("home.cta.title")}</h2><p className="mt-4 text-base text-[#100b08]/75">{t("home.cta.body")}</p><div className="mt-8 flex flex-wrap justify-center gap-3"><Link className="btn-secondary border-[#100b08]/25 bg-[#100b08] text-[var(--brand)] hover:border-[#100b08] hover:bg-[#100b08]/90" href={registrationOpen ? "/register" : "/login"}>{registrationOpen ? t("home.cta.button") : t("home.hero.ctaSecondary")}</Link></div></div>
+        <section className="bg-[var(--brand)] py-12 lg:py-16">
+          <div className="mx-auto w-full max-w-3xl px-5 text-center"><h2 className="text-2xl font-bold text-[#100b08] sm:text-3xl">{t("home.cta.title")}</h2><p className="mt-3 text-base text-[#100b08]/75">{t("home.cta.body")}</p><div className="mt-6 flex flex-wrap justify-center gap-3"><Link className="btn-secondary border-[#100b08]/25 bg-[#100b08] text-[var(--brand)] hover:border-[#100b08] hover:bg-[#100b08]/90" href={registrationOpen ? "/register" : "/login"}>{registrationOpen ? t("home.cta.button") : t("home.hero.ctaSecondary")}</Link></div></div>
         </section>
       </main>
       <SiteFooter t={t} registrationOpen={registrationOpen} />

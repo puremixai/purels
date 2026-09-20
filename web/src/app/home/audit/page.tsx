@@ -94,48 +94,50 @@ export default function AuditPage() {
   const rangeEnd = Math.min(total, page * PAGE_SIZE + entries.length);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("audit.title")}</p>
-          <h1 className="mt-1 text-2xl font-bold">{t("audit.title")}</h1>
+    <div className="console-page">
+      <div className="console-page-header">
+        <div className="console-page-heading">
+          <p className="console-breadcrumb">{t("shell.workspace")} / {t("audit.title")}</p>
+          <h1 className="console-page-title">{t("audit.title")}</h1>
         </div>
-        <select className="field-control w-auto" value={action} onChange={(event) => { setAction(event.target.value); setPage(0); }}>
-          <option value="">{t("audit.allActions")}</option>
-          {ACTION_LABELS.map((value) => <option key={value} value={value}>{actionLabel(t, value)}</option>)}
-        </select>
+        <div className="console-actions">
+          <select className="field-control w-auto" value={action} onChange={(event) => { setAction(event.target.value); setPage(0); }}>
+            <option value="">{t("audit.allActions")}</option>
+            {ACTION_LABELS.map((value) => <option key={value} value={value}>{actionLabel(t, value)}</option>)}
+          </select>
+        </div>
       </div>
 
-      {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
+      {error && <p className="console-alert" role="alert">{error}</p>}
 
-      <div className="panel overflow-hidden">
+      <div className="console-panel">
         <div className="mobile-scroll">
-          <table className="w-full min-w-[900px] text-left text-sm">
-            <thead className="border-b border-[var(--line)] bg-canvas-alt text-xs text-[var(--muted)]">
+          <table className="console-table min-w-[900px]">
+            <thead>
               <tr>
-                <th className="px-5 py-3">{t("audit.table.time")}</th>
-                <th className="px-5 py-3">{t("audit.table.actor")}</th>
-                <th className="px-5 py-3">{t("audit.table.action")}</th>
-                <th className="px-5 py-3">{t("audit.table.detail")}</th>
+                <th>{t("audit.table.time")}</th>
+                <th>{t("audit.table.actor")}</th>
+                <th>{t("audit.table.action")}</th>
+                <th>{t("audit.table.detail")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--line)]">
               {entries.map((entry) => (
                 <tr key={entry.id}>
-                  <td className="whitespace-nowrap px-5 py-4 tabular-nums text-[var(--muted)]">{formatDateTime(entry.created_at, locale)}</td>
-                  <td className="px-5 py-4 font-medium">{entry.username || "—"}</td>
-                  <td className="px-5 py-4">
+                  <td className="whitespace-nowrap tabular-nums text-[var(--muted)]">{formatDateTime(entry.created_at, locale)}</td>
+                  <td className="font-medium">{entry.username || ""}</td>
+                  <td>
                     <span className={`rounded-full px-2.5 py-1 text-xs ${actionStyle(entry.action)}`}>{actionLabel(t, entry.action)}</span>
                   </td>
-                  <td className="max-w-[420px] px-5 py-4 text-[var(--muted)]">
-                    <span className="block truncate">{describe(entry) || "—"}</span>
+                  <td className="max-w-[420px] text-[var(--muted)]">
+                    <span className="block truncate">{describe(entry)}</span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
           {!loading && !entries.length && (
-            <p className="px-5 py-12 text-center text-sm text-[var(--muted)]">
+            <p className="console-empty">
               {action ? t("audit.emptyFiltered") : t("audit.empty")}
             </p>
           )}

@@ -15,7 +15,7 @@ export const zhCN: Dictionary = {
   "app.title": "Purels 管理后台",
   "app.description": "Purels 链接管理与运营后台",
 
-  "home.title": "Purels — 自托管短链接服务",
+  "home.title": "Purels · 自托管短链接服务",
   "home.tagline": "短链接、点击统计与权限控制，跑在你自己服务器上。",
   "home.description": "Purels 是自托管的短链接服务：创建短链、查看点击数据，并通过角色权限与多种登录方式管理访问。",
 
@@ -340,6 +340,7 @@ export const zhCN: Dictionary = {
   "stats.table.clicks": "点击",
   "stats.table.referrer": "来源",
   "stats.table.time": "时间",
+  "stats.table.userAgent": "用户代理",
   "stats.csv.rank": "排名",
   "stats.csv.destination": "目标地址",
   "stats.csv.date": "日期",

@@ -75,39 +75,46 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("users.title")}</p>
-        <h1 className="mt-1 text-2xl font-bold">{t("users.title")}</h1>
+    <div className="console-page">
+      <div className="console-page-header">
+        <div className="console-page-heading">
+          <p className="console-breadcrumb">{t("shell.workspace")} / {t("users.title")}</p>
+          <h1 className="console-page-title">{t("users.title")}</h1>
+        </div>
       </div>
 
-      {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
+      {error && <p className="console-alert" role="alert">{error}</p>}
 
-      <div className="panel overflow-hidden">
+      <div className="console-panel">
         <div className="mobile-scroll">
-          <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="border-b border-[var(--line)] bg-canvas-alt text-xs text-[var(--muted)]">
+          <table className="console-table min-w-[980px]">
+            <thead>
               <tr>
-                <th className="px-5 py-3">{t("users.table.username")}</th>
-                <th className="px-5 py-3">{t("users.table.source")}</th>
-                <th className="px-5 py-3">{t("users.table.role")}</th>
-                <th className="px-5 py-3">{t("users.table.status")}</th>
-                <th className="px-5 py-3">{t("users.table.mfa")}</th>
-                <th className="px-5 py-3">{t("users.table.created")}</th>
-                <th className="px-5 py-3 text-right">{t("users.table.actions")}</th>
+                <th>{t("users.table.username")}</th>
+                <th>{t("users.table.source")}</th>
+                <th>{t("users.table.role")}</th>
+                <th>{t("users.table.status")}</th>
+                <th>{t("users.table.mfa")}</th>
+                <th>{t("users.table.created")}</th>
+                <th className="text-right">{t("users.table.actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--line)]">
+              {loading && !accounts.length && Array.from({ length: 5 }, (_, index) => (
+                <tr key={`user-skeleton-${index}`}>
+                  <td colSpan={7}><span className="console-skeleton w-2/3" /></td>
+                </tr>
+              ))}
               {accounts.map((account) => {
                 const isSelf = account.id === currentId;
                 const disabled = busy === account.id;
                 return (
                   <tr key={account.id}>
-                    <td className="px-5 py-4 font-medium">
+                    <td className="font-medium">
                       {account.username}
                       {isSelf && <span className="ml-2 rounded-full bg-canvas px-2 py-0.5 text-2xs text-muted">{t("users.self")}</span>}
                     </td>
-                    <td className="px-5 py-4">
+                    <td>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={`rounded-full px-2.5 py-1 text-xs ${account.auth_source === "oidc" ? "bg-brand-tint text-[var(--brand)]" : "bg-canvas text-ink-soft"}`}>
                           {account.auth_source === "oidc" ? t("users.source.oidc") : t("users.source.password")}
@@ -117,7 +124,7 @@ export default function UsersPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-5 py-4">
+                    <td>
                       <select
                         className="field-control w-auto"
                         value={account.role}
@@ -129,12 +136,12 @@ export default function UsersPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="px-5 py-4">
+                    <td>
                       <span className={`rounded-full px-2.5 py-1 text-xs ${account.disabled ? "bg-danger-tint text-danger" : "bg-success-tint text-success"}`}>
                         {account.disabled ? t("users.status.disabled") : t("users.status.active")}
                       </span>
                     </td>
-                    <td className="px-5 py-4">
+                    <td>
                       <div className="flex items-center gap-2">
                         <span className={`rounded-full px-2.5 py-1 text-xs ${account.mfa_enabled ? "bg-success-tint text-success" : "bg-canvas text-ink-soft"}`}>
                           {account.mfa_enabled ? t("users.mfa.enabled") : t("users.mfa.disabled")}
@@ -144,8 +151,8 @@ export default function UsersPage() {
                         )}
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-5 py-4 tabular-nums text-[var(--muted)]">{formatDateTime(account.created_at, locale)}</td>
-                    <td className="px-5 py-4 text-right">
+                    <td className="whitespace-nowrap tabular-nums text-[var(--muted)]">{formatDateTime(account.created_at, locale)}</td>
+                    <td className="text-right">
                       <button
                         className="btn-secondary"
                         disabled={isSelf || disabled}
@@ -160,7 +167,7 @@ export default function UsersPage() {
             </tbody>
           </table>
           {!loading && !accounts.length && (
-            <p className="px-5 py-12 text-center text-sm text-[var(--muted)]">{t("users.empty")}</p>
+            <p className="console-empty">{t("users.empty")}</p>
           )}
         </div>
       </div>

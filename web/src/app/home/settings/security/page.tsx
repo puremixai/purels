@@ -46,16 +46,16 @@ export default function SecurityPage() {
   });
   const cancelEnroll = () => { setEnrollment(null); setCode(""); setMfaError(""); };
 
-  return <div className="space-y-6">
-    <div><p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("settings.security.title")}</p><h1 className="mt-1 text-2xl font-bold">{t("settings.security.title")}</h1></div>
+  return <div className="console-page">
+    <div className="console-page-header"><div className="console-page-heading"><p className="console-breadcrumb">{t("shell.workspace")} / {t("settings.security.title")}</p><h1 className="console-page-title">{t("settings.security.title")}</h1></div></div>
 
-    <section className="panel space-y-4 p-6">
+    <section className="console-panel space-y-4 p-4 sm:p-5">
       <div className="flex items-center justify-between gap-4">
         <h2 className="font-semibold">{t("settings.security.mfa")}</h2>
         <RareStatus tone={status?.enabled ? "success" : "neutral"}>{status?.enabled ? t("settings.security.enabled") : t("settings.security.notEnabled")}</RareStatus>
       </div>
 
-      {mfaError && <p className="rounded-lg bg-danger-tint px-4 py-3 text-sm text-danger">{mfaError}</p>}
+      {mfaError && <p className="console-alert" role="alert">{mfaError}</p>}
 
       {status && !status.available && <p className="text-sm text-[var(--muted)]">{t("settings.security.unavailable")}</p>}
 
@@ -94,8 +94,8 @@ export default function SecurityPage() {
       </div>}
     </section>
 
-    <section className="panel space-y-4 p-6"><h2 className="font-semibold">{t("settings.security.tokensTitle")}</h2>{error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}{secret && <div className="rounded-lg border border-warning/20 bg-warning-tint p-4 text-sm text-warning"><p className="font-semibold">{t("settings.security.tokenWarning")}</p><code className="mt-2 block break-all">{secret}</code></div>}<div className="flex gap-3"><input className="field-control" placeholder={t("settings.security.tokenName")} value={name} onChange={e => setName(e.target.value)} /><button className="btn-primary" onClick={create} disabled={!name}>{t("settings.security.create")}</button></div></section>
+    <section className="console-panel space-y-4 p-4 sm:p-5"><h2 className="console-panel-title">{t("settings.security.tokensTitle")}</h2>{error && <p className="console-alert" role="alert">{error}</p>}{secret && <div className="rounded-lg border border-warning/20 bg-warning-tint p-4 text-sm text-warning"><p className="font-semibold">{t("settings.security.tokenWarning")}</p><code className="mt-2 block break-all">{secret}</code></div>}<div className="flex gap-3"><input className="field-control" placeholder={t("settings.security.tokenName")} value={name} onChange={e => setName(e.target.value)} /><button className="btn-primary" onClick={create} disabled={!name}>{t("settings.security.create")}</button></div></section>
 
-    <section className="panel overflow-hidden"><div className="border-b border-[var(--line)] px-6 py-4 font-semibold">{t("settings.security.tokenList")}</div>{tokens.length ? tokens.map(token => <div className="flex items-center justify-between border-b border-[var(--line)] px-6 py-4 last:border-0" key={token.id}><div className="min-w-0"><p className="font-medium">{token.name}</p><p className="text-sm text-[var(--muted)]">{token.token_prefix}••••</p><p className="mt-1 flex flex-wrap gap-1">{(token.scopes || []).map(scope => <span key={scope} className="rounded bg-canvas px-1.5 py-0.5 text-2xs text-ink-soft">{scope}</span>)}</p></div><button className="btn-danger" onClick={() => revoke(token.id)}>{t("settings.security.revoke")}</button></div>) : <p className="px-6 py-8 text-sm text-[var(--muted)]">{t("settings.security.noTokens")}</p>}</section>
+    <section className="console-panel overflow-hidden"><div className="console-panel-header"><h2 className="console-panel-title">{t("settings.security.tokenList")}</h2></div>{tokens.length ? tokens.map(token => <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] px-4 py-3 last:border-0" key={token.id}><div className="min-w-0"><p className="font-medium">{token.name}</p><p className="text-sm text-[var(--muted)]">{token.token_prefix}••••</p><p className="mt-1 flex flex-wrap gap-1">{(token.scopes || []).map(scope => <span key={scope} className="rounded bg-canvas px-1.5 py-0.5 text-2xs text-ink-soft">{scope}</span>)}</p></div><button className="btn-danger" onClick={() => revoke(token.id)}>{t("settings.security.revoke")}</button></div>) : <p className="console-empty">{t("settings.security.noTokens")}</p>}</section>
   </div>;
 }

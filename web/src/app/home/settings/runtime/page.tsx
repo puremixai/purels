@@ -140,20 +140,22 @@ export default function RuntimeSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("settings.runtime.title")}</p>
-        <h1 className="mt-1 text-2xl font-bold">{t("settings.runtime.title")}</h1>
-        <p className="mt-2 max-w-3xl text-sm text-[var(--muted)]">{t("settings.runtime.description")}</p>
+    <div className="console-page">
+      <div className="console-page-header">
+        <div className="console-page-heading">
+          <p className="console-breadcrumb">{t("shell.workspace")} / {t("settings.runtime.title")}</p>
+          <h1 className="console-page-title">{t("settings.runtime.title")}</h1>
+          <p className="console-page-description">{t("settings.runtime.description")}</p>
+        </div>
       </div>
 
-      {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
-      {notice && <p className="rounded-lg bg-success-tint px-4 py-3 text-success">{notice}</p>}
-      {loading && <p className="text-sm text-[var(--muted)]">{t("common.loading")}</p>}
+      {error && <p className="console-alert" role="alert">{error}</p>}
+      {notice && <p className="console-notice" role="status">{notice}</p>}
+      {loading && <span className="console-skeleton w-32" role="status" aria-label={t("common.loading")} />}
 
       {!loading && (
-        <div className="space-y-5">
-          <section className="panel space-y-4 p-6">
+        <div className="space-y-4">
+          <section className="console-panel space-y-4 p-4 sm:p-5">
             <div>
               <h2 className="font-semibold">{t("settings.runtime.linksTitle")}</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">{t("settings.runtime.linksDescription")}</p>
@@ -190,7 +192,7 @@ export default function RuntimeSettingsPage() {
             </div>
           </section>
 
-          <section className="panel space-y-4 p-6">
+          <section className="console-panel space-y-4 p-4 sm:p-5">
             <div>
               <h2 className="font-semibold">{t("settings.runtime.jobsTitle")}</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">{t("settings.runtime.jobsDescription")}</p>
@@ -205,7 +207,7 @@ export default function RuntimeSettingsPage() {
             </div>
           </section>
 
-          <section className="panel space-y-4 p-6">
+          <section className="console-panel space-y-4 p-4 sm:p-5">
             <div>
               <h2 className="font-semibold">{t("settings.runtime.rateTitle")}</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">{t("settings.runtime.rateDescription")}</p>

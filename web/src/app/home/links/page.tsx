@@ -250,13 +250,13 @@ export default function LinksPage() {
   const rangeEnd = Math.min(total, page * PAGE_SIZE + links.length);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("links.title")}</p>
-          <h1 className="mt-1 text-2xl font-bold">{t("links.title")}</h1>
+    <div className="console-page">
+      <div className="console-page-header">
+        <div className="console-page-heading">
+          <p className="console-breadcrumb">{t("shell.workspace")} / {t("links.title")}</p>
+          <h1 className="console-page-title">{t("links.title")}</h1>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="console-actions">
           <input
             ref={fileInput}
             type="file"
@@ -273,7 +273,7 @@ export default function LinksPage() {
         </div>
       </div>
 
-      <div className="panel flex flex-wrap gap-3 p-4">
+      <div className="console-toolbar">
         <input
           className="field-control min-w-[220px] flex-1"
           placeholder={t("links.searchPlaceholder")}
@@ -298,10 +298,10 @@ export default function LinksPage() {
         </select>
       </div>
 
-      {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
+      {error && <p className="console-alert" role="alert">{error}</p>}
 
       {report && (
-        <div className="panel space-y-2 p-4">
+        <div className="console-panel space-y-2 p-4">
           <p className="text-sm">{t("links.imported", { count: report.created })}</p>
           {report.failed > 0 && <p className="text-sm text-danger">{t("links.importFailed", { count: report.failed })}</p>}
           {report.errors.length > 0 && (
@@ -319,7 +319,7 @@ export default function LinksPage() {
       )}
 
       {selected.size > 0 && (
-        <div className="panel flex flex-wrap items-center gap-3 p-4">
+        <div className="console-toolbar">
           <span className="text-sm">{t("links.selected", { count: selected.size })}</span>
           <select
             className="field-control w-auto"
@@ -349,12 +349,12 @@ export default function LinksPage() {
         </div>
       )}
 
-      <div className="panel overflow-hidden">
+      <div className="console-panel">
         <div className="mobile-scroll">
-          <table className="w-full min-w-[1020px] text-left text-sm">
-            <thead className="border-b border-[var(--line)] bg-canvas-alt text-xs text-[var(--muted)]">
+          <table className="console-table min-w-[1020px]">
+            <thead>
               <tr>
-                <th className="w-10 px-5 py-3">
+                <th className="w-10">
                   <input
                     type="checkbox"
                     aria-label={t("links.selectAll")}
@@ -362,29 +362,29 @@ export default function LinksPage() {
                     onChange={toggleAll}
                   />
                 </th>
-                <th className="px-5 py-3">{t("links.table.short")}</th>
-                <th className="px-5 py-3">{t("links.table.destination")}</th>
-                <th className="px-5 py-3">{t("links.table.tags")}</th>
-                <th className="px-5 py-3 text-right">{t("links.table.clicks")}</th>
-                <th className="px-5 py-3">{t("links.table.redirect")}</th>
-                <th className="px-5 py-3">{t("links.table.status")}</th>
-                <th className="px-5 py-3 text-right">{t("links.table.actions")}</th>
+                <th>{t("links.table.short")}</th>
+                <th>{t("links.table.destination")}</th>
+                <th>{t("links.table.tags")}</th>
+                <th className="text-right">{t("links.table.clicks")}</th>
+                <th>{t("links.table.redirect")}</th>
+                <th>{t("links.table.status")}</th>
+                <th className="text-right">{t("links.table.actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--line)]">
               {links.map((link) => (
                 <tr key={link.id}>
-                  <td className="px-5 py-4">
+                  <td>
                     <input type="checkbox" aria-label={t("links.selectOne", { alias: link.alias })} checked={selected.has(link.id)} onChange={() => toggleOne(link.id)} />
                   </td>
-                  <td className="px-5 py-4">
+                  <td>
                     <div className="max-w-[320px] space-y-1">
                       <CopyLinkButton value={link.short_url} compact />
                       {link.title && <span className="mt-0.5 block max-w-[200px] truncate text-xs font-normal text-[var(--muted)]">{link.title}</span>}
                     </div>
                   </td>
-                  <td className="max-w-[300px] truncate px-5 py-4 text-[var(--muted)]">{link.destination_url}</td>
-                  <td className="px-5 py-4">
+                  <td className="max-w-[300px] truncate text-[var(--muted)]">{link.destination_url}</td>
+                  <td>
                     <div className="flex max-w-[200px] flex-wrap gap-1">
                       {(link.tags || []).map((name) => (
                         <button
@@ -397,15 +397,15 @@ export default function LinksPage() {
                       ))}
                     </div>
                   </td>
-                  <td className="px-5 py-4 text-right tabular-nums">{link.clicks ?? 0}</td>
-                  <td className="px-5 py-4">{link.redirect_code}</td>
-                  <td className="px-5 py-4">
+                  <td className="text-right tabular-nums">{link.clicks ?? 0}</td>
+                  <td>{link.redirect_code}</td>
+                  <td>
                     <RareStatus tone={statusTone(link.status)}>{link.status}</RareStatus>
                     {link.last_checked_at && (
                       <span className="mt-1 block text-xs text-[var(--muted)]">{checkLabel(t, link)}</span>
                     )}
                   </td>
-                  <td className="px-5 py-4">
+                  <td>
                     <div className="flex justify-end gap-2">
                       <Link href={`/home/links/${link.id}/edit`} className="btn-secondary">{t("common.edit")}</Link>
                       <button className="btn-secondary" onClick={() => setQrLink(link)}>{t("links.qr")}</button>
@@ -422,7 +422,7 @@ export default function LinksPage() {
             </tbody>
           </table>
           {!loading && !links.length && (
-            <p className="px-5 py-12 text-center text-sm text-[var(--muted)]">
+            <p className="console-empty">
               {debouncedSearch || status !== "all" || tag ? t("links.emptyFiltered") : t("links.empty")}
             </p>
           )}

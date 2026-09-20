@@ -29,7 +29,7 @@ export const en = {
   // breaking them would be a lie rather than a style choice: nothing is claimed
   // that a stock deployment does not do out of the box, and anything that is off
   // until an operator turns it on is named as such (see the FAQ).
-  "home.title": "Purels — self-hosted URL shortener",
+  "home.title": "Purels: self-hosted URL shortener",
   "home.tagline": "Short links, click statistics and access control, on a server you run.",
   "home.description": "Purels is a self-hosted URL shortener: create short links, follow the clicks they get, and control who manages them with role-based permissions and multiple sign-in methods.",
 
@@ -100,11 +100,11 @@ export const en = {
   "home.faq.q1": "Do I need an account to create a short link?",
   "home.faq.a1": "Yes. Every write in the console needs a session, and a link belongs to the account that created it. Administrators can see all of them.",
   "home.faq.q2": "Can I use my own domain?",
-  "home.faq.a2": "Yes. The short code itself is global — the domain only decides what the console displays and what the QR code encodes, so each one has to resolve to this deployment on its own.",
+  "home.faq.a2": "Yes. The short code itself is global; the domain only decides what the console displays and what the QR code encodes, so each one has to resolve to this deployment on its own.",
   "home.faq.q3": "What happens to existing accounts if registration is closed?",
   "home.faq.a3": "Nothing. Closing registration only stops new accounts being created; every existing account keeps working.",
   "home.faq.q4": "Where is the visitor data stored?",
-  "home.faq.a4": "In your own PostgreSQL. A visitor's address can be dropped entirely, kept as a plain hash, or hashed with a key you supply — three modes.",
+  "home.faq.a4": "In your own PostgreSQL. A visitor's address can be dropped entirely, kept as a plain hash, or hashed with a key you supply: three modes.",
   "home.faq.q5": "Are two-factor authentication and single sign-on supported?",
   "home.faq.a5": "Both, and both are off until you configure them: TOTP with recovery codes, and OIDC providers. Each needs an encryption key set first.",
   "home.faq.q6": "What licence is it under?",
@@ -245,7 +245,7 @@ export const en = {
   "links.importErrorLineAlias": "Line {line} ({alias}): {reason}",
   "links.copy": "Copy",
   "links.copied": "Copied",
-  "links.copyFailed": "Copy failed — select the URL manually.",
+  "links.copyFailed": "Copy failed. Select the URL manually.",
   "links.created.title": "Your short link is ready",
   "links.created.body": "Click the address below to copy the complete short link.",
   "links.created.preview": "Preview redirect",
@@ -374,6 +374,7 @@ export const en = {
   "stats.table.clicks": "Clicks",
   "stats.table.referrer": "Referrer",
   "stats.table.time": "Time",
+  "stats.table.userAgent": "User-Agent",
   "stats.csv.rank": "Rank",
   "stats.csv.destination": "Destination",
   "stats.csv.date": "Date",

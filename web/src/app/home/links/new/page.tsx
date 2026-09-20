@@ -79,13 +79,15 @@ export default function NewLinkPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("links.title")}</p>
-        <h1 className="mt-1 text-2xl font-bold">{created ? t("links.created.title") : t("links.form.submit")}</h1>
+    <div className="console-page mx-auto max-w-3xl">
+      <div className="console-page-header">
+        <div className="console-page-heading">
+          <p className="console-breadcrumb">{t("shell.workspace")} / {t("links.title")}</p>
+          <h1 className="console-page-title">{created ? t("links.created.title") : t("links.form.submit")}</h1>
+        </div>
       </div>
       {created ? (
-        <section className="panel space-y-6 p-6">
+        <section className="console-panel space-y-4 p-4 sm:p-5">
           <div>
             <p className="text-sm text-[var(--muted)]">{t("links.created.body")}</p>
             <p className="mt-3 font-mono text-sm text-[var(--muted)]">/{created.link.alias}</p>
@@ -102,7 +104,7 @@ export default function NewLinkPage() {
           </div>
         </section>
       ) : (
-      <form onSubmit={submit} className="panel space-y-5 p-6">
+      <form onSubmit={submit} className="console-panel space-y-4 p-4 sm:p-5">
         <label className="block">
           <span className="field-label">{t("links.form.destination")}</span>
           <input required type="url" className="field-control" placeholder="https://example.com" value={url} onChange={(e) => setUrl(e.target.value)} />
@@ -146,7 +148,7 @@ export default function NewLinkPage() {
             {t("links.form.interstitialUnit")}
           </label>
         </div>
-        {error && <p className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{error}</p>}
+        {error && <p className="console-alert" role="alert">{error}</p>}
         <LinkRulesEditor rules={rules} onChange={setRules} />
         <div className="flex justify-end gap-3">
           <button type="button" className="btn-secondary" onClick={() => router.back()}>{t("common.cancel")}</button>

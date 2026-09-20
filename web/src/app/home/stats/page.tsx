@@ -202,11 +202,11 @@ export default function StatsPage() {
   const showVisitors = overview?.ip_mode !== "none";
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("stats.title")}</p>
-          <h1 className="mt-1 text-2xl font-bold">{t("stats.title")}</h1>
+    <div className="console-page">
+      <div className="console-page-header">
+        <div className="console-page-heading">
+          <p className="console-breadcrumb">{t("shell.workspace")} / {t("stats.title")}</p>
+          <h1 className="console-page-title">{t("stats.title")}</h1>
         </div>
         <GooeyNav
           size="sm"
@@ -217,37 +217,37 @@ export default function StatsPage() {
         />
       </div>
 
-      {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
+      {error && <p className="console-alert" role="alert">{error}</p>}
 
-      <div className={`grid gap-4 ${showVisitors ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
-        <div className="panel p-6">
-          <p className="text-sm text-[var(--muted)]">{t("stats.clicksInRange")}</p>
-          <p className="mt-3 text-4xl font-bold"><AnimatedCounter value={overview?.total_clicks ?? 0} /></p>
+      <div className={`console-kpi-grid ${showVisitors ? "" : "sm:grid-cols-2"}`}>
+        <div className="console-kpi">
+          <p className="text-xs font-semibold text-[var(--muted)]">{t("stats.clicksInRange")}</p>
+          <p className="mt-2 text-2xl font-bold tracking-tight"><AnimatedCounter value={overview?.total_clicks ?? 0} /></p>
         </div>
         {showVisitors && (
-          <div className="panel p-6">
-            <p className="text-sm text-[var(--muted)]">{t("stats.uniqueVisitors")}</p>
-            <p className="mt-3 text-4xl font-bold"><AnimatedCounter value={overview?.unique_visitors ?? 0} /></p>
+          <div className="console-kpi">
+            <p className="text-xs font-semibold text-[var(--muted)]">{t("stats.uniqueVisitors")}</p>
+            <p className="mt-2 text-2xl font-bold tracking-tight"><AnimatedCounter value={overview?.unique_visitors ?? 0} /></p>
           </div>
         )}
-        <div className="panel p-6">
-          <p className="text-sm text-[var(--muted)]">{t("stats.totalLinks")}</p>
-          <p className="mt-3 text-4xl font-bold"><AnimatedCounter value={overview?.total_links ?? 0} /></p>
+        <div className="console-kpi">
+          <p className="text-xs font-semibold text-[var(--muted)]">{t("stats.totalLinks")}</p>
+          <p className="mt-2 text-2xl font-bold tracking-tight"><AnimatedCounter value={overview?.total_links ?? 0} /></p>
         </div>
       </div>
 
-      <section className="panel p-6">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-semibold">{t("stats.trend")}</h2>
+      <section className="console-panel p-4 sm:p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="console-panel-title">{t("stats.trend")}</h2>
           <button className="btn-secondary" onClick={exportTrend}>{t("stats.exportCsv")}</button>
         </div>
         <TrendChart points={overview?.trend ?? []} />
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="panel overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-5 py-4">
-            <h2 className="font-semibold">{t("stats.ranking")}</h2>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="console-panel">
+          <div className="console-panel-header">
+            <h2 className="console-panel-title">{t("stats.ranking")}</h2>
             <GooeyNav
               size="sm"
               ariaLabel={t("stats.ranking")}
@@ -257,12 +257,12 @@ export default function StatsPage() {
             />
           </div>
           <div className="mobile-scroll">
-            <table className="w-full min-w-[420px] text-left text-sm">
-              <thead className="border-b border-[var(--line)] bg-canvas-alt text-xs text-[var(--muted)]">
+            <table className="console-table min-w-[420px]">
+              <thead>
                 <tr>
-                  <th className="w-10 px-5 py-3">#</th>
-                  <th className="px-5 py-3">{t("stats.table.short")}</th>
-                  <th className="px-5 py-3 text-right">{t("stats.table.clicks")}</th>
+                  <th className="w-10">#</th>
+                  <th>{t("stats.table.short")}</th>
+                  <th className="text-right">{t("stats.table.clicks")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--line)]">
@@ -272,23 +272,23 @@ export default function StatsPage() {
                     onClick={() => setSelected(link.id)}
                     className={`cursor-pointer transition-colors ${selected === link.id ? "bg-brand-tint" : "hover:bg-canvas-alt"}`}
                   >
-                    <td className="px-5 py-3 tabular-nums text-[var(--muted)]">{index + 1}</td>
-                    <td className="max-w-[220px] truncate px-5 py-3 font-medium" title={link.destination_url}>/{link.alias}</td>
-                    <td className="px-5 py-3 text-right font-medium tabular-nums">{link.clicks ?? 0}</td>
+                    <td className="tabular-nums text-[var(--muted)]">{index + 1}</td>
+                    <td className="max-w-[220px] truncate font-medium" title={link.destination_url}>/{link.alias}</td>
+                    <td className="text-right font-medium tabular-nums">{link.clicks ?? 0}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {!ranking.length && <p className="px-5 py-10 text-center text-sm text-[var(--muted)]">{t("stats.emptyRanking")}</p>}
+            {!ranking.length && <p className="console-empty">{t("stats.emptyRanking")}</p>}
           </div>
-          <div className="border-t border-[var(--line)] px-5 py-3 text-right">
+          <div className="border-t border-[var(--line)] px-4 py-2.5 text-right">
             <button className="btn-secondary" onClick={exportRanking} disabled={!ranking.length}>{t("stats.exportRanking")}</button>
           </div>
         </section>
 
-        <div className="space-y-6">
-          <section className="panel p-6">
-            <h2 className="mb-5 font-semibold">{t("stats.referrers")}</h2>
+        <div className="space-y-4">
+          <section className="console-panel p-4 sm:p-5">
+            <h2 className="mb-4 console-panel-title">{t("stats.referrers")}</h2>
             <BarList
               rows={(overview?.referrers ?? []).map((item) => ({
                 key: item.referrer || "__direct__",
@@ -300,8 +300,8 @@ export default function StatsPage() {
             />
           </section>
 
-          <section className="panel p-6">
-            <h2 className="mb-5 font-semibold">{t("stats.devices")}</h2>
+          <section className="console-panel p-4 sm:p-5">
+            <h2 className="mb-4 console-panel-title">{t("stats.devices")}</h2>
             <BarList
               rows={(overview?.devices ?? []).map((item) => ({
                 key: item.device,
@@ -315,9 +315,9 @@ export default function StatsPage() {
         </div>
       </div>
 
-      <section className="panel p-6">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-semibold">{t("stats.linkDetail")}{detailAlias ? ` · /${detailAlias}` : ""}</h2>
+      <section className="console-panel p-4 sm:p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="console-panel-title">{t("stats.linkDetail")}{detailAlias ? ` /${detailAlias}` : ""}</h2>
           <select className="field-control w-auto min-w-[220px]" value={selected} onChange={(event) => setSelected(event.target.value)}>
             <option value="">{t("stats.selectLink")}</option>
             {allLinks.map((link) => <option key={link.id} value={link.id}>/{link.alias}</option>)}
@@ -328,7 +328,7 @@ export default function StatsPage() {
         {selected && detailLoading && <p className="text-sm text-[var(--muted)]">{t("stats.loading")}</p>}
 
         {selected && detail && !detailLoading && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="rounded-lg bg-canvas-alt px-4 py-3">
               <p className="text-sm text-[var(--muted)]">{t("stats.totalClicks")}</p>
               <p className="mt-1 text-2xl font-bold tabular-nums">{formatNumber(detail.total_clicks, locale)}</p>
@@ -355,15 +355,15 @@ export default function StatsPage() {
               <h3 className="mb-3 text-sm font-semibold">{t("stats.referrers")}</h3>
               {detail.referrers.length ? (
                 <div className="mobile-scroll">
-                  <table className="w-full min-w-[420px] text-left text-sm">
-                    <thead className="border-b border-[var(--line)] text-xs text-[var(--muted)]">
-                      <tr><th className="py-2">{t("stats.table.referrer")}</th><th className="py-2 text-right">{t("stats.table.clicks")}</th></tr>
+                  <table className="console-table min-w-[420px]">
+                    <thead>
+                      <tr><th>{t("stats.table.referrer")}</th><th className="text-right">{t("stats.table.clicks")}</th></tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--line)]">
                       {detail.referrers.map((item) => (
                         <tr key={item.referrer || "__direct__"}>
-                          <td className="max-w-[420px] truncate py-3">{item.referrer || t("stats.direct")}</td>
-                          <td className="py-3 text-right tabular-nums">{formatNumber(item.clicks, locale)}</td>
+                          <td className="max-w-[420px] truncate">{item.referrer || t("stats.direct")}</td>
+                          <td className="text-right tabular-nums">{formatNumber(item.clicks, locale)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -389,20 +389,20 @@ export default function StatsPage() {
                 <p className="text-sm text-[var(--muted)]">{t("stats.loading")}</p>
               ) : (clickLog?.clicks ?? []).length ? (
                 <div className="mobile-scroll">
-                  <table className="w-full min-w-[560px] text-left text-sm">
-                    <thead className="border-b border-[var(--line)] text-xs text-[var(--muted)]">
+                  <table className="console-table min-w-[560px]">
+                    <thead>
                       <tr>
-                        <th className="py-2">{t("stats.table.time")}</th>
-                        <th className="py-2">{t("stats.table.referrer")}</th>
-                        <th className="py-2">User-Agent</th>
+                        <th>{t("stats.table.time")}</th>
+                        <th>{t("stats.table.referrer")}</th>
+                        <th>{t("stats.table.userAgent")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--line)]">
                       {(clickLog?.clicks ?? []).map((click, index) => (
                         <tr key={`${click.occurred_at}-${index}`}>
-                          <td className="whitespace-nowrap py-3 tabular-nums text-[var(--muted)]">{formatShortDateTime(click.occurred_at, locale)}</td>
-                          <td className="max-w-[200px] truncate py-3 text-[var(--muted)]">{click.referrer || t("stats.direct")}</td>
-                          <td className="max-w-[320px] truncate py-3 text-[var(--muted)]" title={click.user_agent}>{click.user_agent || "—"}</td>
+                          <td className="whitespace-nowrap tabular-nums text-[var(--muted)]">{formatShortDateTime(click.occurred_at, locale)}</td>
+                          <td className="max-w-[200px] truncate text-[var(--muted)]">{click.referrer || t("stats.direct")}</td>
+                          <td className="max-w-[320px] truncate text-[var(--muted)]" title={click.user_agent}>{click.user_agent || ""}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -416,30 +416,30 @@ export default function StatsPage() {
         )}
       </section>
 
-      <section className="panel overflow-hidden">
-        <div className="border-b border-[var(--line)] px-6 py-4 font-semibold">{t("stats.recentClicks")}</div>
+      <section className="console-panel">
+        <div className="console-panel-header"><h2 className="console-panel-title">{t("stats.recentClicks")}</h2></div>
         <div className="mobile-scroll">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="border-b border-[var(--line)] bg-canvas-alt text-xs text-[var(--muted)]">
+          <table className="console-table min-w-[720px]">
+            <thead>
               <tr>
-                <th className="px-6 py-3">{t("stats.table.time")}</th>
-                <th className="px-6 py-3">{t("stats.table.short")}</th>
-                <th className="px-6 py-3">{t("stats.table.referrer")}</th>
-                <th className="px-6 py-3">User-Agent</th>
+                <th>{t("stats.table.time")}</th>
+                <th>{t("stats.table.short")}</th>
+                <th>{t("stats.table.referrer")}</th>
+                <th>{t("stats.table.userAgent")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--line)]">
               {(overview?.recent_clicks ?? []).map((click, index) => (
                 <tr key={`${click.link_id}-${click.occurred_at}-${index}`}>
-                  <td className="whitespace-nowrap px-6 py-3 tabular-nums text-[var(--muted)]">{formatShortDateTime(click.occurred_at, locale)}</td>
-                  <td className="px-6 py-3 font-medium">/{click.alias || "—"}</td>
-                  <td className="max-w-[220px] truncate px-6 py-3 text-[var(--muted)]">{click.referrer || t("stats.direct")}</td>
-                  <td className="max-w-[360px] truncate px-6 py-3 text-[var(--muted)]" title={click.user_agent}>{click.user_agent || "—"}</td>
+                  <td className="whitespace-nowrap tabular-nums text-[var(--muted)]">{formatShortDateTime(click.occurred_at, locale)}</td>
+                  <td className="font-medium">/{click.alias || ""}</td>
+                  <td className="max-w-[220px] truncate text-[var(--muted)]">{click.referrer || t("stats.direct")}</td>
+                  <td className="max-w-[360px] truncate text-[var(--muted)]" title={click.user_agent}>{click.user_agent || ""}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {!(overview?.recent_clicks ?? []).length && <p className="px-6 py-10 text-center text-sm text-[var(--muted)]">{t("stats.emptyClicks")}</p>}
+          {!(overview?.recent_clicks ?? []).length && <p className="console-empty">{t("stats.emptyClicks")}</p>}
         </div>
       </section>
 

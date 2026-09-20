@@ -187,27 +187,29 @@ export default function OIDCSettingsPage() {
   const newCallback = buildOIDCCallbackURL(redirectBase, creating.slug);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("settings.oidc.title")}</p>
-        <h1 className="mt-1 text-2xl font-bold">{t("settings.oidc.title")}</h1>
+    <div className="console-page">
+      <div className="console-page-header">
+        <div className="console-page-heading">
+          <p className="console-breadcrumb">{t("shell.workspace")} / {t("settings.oidc.title")}</p>
+          <h1 className="console-page-title">{t("settings.oidc.title")}</h1>
+        </div>
       </div>
 
-      {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
-      {notice && <p className="rounded-lg bg-success-tint px-4 py-3 text-success">{notice}</p>}
+      {error && <p className="console-alert" role="alert">{error}</p>}
+      {notice && <p className="console-notice" role="status">{notice}</p>}
       {!loading && !redirectBase && (
-        <p className="rounded-lg bg-warning-tint px-4 py-3 text-sm text-warning">
+        <p className="console-alert border-warning/30 bg-warning-tint text-warning" role="status">
           {t("settings.oidc.noRedirectBase")}
         </p>
       )}
 
-      {loading && !providers.length && <p className="text-sm text-[var(--muted)]">{t("common.loading")}</p>}
+      {loading && !providers.length && <span className="console-skeleton w-32" role="status" aria-label={t("common.loading")} />}
 
       {providers.map((provider) => {
         const draft = drafts[provider.id] || toDraft(provider);
         const callback = buildOIDCCallbackURL(redirectBase, provider.slug);
         return (
-          <section className="panel space-y-4 p-6" key={provider.id}>
+          <section className="console-panel space-y-4 p-4 sm:p-5" key={provider.id}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <h2 className="font-semibold">{provider.display_name}</h2>
@@ -320,7 +322,7 @@ export default function OIDCSettingsPage() {
         );
       })}
 
-      <section className="panel space-y-4 p-6">
+      <section className="console-panel space-y-4 p-4 sm:p-5">
         <h2 className="font-semibold">{t("settings.oidc.newTitle")}</h2>
 
         <div className="grid gap-4 sm:grid-cols-2">

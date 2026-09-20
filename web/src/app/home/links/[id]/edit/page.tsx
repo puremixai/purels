@@ -127,19 +127,21 @@ export default function EditLinkPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("links.title")} / {t("links.edit.breadcrumbTail")}</p>
-        <h1 className="mt-1 text-2xl font-bold">{t("links.edit.title")}</h1>
+    <div className="console-page mx-auto max-w-3xl">
+      <div className="console-page-header">
+        <div className="console-page-heading">
+          <p className="console-breadcrumb">{t("shell.workspace")} / {t("links.title")} / {t("links.edit.breadcrumbTail")}</p>
+          <h1 className="console-page-title">{t("links.edit.title")}</h1>
+        </div>
       </div>
 
-      {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
+      {error && <p className="console-alert" role="alert">{error}</p>}
 
       {loading ? (
-        <p className="panel p-6 text-sm text-[var(--muted)]">{t("links.edit.loading")}</p>
+        <div className="console-panel space-y-3 p-4 sm:p-5" role="status" aria-label={t("links.edit.loading")}><span className="console-skeleton w-2/3" /><span className="console-skeleton w-1/3" /></div>
       ) : link ? (
-        <div className="space-y-6">
-          <div className="panel flex flex-wrap items-center justify-between gap-3 p-4">
+        <div className="space-y-4">
+          <div className="console-panel flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4">
             <span className="text-sm text-[var(--muted)]">
               {link.last_checked_at
                 ? <>
@@ -153,7 +155,7 @@ export default function EditLinkPage() {
             </button>
           </div>
 
-          <form onSubmit={submit} className="panel space-y-5 p-6">
+          <form onSubmit={submit} className="console-panel space-y-4 p-4 sm:p-5">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="field-label mb-0">{t("links.table.short")}</span>
@@ -239,7 +241,7 @@ export default function EditLinkPage() {
           </form>
         </div>
       ) : (
-        <p className="panel p-6 text-sm text-[var(--muted)]">{t("links.edit.notFound")}</p>
+        <p className="console-panel p-4 text-sm text-[var(--muted)]">{t("links.edit.notFound")}</p>
       )}
     </div>
   );
