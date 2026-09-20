@@ -224,6 +224,29 @@ func TestShortURL(t *testing.T) {
 	}
 }
 
+func TestIsSelfDestination(t *testing.T) {
+	service := &LinkService{PublicURL: "https://sho.rt", ShortDomains: []string{"go.example.com"}}
+	link := domain.Link{Alias: "AbC"}
+
+	cases := []struct {
+		name        string
+		destination string
+		want        bool
+	}{
+		{"the generated short URL", "https://sho.rt/AbC", true},
+		{"a trailing slash still resolves to the link", "http://sho.rt/AbC/?utm_source=test", true},
+		{"every configured short domain resolves the alias", "https://go.example.com/AbC#again", true},
+		{"alias casing remains significant", "https://sho.rt/abc", false},
+		{"a different path is not the link", "https://sho.rt/AbC/next", false},
+		{"an external destination is allowed", "https://example.com/AbC", false},
+	}
+	for _, test := range cases {
+		if got := service.isSelfDestination(link, test.destination); got != test.want {
+			t.Errorf("%s: isSelfDestination(%q) = %v, want %v", test.name, test.destination, got, test.want)
+		}
+	}
+}
+
 // TestNormalizeDomain covers the whitelist that keeps a caller from pointing a
 // short_url — and therefore the QR code — at a host they do not control.
 func TestNormalizeDomain(t *testing.T) {

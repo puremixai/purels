@@ -59,6 +59,11 @@ const (
 // is distinct so the handler can answer 429 rather than a generic 400.
 var ErrQuotaExceeded = errors.New("link quota reached")
 
+// ErrSelfDestination is returned when a link would redirect back to its own
+// short path. Without this guard the browser follows the same redirect
+// forever, and a divert rule could create the same loop for matching visitors.
+var ErrSelfDestination = errors.New("destination cannot point to this short link")
+
 type LinkService struct {
 	Store *postgres.Store
 	Cache *redis.Cache
@@ -152,6 +157,12 @@ func (l *LinkService) Create(ctx context.Context, req domain.CreateLinkRequest) 
 		link := newLink(alias, req.DestinationURL, title, tags, code, req.ExpiresAt, interstitial)
 		link.Rules = rules
 		link.Domain = shortDomain
+		if err := l.rejectSelfDestination(link, link.DestinationURL); err != nil {
+			return CreateResult{}, err
+		}
+		if err := l.rejectSelfRuleDestinations(link, rules); err != nil {
+			return CreateResult{}, err
+		}
 		if err := l.Store.CreateLink(ctx, link, owner); err != nil {
 			return CreateResult{}, err
 		}
@@ -189,6 +200,12 @@ func (l *LinkService) Create(ctx context.Context, req domain.CreateLinkRequest) 
 		candidate := newLink(alias, req.DestinationURL, title, tags, code, req.ExpiresAt, interstitial)
 		candidate.Rules = rules
 		candidate.Domain = shortDomain
+		if err := l.rejectSelfDestination(candidate, candidate.DestinationURL); err != nil {
+			return CreateResult{}, err
+		}
+		if err := l.rejectSelfRuleDestinations(candidate, rules); err != nil {
+			return CreateResult{}, err
+		}
 		if err := l.Store.CreateLink(ctx, candidate, owner); err == nil {
 			l.cache(ctx, candidate)
 			return CreateResult{Link: candidate, Created: true}, nil
@@ -332,6 +349,9 @@ func (l *LinkService) Update(ctx context.Context, id string, req domain.UpdateLi
 			return link, errors.New("that destination is not allowed")
 		}
 		link.DestinationURL = req.DestinationURL
+		if err := l.rejectSelfDestination(link, link.DestinationURL); err != nil {
+			return link, err
+		}
 	}
 	if req.RedirectCode != 0 {
 		if req.RedirectCode != 301 && req.RedirectCode != 302 {
@@ -379,6 +399,9 @@ func (l *LinkService) Update(ctx context.Context, id string, req domain.UpdateLi
 	if req.Rules != nil {
 		normalized, ruleErr := normalizeRules(*req.Rules, settings.DestinationDenylist)
 		if ruleErr != nil {
+			return link, ruleErr
+		}
+		if ruleErr := l.rejectSelfRuleDestinations(link, normalized); ruleErr != nil {
 			return link, ruleErr
 		}
 		rules = &normalized
@@ -631,6 +654,47 @@ func (l *LinkService) ShortURL(link domain.Link) string {
 		}
 	}
 	return base + "/" + url.PathEscape(link.Alias)
+}
+
+func (l *LinkService) rejectSelfDestination(link domain.Link, destination string) error {
+	if l.isSelfDestination(link, destination) {
+		return ErrSelfDestination
+	}
+	return nil
+}
+
+func (l *LinkService) rejectSelfRuleDestinations(link domain.Link, rules []domain.LinkRule) error {
+	for _, rule := range rules {
+		if err := l.rejectSelfDestination(link, rule.DestinationURL); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// isSelfDestination reports whether destination resolves to this link's alias
+// on one of the hosts this deployment serves. Scheme, query and fragment are
+// deliberately ignored: HTTP-to-HTTPS canonicalisation and extra parameters
+// still leave the browser on the same short path. The path comparison keeps
+// alias casing significant, matching the redirect lookup.
+func (l *LinkService) isSelfDestination(link domain.Link, destination string) bool {
+	parsed, err := url.Parse(destination)
+	if err != nil || parsed.Hostname() == "" || !l.isShortHost(parsed.Hostname()) {
+		return false
+	}
+	return strings.Trim(parsed.Path, "/") == link.Alias
+}
+
+func (l *LinkService) isShortHost(host string) bool {
+	if public, err := url.Parse(l.PublicURL); err == nil && strings.EqualFold(host, public.Hostname()) {
+		return true
+	}
+	for _, configured := range l.runtimeSettings().ShortDomains {
+		if strings.EqualFold(host, strings.TrimSpace(configured)) {
+			return true
+		}
+	}
+	return false
 }
 
 // normalizeDomain checks a requested short domain against the configured list.
