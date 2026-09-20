@@ -275,6 +275,35 @@ export type PublicCaptchaSettings = {
   registration_enabled: boolean;
 };
 
+/** Non-secret deployment policy that can be changed without a restart. */
+export type RuntimeSettingsInput = {
+  alias_mode: "random" | "sequential";
+  unique_urls: boolean;
+  registration_enabled: boolean;
+  count_bots: boolean;
+  forward_query: boolean;
+  fallback_url: string;
+  auto_prune_expired: boolean;
+  prune_grace_seconds: number;
+  max_links_per_user: number;
+  destination_denylist: string[];
+  short_domains: string[];
+  health_check_enabled: boolean;
+  health_check_interval_seconds: number;
+  rate_limit_enabled: boolean;
+  rate_limit_login: number;
+  rate_limit_api: number;
+  rate_limit_redirect: number;
+  rate_limit_register: number;
+  rate_limit_2fa: number;
+  rate_limit_oidc: number;
+};
+
+export type RuntimeSettings = RuntimeSettingsInput & {
+  revision: number;
+  updated_at: string;
+};
+
 /** Fields accepted by the administrative CAPTCHA settings endpoint. */
 export type CaptchaInput = {
   enabled?: boolean;
@@ -758,6 +787,19 @@ export const api = {
         body: input,
       });
       return unwrapKey<AnalyticsSettings>(payload, "analytics");
+    },
+  },
+  runtimeSettings: {
+    async get() {
+      const payload = await request<{ settings: RuntimeSettings } | RuntimeSettings>("/api/v1/settings/runtime");
+      return unwrapKey<RuntimeSettings>(payload, "settings");
+    },
+    async update(input: RuntimeSettingsInput) {
+      const payload = await request<{ settings: RuntimeSettings } | RuntimeSettings>("/api/v1/settings/runtime", {
+        method: "PUT",
+        body: input,
+      });
+      return unwrapKey<RuntimeSettings>(payload, "settings");
     },
   },
   tags: {

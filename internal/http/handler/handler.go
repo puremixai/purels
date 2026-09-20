@@ -51,16 +51,17 @@ func Decode(r *http.Request, target any) error {
 }
 
 type Handler struct {
-	Config config.Config
-	Auth   *service.AuthService
-	Links  *service.LinkService
-	Stats  *service.StatsService
-	Tokens *service.TokenService
-	Audit  *service.AuditService
-	Users  *service.UserService
-	Roles  *service.RoleService
-	MFA    *service.TwoFactorService
-	OIDC   *service.OIDCService
+	Config   config.Config
+	Settings domain.RuntimeSettingsManager
+	Auth     *service.AuthService
+	Links    *service.LinkService
+	Stats    *service.StatsService
+	Tokens   *service.TokenService
+	Audit    *service.AuditService
+	Users    *service.UserService
+	Roles    *service.RoleService
+	MFA      *service.TwoFactorService
+	OIDC     *service.OIDCService
 	// Analytics holds the tracking ids the console injects into its own pages.
 	Analytics *service.AnalyticsService
 	Captcha   *service.CaptchaService
@@ -79,6 +80,20 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 	}
 	JSON(w, 200, map[string]string{"status": "ready"})
 }
+
+// runtimeSettings returns the database-backed snapshot when the application
+// has been wired with the settings manager. The environment-backed projection
+// keeps small handler tests and older embedders working while they migrate.
+func (h *Handler) runtimeSettings() domain.RuntimeSettings {
+	if h.Settings != nil {
+		return h.Settings.Current()
+	}
+	return domain.RuntimeSettings{RuntimeSettingsInput: config.RuntimeDefaults(h.Config)}
+}
+
+// RuntimeSettings exposes the same snapshot to router wiring without making
+// the fallback/bootstrap details part of the router package.
+func (h *Handler) RuntimeSettings() domain.RuntimeSettings { return h.runtimeSettings() }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req domain.LoginRequest
@@ -153,7 +168,7 @@ func (h *Handler) finishLogin(w http.ResponseWriter, status int, result service.
 // authenticated group because the caller has no session yet, which also means
 // it is not cookie-authenticated and so is not subject to the CSRF check.
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
-	if !h.Config.RegistrationEnabled {
+	if !h.runtimeSettings().RegistrationEnabled {
 		ErrorCode(w, http.StatusForbidden, domain.CodeRegistrationDisabled, "registration is disabled")
 		return
 	}
@@ -299,7 +314,7 @@ func (h *Handler) Redirect(w http.ResponseWriter, r *http.Request) {
 	if ruleDestination, ruleCode, matched := service.MatchRule(link, r.UserAgent()); matched {
 		destination, code = ruleDestination, ruleCode
 	}
-	if h.Config.ForwardQuery {
+	if h.runtimeSettings().ForwardQuery {
 		destination = mergeQuery(destination, r.URL.RawQuery)
 	}
 	w.Header().Set("Cache-Control", "no-store")
@@ -408,12 +423,13 @@ func interstitialPage(alias, destination string, seconds int16, language string)
 // notFound answers a short code that does not resolve. A configured fallback
 // keeps the visitor on a real page instead of showing a bare 404.
 func (h *Handler) notFound(w http.ResponseWriter, r *http.Request) {
-	if h.Config.FallbackURL == "" {
+	fallbackURL := h.runtimeSettings().FallbackURL
+	if fallbackURL == "" {
 		http.NotFound(w, r)
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	http.Redirect(w, r, h.Config.FallbackURL, http.StatusFound)
+	http.Redirect(w, r, fallbackURL, http.StatusFound)
 }
 
 // mergeQuery appends the visitor's query string to the destination.
@@ -560,7 +576,7 @@ func (h *Handler) isShortHost(host string) bool {
 	if public, err := url.Parse(h.Config.PublicURL); err == nil && strings.EqualFold(host, public.Hostname()) {
 		return true
 	}
-	for _, configured := range h.Config.ShortDomains {
+	for _, configured := range h.runtimeSettings().ShortDomains {
 		if strings.EqualFold(host, configured) {
 			return true
 		}
@@ -574,7 +590,7 @@ func (h *Handler) isShortHost(host string) bool {
 func (h *Handler) AppConfig(w http.ResponseWriter, r *http.Request) {
 	// An empty list rather than null, so the picker can read the length without
 	// a nil check.
-	domains := h.Config.ShortDomains
+	domains := h.runtimeSettings().ShortDomains
 	if domains == nil {
 		domains = []string{}
 	}

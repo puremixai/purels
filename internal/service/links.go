@@ -62,6 +62,10 @@ var ErrQuotaExceeded = errors.New("link quota reached")
 type LinkService struct {
 	Store *postgres.Store
 	Cache *redis.Cache
+	// Settings supplies the mutable business settings. The legacy fields below
+	// remain as a fallback for tests and callers that construct the service
+	// without the runtime settings provider.
+	Settings domain.RuntimeSettingsReader
 	// SequentialAliases switches generated codes from random strings to Base36
 	// values from the alias sequence.
 	SequentialAliases bool
@@ -93,10 +97,11 @@ type CreateResult struct {
 }
 
 func (l *LinkService) Create(ctx context.Context, req domain.CreateLinkRequest) (CreateResult, error) {
+	settings := l.runtimeSettings()
 	if err := security.ValidateDestination(req.DestinationURL); err != nil {
 		return CreateResult{}, err
 	}
-	if security.HostDenied(req.DestinationURL, l.Denylist) {
+	if security.HostDenied(req.DestinationURL, settings.DestinationDenylist) {
 		return CreateResult{}, errors.New("that destination is not allowed")
 	}
 	title, err := security.NormalizeTitle(req.Title)
@@ -107,11 +112,11 @@ func (l *LinkService) Create(ctx context.Context, req domain.CreateLinkRequest) 
 	if err != nil {
 		return CreateResult{}, err
 	}
-	rules, err := normalizeRules(req.Rules, l.Denylist)
+	rules, err := normalizeRules(req.Rules, settings.DestinationDenylist)
 	if err != nil {
 		return CreateResult{}, err
 	}
-	shortDomain, err := l.normalizeDomain(req.Domain)
+	shortDomain, err := normalizeDomain(req.Domain, settings.ShortDomains)
 	if err != nil {
 		return CreateResult{}, err
 	}
@@ -141,7 +146,7 @@ func (l *LinkService) Create(ctx context.Context, req domain.CreateLinkRequest) 
 		}
 		// Naming an alias always mints a link, so the cap applies before the
 		// dedup lookup rather than after it.
-		if err := l.checkQuota(ctx); err != nil {
+		if err := l.checkQuotaLimit(ctx, settings.MaxLinksPerUser); err != nil {
 			return CreateResult{}, err
 		}
 		link := newLink(alias, req.DestinationURL, title, tags, code, req.ExpiresAt, interstitial)
@@ -158,7 +163,7 @@ func (l *LinkService) Create(ctx context.Context, req domain.CreateLinkRequest) 
 	// a caller can still deliberately create a second link to the same page.
 	// The lookup matches the actor exactly, so one account is never handed a
 	// link that belongs to another.
-	if l.UniqueURLs && hasActor {
+	if settings.UniqueURLs && hasActor {
 		existing, err := l.Store.FindLiveLinkByDestination(ctx, req.DestinationURL, actorID)
 		if err == nil {
 			return CreateResult{Link: existing}, nil
@@ -169,12 +174,12 @@ func (l *LinkService) Create(ctx context.Context, req domain.CreateLinkRequest) 
 	}
 	// Handing back an existing link costs nothing, so the cap is only checked
 	// once it is clear a new row is about to be written.
-	if err := l.checkQuota(ctx); err != nil {
+	if err := l.checkQuotaLimit(ctx, settings.MaxLinksPerUser); err != nil {
 		return CreateResult{}, err
 	}
 	// Generate a code and retry when it is already taken.
 	for attempt := 0; attempt < aliasAttempts; attempt++ {
-		alias, err := l.nextAlias(ctx)
+		alias, err := l.nextAliasMode(ctx, settings.AliasMode)
 		if err != nil {
 			return CreateResult{}, err
 		}
@@ -198,7 +203,11 @@ func (l *LinkService) Create(ctx context.Context, req domain.CreateLinkRequest) 
 // transaction, so a burst of concurrent creates can overshoot by a few: the cap
 // is an abuse guard, not an accounting invariant.
 func (l *LinkService) checkQuota(ctx context.Context) error {
-	if l.MaxLinksPerUser <= 0 {
+	return l.checkQuotaLimit(ctx, l.runtimeSettings().MaxLinksPerUser)
+}
+
+func (l *LinkService) checkQuotaLimit(ctx context.Context, maxLinksPerUser int) error {
+	if maxLinksPerUser <= 0 {
 		return nil
 	}
 	user, ok := domain.UserFromContext(ctx)
@@ -209,7 +218,7 @@ func (l *LinkService) checkQuota(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if total >= int64(l.MaxLinksPerUser) {
+	if total >= int64(maxLinksPerUser) {
 		return ErrQuotaExceeded
 	}
 	return nil
@@ -224,7 +233,11 @@ func (l *LinkService) Expand(ctx context.Context, alias string) (domain.Link, er
 // nextAlias produces the next short code: a random string, or the next value of
 // the alias sequence rendered in Base36 when sequential mode is on.
 func (l *LinkService) nextAlias(ctx context.Context) (string, error) {
-	if !l.SequentialAliases {
+	return l.nextAliasMode(ctx, l.runtimeSettings().AliasMode)
+}
+
+func (l *LinkService) nextAliasMode(ctx context.Context, mode string) (string, error) {
+	if mode != "sequential" {
 		return security.RandomString(8)
 	}
 	value, err := l.Store.NextAliasValue(ctx)
@@ -303,6 +316,7 @@ func (l *LinkService) List(ctx context.Context, filter domain.ListFilter) (domai
 }
 
 func (l *LinkService) Update(ctx context.Context, id string, req domain.UpdateLinkRequest) (domain.Link, error) {
+	settings := l.runtimeSettings()
 	owner := domain.OwnerIDFromContext(ctx)
 	link, err := l.Store.GetLink(ctx, id, owner)
 	if err != nil {
@@ -314,7 +328,7 @@ func (l *LinkService) Update(ctx context.Context, id string, req domain.UpdateLi
 		}
 		// The denylist is checked here too: otherwise a link could be created on
 		// an allowed host and then pointed at a denied one.
-		if security.HostDenied(req.DestinationURL, l.Denylist) {
+		if security.HostDenied(req.DestinationURL, settings.DestinationDenylist) {
 			return link, errors.New("that destination is not allowed")
 		}
 		link.DestinationURL = req.DestinationURL
@@ -363,7 +377,7 @@ func (l *LinkService) Update(ctx context.Context, id string, req domain.UpdateLi
 	}
 	var rules *[]domain.LinkRule
 	if req.Rules != nil {
-		normalized, ruleErr := normalizeRules(*req.Rules, l.Denylist)
+		normalized, ruleErr := normalizeRules(*req.Rules, settings.DestinationDenylist)
 		if ruleErr != nil {
 			return link, ruleErr
 		}
@@ -372,7 +386,7 @@ func (l *LinkService) Update(ctx context.Context, id string, req domain.UpdateLi
 	// The loaded link already carries its current domain, so an update that does
 	// not mention one leaves it where it is.
 	if req.Domain != nil {
-		shortDomain, domainErr := l.normalizeDomain(*req.Domain)
+		shortDomain, domainErr := normalizeDomain(*req.Domain, settings.ShortDomains)
 		if domainErr != nil {
 			return link, domainErr
 		}
@@ -625,6 +639,10 @@ func (l *LinkService) ShortURL(link domain.Link) string {
 // a host they do not control, so an unlisted value is refused rather than
 // quietly replaced by the default.
 func (l *LinkService) normalizeDomain(raw string) (string, error) {
+	return normalizeDomain(raw, l.runtimeSettings().ShortDomains)
+}
+
+func normalizeDomain(raw string, allowedDomains []string) (string, error) {
 	value := strings.ToLower(strings.TrimSpace(raw))
 	if value == "" {
 		return "", nil
@@ -634,11 +652,29 @@ func (l *LinkService) normalizeDomain(raw string) (string, error) {
 	if strings.ContainsAny(value, "/:@ ") {
 		return "", errors.New("domain must be a bare host name")
 	}
-	for _, allowed := range l.ShortDomains {
+	for _, allowed := range allowedDomains {
 		if value == allowed {
 			return value, nil
 		}
 	}
 	return "", errors.New("domain is not one of the configured short domains")
 }
+
+func (l *LinkService) runtimeSettings() domain.RuntimeSettings {
+	if l.Settings != nil {
+		return l.Settings.Current()
+	}
+	mode := "random"
+	if l.SequentialAliases {
+		mode = "sequential"
+	}
+	return domain.RuntimeSettings{RuntimeSettingsInput: domain.RuntimeSettingsInput{
+		AliasMode:           mode,
+		UniqueURLs:          l.UniqueURLs,
+		MaxLinksPerUser:     l.MaxLinksPerUser,
+		DestinationDenylist: append([]string(nil), l.Denylist...),
+		ShortDomains:        append([]string(nil), l.ShortDomains...),
+	}}
+}
+
 func (l *LinkService) cache(ctx context.Context, link domain.Link) { _ = l.Cache.SetLink(ctx, link) }

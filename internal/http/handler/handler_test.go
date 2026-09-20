@@ -2,12 +2,50 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"strings"
 	"testing"
 
 	"github.com/purels/purels/internal/config"
+	"github.com/purels/purels/internal/domain"
 )
+
+type testRuntimeSettingsManager struct {
+	settings domain.RuntimeSettings
+}
+
+func (m *testRuntimeSettingsManager) Current() domain.RuntimeSettings { return m.settings }
+
+func (m *testRuntimeSettingsManager) Update(_ context.Context, input domain.RuntimeSettingsInput) (domain.RuntimeSettings, error) {
+	m.settings.RuntimeSettingsInput = input
+	return m.settings, nil
+}
+
+func TestHandlerRuntimeSettingsOverrideConfig(t *testing.T) {
+	h := &Handler{
+		Config: config.Config{
+			RegistrationEnabled: true,
+			ForwardQuery:        true,
+			FallbackURL:         "https://env.example/fallback",
+			ShortDomains:        []string{"env.example"},
+		},
+		Settings: &testRuntimeSettingsManager{settings: domain.RuntimeSettings{RuntimeSettingsInput: domain.RuntimeSettingsInput{
+			RegistrationEnabled: false,
+			ForwardQuery:        false,
+			FallbackURL:         "https://db.example/fallback",
+			ShortDomains:        []string{"db.example"},
+		}}},
+	}
+
+	settings := h.runtimeSettings()
+	if settings.RegistrationEnabled || settings.ForwardQuery || settings.FallbackURL != "https://db.example/fallback" {
+		t.Fatalf("runtime settings did not override config: %+v", settings)
+	}
+	if !h.isShortHost("db.example") || h.isShortHost("env.example") {
+		t.Fatal("runtime short domains were not used")
+	}
+}
 
 func TestShortCode(t *testing.T) {
 	h := &Handler{Config: config.Config{PublicURL: "http://localhost"}}

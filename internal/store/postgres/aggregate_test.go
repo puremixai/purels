@@ -22,3 +22,23 @@ func TestScanClickAggregatesReturnsRowsError(t *testing.T) {
 		t.Fatalf("scanClickAggregates() error = %v, want %v", err, want)
 	}
 }
+
+func TestCountBotsProviderOverridesStaticFlag(t *testing.T) {
+	countBots := false
+	store := &Store{CountBots: true, CountBotsProvider: func() bool { return countBots }}
+
+	if got := store.clickCount("clicks", "bot_clicks"); got != "clicks - bot_clicks" {
+		t.Fatalf("clickCount() = %q, want bot clicks hidden", got)
+	}
+	if got := store.notBot("is_bot"); got != " AND NOT is_bot" {
+		t.Fatalf("notBot() = %q, want bot predicate", got)
+	}
+
+	countBots = true
+	if got := store.clickCount("clicks", "bot_clicks"); got != "clicks" {
+		t.Fatalf("clickCount() = %q, want bot clicks included", got)
+	}
+	if got := store.notBot("is_bot"); got != "" {
+		t.Fatalf("notBot() = %q, want no bot predicate", got)
+	}
+}

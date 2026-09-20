@@ -25,6 +25,14 @@ func main() {
 		os.Exit(1)
 	}
 	defer store.Close()
+	runtimeSettings, err := config.NewRuntimeProvider(ctx, store, config.RuntimeDefaults(cfg))
+	if err != nil {
+		logger.Error("runtime settings bootstrap failed", "error", err)
+		os.Exit(1)
+	}
+	runtimeSettings.Start(ctx)
+	store.CountBots = cfg.CountBots
+	store.CountBotsProvider = func() bool { return runtimeSettings.Current().CountBots }
 	// The probe client is always built: it carries the guard that keeps a
 	// user-supplied destination out of the server's own network, and the sweep
 	// is the one place the worker makes an outbound request.
@@ -32,6 +40,7 @@ func main() {
 	runner := &worker.Worker{
 		Store:               store,
 		Logger:              logger,
+		Runtime:             runtimeSettings,
 		AutoPruneExpired:    cfg.AutoPruneExpired,
 		PruneGrace:          cfg.PruneGrace,
 		Checker:             checker,

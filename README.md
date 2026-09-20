@@ -83,7 +83,7 @@ decisions that shape it:
   Password login remains the primary path
 - API tokens with an explicit scope list, and a default scope set that
   deliberately excludes token minting, the audit trail and all administration
-- Ten scopes and four role presets, all editable
+- Eleven scopes and four role presets, all editable
 - Open registration with anti-abuse, optionally gated by Cloudflare Turnstile
 
 ### Operations
@@ -130,10 +130,20 @@ To remove the volumes as well, add `-v`.
 
 ## Configuration
 
-Every setting is an environment variable, documented in
+Infrastructure and secret settings remain environment variables, documented in
 [`.env.example`](.env.example) — including the ones that are easy to get wrong,
 such as `SECRET_ENCRYPTION_KEY`, which encrypts stored TOTP secrets and OIDC
-client secrets and cannot be changed without invalidating them.
+client secrets and cannot be changed without invalidating them. The first API
+or worker boot after migration seeds the mutable policy row from the matching
+environment values; after that, the database row is authoritative.
+
+The administrator can edit the following runtime settings from
+`/admin/settings/runtime` with the `settings:manage` scope: alias generation,
+duplicate URL handling, registration, bot counting, query forwarding, fallback
+URL, expiry pruning, per-user link quota, destination denylist, extra short
+domains, destination health checks and all per-IP rate-limit buckets. Changes
+are picked up by the API immediately and by the worker on its short poll; the
+admin role receives this scope in migration `000018`.
 
 The compose file under `deploy/` carries the same variables with development
 values. The ones that matter most:
@@ -152,6 +162,12 @@ values. The ones that matter most:
 | `IP_HASH_MODE` | `pseudonymised` | `none` stores no address-derived value at all |
 | `STATS_TZ` | `UTC` | Where a statistics "day" starts. Must match between the API and the worker |
 | `RATE_LIMIT_*` | see `.env.example` | Per-IP, per-minute, per bucket |
+
+The values above that are listed as runtime settings are bootstrap defaults
+only after `000018`; changing them in `.env` later does not overwrite an
+operator's database edit. Keep `PUBLIC_URL`, database/Redis URLs, CORS origins,
+cookie/session settings, IP hash mode/key, encryption keys, OIDC bootstrap
+settings and other infrastructure/security material in the environment.
 
 ## Deploying
 
@@ -199,6 +215,7 @@ session holds the scopes of its role.
 | Tracking | `GET /analytics` | — (any authenticated caller: every console page needs it) |
 | Tracking | `PUT /analytics` | `analytics:manage` |
 | CAPTCHA | `GET/PATCH /captcha` | `captcha:manage` |
+| Runtime settings | `GET/PUT /settings/runtime` | `settings:manage` |
 | Tokens | `GET/POST /auth/tokens`, `DELETE /auth/tokens/{id}` | `tokens:manage` |
 
 Outside `/api/v1`:

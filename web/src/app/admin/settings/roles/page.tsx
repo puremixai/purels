@@ -20,6 +20,7 @@ const SCOPES = [
   "oidc:manage",
   "analytics:manage",
   "captcha:manage",
+  "settings:manage",
 ] as const;
 
 function scopeLabel(t: T, scope: string) {

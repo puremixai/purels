@@ -28,6 +28,7 @@ const navItems: Array<{ href: string; labelKey: MessageKey; icon: IconName; scop
   { href: "/admin/settings/analytics", labelKey: "nav.analytics", icon: "pulse", scope: "analytics:manage" },
   { href: "/admin/settings/security", labelKey: "nav.security", icon: "shield" },
   { href: "/admin/settings/captcha", labelKey: "nav.captcha", icon: "shield", scope: "captcha:manage" },
+  { href: "/admin/settings/runtime", labelKey: "nav.runtimeSettings", icon: "refresh", scope: "settings:manage" },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

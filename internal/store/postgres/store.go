@@ -63,7 +63,7 @@ func (s *Store) linkClickJoin() string {
 // clickCount renders the click expression a statistic should report. Bot clicks
 // are always stored; CountBots decides whether they are included.
 func (s *Store) clickCount(clicks, botClicks string) string {
-	if s.CountBots {
+	if s.countBotsEnabled() {
 		return clicks
 	}
 	return clicks + " - " + botClicks
@@ -72,10 +72,17 @@ func (s *Store) clickCount(clicks, botClicks string) string {
 // notBot renders the clause that hides bot events from a statistic that reads
 // the raw event table. It is empty when bot traffic is being counted.
 func (s *Store) notBot(column string) string {
-	if s.CountBots {
+	if s.countBotsEnabled() {
 		return ""
 	}
 	return " AND NOT " + column
+}
+
+func (s *Store) countBotsEnabled() bool {
+	if s.CountBotsProvider != nil {
+		return s.CountBotsProvider()
+	}
+	return s.CountBots
 }
 
 // CreateAdminIfMissing inserts the bootstrap administrator. The role is set

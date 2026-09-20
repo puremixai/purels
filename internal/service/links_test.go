@@ -9,6 +9,35 @@ import (
 	"github.com/purels/purels/internal/domain"
 )
 
+type testRuntimeSettings struct{ settings domain.RuntimeSettings }
+
+func (s testRuntimeSettings) Current() domain.RuntimeSettings { return s.settings }
+
+func TestLinkServiceUsesRuntimeSettingsOverStaticDefaults(t *testing.T) {
+	service := &LinkService{
+		UniqueURLs:        true,
+		MaxLinksPerUser:   99,
+		Denylist:          []string{"old.example"},
+		ShortDomains:      []string{"old.example"},
+		SequentialAliases: true,
+		Settings: testRuntimeSettings{settings: domain.RuntimeSettings{RuntimeSettingsInput: domain.RuntimeSettingsInput{
+			UniqueURLs:          false,
+			MaxLinksPerUser:     7,
+			DestinationDenylist: []string{"new.example"},
+			ShortDomains:        []string{"go.example"},
+			AliasMode:           "random",
+		}}},
+	}
+
+	got := service.runtimeSettings()
+	if got.UniqueURLs || got.MaxLinksPerUser != 7 || got.AliasMode != "random" {
+		t.Fatalf("runtime settings did not override static defaults: %#v", got)
+	}
+	if len(got.DestinationDenylist) != 1 || got.DestinationDenylist[0] != "new.example" {
+		t.Fatalf("runtime denylist = %#v", got.DestinationDenylist)
+	}
+}
+
 func TestNormalizeIDs(t *testing.T) {
 	first := "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
 	second := "3f2504e0-4f89-11d3-9a0c-0305e82c3302"

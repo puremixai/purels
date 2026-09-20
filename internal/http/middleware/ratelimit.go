@@ -18,9 +18,20 @@ type RateLimiter struct{ Cache *redis.Cache }
 // a protective measure, and letting a cache outage reject all traffic would be
 // a worse outcome than briefly running unthrottled.
 func (rl RateLimiter) Limit(name string, limit int, window time.Duration) func(http.Handler) http.Handler {
+	return rl.DynamicLimit(name, func() (bool, int) { return true, limit }, window)
+}
+
+// DynamicLimit reads the enabled switch and the current bucket size for every
+// request. This keeps a settings change effective without rebuilding the
+// router, while Limit above preserves the fixed-value API for other callers.
+func (rl RateLimiter) DynamicLimit(name string, settings func() (bool, int), window time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if rl.Cache == nil || rl.Cache.Client == nil || limit <= 0 {
+			enabled, limit := true, 0
+			if settings != nil {
+				enabled, limit = settings()
+			}
+			if !enabled || rl.Cache == nil || rl.Cache.Client == nil || limit <= 0 {
 				next.ServeHTTP(w, r)
 				return
 			}

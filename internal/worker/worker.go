@@ -21,6 +21,7 @@ type Worker struct {
 	Store    *postgres.Store
 	Interval time.Duration
 	Logger   *slog.Logger
+	Runtime  domain.RuntimeSettingsReader
 
 	// AutoPruneExpired hard-deletes links whose expiry passed more than
 	// PruneGrace ago. PruneInterval defaults to an hour.
@@ -48,11 +49,11 @@ func (w *Worker) Run(ctx context.Context) error {
 	var group sync.WaitGroup
 	group.Add(1)
 	go func() { defer group.Done(); w.aggregateLoop(ctx) }()
-	if w.AutoPruneExpired {
+	if w.Runtime != nil || w.AutoPruneExpired {
 		group.Add(1)
 		go func() { defer group.Done(); w.pruneLoop(ctx) }()
 	}
-	if w.HealthCheckEnabled && w.Checker != nil {
+	if (w.Runtime != nil || w.HealthCheckEnabled) && w.Checker != nil {
 		group.Add(1)
 		go func() { defer group.Done(); w.healthLoop(ctx) }()
 	}
@@ -90,15 +91,32 @@ func (w *Worker) pruneLoop(ctx context.Context) {
 	if limit <= 0 {
 		limit = 1000
 	}
-	ticker := time.NewTicker(interval)
+	poll := w.Interval
+	if poll <= 0 {
+		poll = 5 * time.Second
+	}
+	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
+	var lastRun time.Time
 	for {
-		deleted, err := w.Store.PruneExpiredLinks(ctx, w.PruneGrace, limit)
-		switch {
-		case err != nil && ctx.Err() == nil:
-			w.Logger.Error("prune expired links", "error", err)
-		case deleted > 0:
-			w.Logger.Info("pruned expired links", "deleted", deleted, "grace", w.PruneGrace.String())
+		settings := w.runtimeSettings()
+		if settings.AutoPruneExpired {
+			grace := settings.PruneGrace()
+			if grace < 0 {
+				grace = w.PruneGrace
+			}
+			if lastRun.IsZero() || time.Since(lastRun) >= interval {
+				deleted, err := w.Store.PruneExpiredLinks(ctx, grace, limit)
+				switch {
+				case err != nil && ctx.Err() == nil:
+					w.Logger.Error("prune expired links", "error", err)
+				case deleted > 0:
+					w.Logger.Info("pruned expired links", "deleted", deleted, "grace", grace.String())
+				}
+				lastRun = time.Now()
+			}
+		} else {
+			lastRun = time.Time{}
 		}
 		select {
 		case <-ctx.Done():
@@ -110,24 +128,52 @@ func (w *Worker) pruneLoop(ctx context.Context) {
 
 // healthLoop re-checks destinations once at start-up and then on its interval.
 func (w *Worker) healthLoop(ctx context.Context) {
-	interval := w.HealthCheckInterval
-	if interval <= 0 {
-		interval = 24 * time.Hour
-	}
 	batch := w.HealthCheckBatch
 	if batch <= 0 {
 		batch = 50
 	}
-	ticker := time.NewTicker(interval)
+	poll := w.Interval
+	if poll <= 0 {
+		poll = 5 * time.Second
+	}
+	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
+	var lastRun time.Time
 	for {
-		w.sweepHealth(ctx, batch, interval)
+		settings := w.runtimeSettings()
+		if settings.HealthCheckEnabled {
+			interval := settings.HealthCheckInterval()
+			if interval <= 0 {
+				interval = w.HealthCheckInterval
+			}
+			if interval <= 0 {
+				interval = 24 * time.Hour
+			}
+			if lastRun.IsZero() || time.Since(lastRun) >= interval {
+				w.sweepHealth(ctx, batch, interval)
+				lastRun = time.Now()
+			}
+		} else {
+			lastRun = time.Time{}
+		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 		}
 	}
+}
+
+func (w *Worker) runtimeSettings() domain.RuntimeSettings {
+	if w.Runtime != nil {
+		return w.Runtime.Current()
+	}
+	return domain.RuntimeSettings{RuntimeSettingsInput: domain.RuntimeSettingsInput{
+		AutoPruneExpired:           w.AutoPruneExpired,
+		PruneGraceSeconds:          int64(w.PruneGrace / time.Second),
+		HealthCheckEnabled:         w.HealthCheckEnabled,
+		HealthCheckIntervalSeconds: int64(w.HealthCheckInterval / time.Second),
+	}}
 }
 
 // sweepHealth checks the links whose last result is missing or older than

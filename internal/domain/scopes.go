@@ -27,6 +27,9 @@ const (
 	// deliberately separate from analytics and OIDC configuration, and is not
 	// lockout-relevant because password login remains available if it is lost.
 	ScopeCaptchaManage = "captcha:manage"
+	// ScopeSettingsManage governs deployment-wide business and operational
+	// settings that are safe to change at runtime from the console.
+	ScopeSettingsManage = "settings:manage"
 )
 
 // Role names. These are the four presets the roles table is seeded with. Which
@@ -41,7 +44,7 @@ const (
 
 // AllScopes is the complete vocabulary. A role edit is validated against it, so
 // a typo cannot be stored as a scope that silently never matches.
-var AllScopes = []string{ScopeLinksRead, ScopeLinksWrite, ScopeStatsRead, ScopeTokensManage, ScopeAuditRead, ScopeUsersManage, ScopeRolesManage, ScopeOIDCManage, ScopeAnalyticsManage, ScopeCaptchaManage}
+var AllScopes = []string{ScopeLinksRead, ScopeLinksWrite, ScopeStatsRead, ScopeTokensManage, ScopeAuditRead, ScopeUsersManage, ScopeRolesManage, ScopeOIDCManage, ScopeAnalyticsManage, ScopeCaptchaManage, ScopeSettingsManage}
 
 // DefaultTokenScopes is what a freshly created API token receives. It is an
 // explicit list, and deliberately excludes ScopeTokensManage, ScopeAuditRead,

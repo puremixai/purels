@@ -47,6 +47,29 @@ type turnstileVerifierStub struct {
 	action string
 }
 
+type captchaRuntimeSettingsStub struct {
+	settings domain.RuntimeSettings
+}
+
+func (s captchaRuntimeSettingsStub) Current() domain.RuntimeSettings { return s.settings }
+
+func TestCaptchaServicePublicUsesRuntimeRegistrationFlag(t *testing.T) {
+	store := &captchaStoreStub{settings: domain.CaptchaSettings{Provider: "turnstile"}}
+	service := &CaptchaService{
+		Store:    store,
+		Config:   config.Config{RegistrationEnabled: true},
+		Settings: captchaRuntimeSettingsStub{settings: domain.RuntimeSettings{RuntimeSettingsInput: domain.RuntimeSettingsInput{RegistrationEnabled: false}}},
+	}
+
+	got, err := service.Public(context.Background())
+	if err != nil {
+		t.Fatalf("Public returned error: %v", err)
+	}
+	if got.RegistrationEnabled {
+		t.Fatal("runtime registration setting was not used")
+	}
+}
+
 func (v *turnstileVerifierStub) Verify(_ context.Context, token, secret, remoteIP, hostname, action string) error {
 	v.token, v.secret, v.host, v.action = token, secret, hostname, action
 	_ = remoteIP

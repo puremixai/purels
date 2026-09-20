@@ -35,6 +35,13 @@ func main() {
 	// Bot clicks are always recorded; this decides whether the read paths report
 	// them, so it is a store-wide switch rather than a per-query argument.
 	store.CountBots = cfg.CountBots
+	runtimeSettings, err := config.NewRuntimeProvider(ctx, store, config.RuntimeDefaults(cfg))
+	if err != nil {
+		logger.Error("runtime settings bootstrap failed", "error", err)
+		os.Exit(1)
+	}
+	runtimeSettings.Start(ctx)
+	store.CountBotsProvider = func() bool { return runtimeSettings.Current().CountBots }
 	cache, err := redis.New(cfg.RedisURL)
 	if err != nil {
 		logger.Error("redis configuration failed", "error", err)
@@ -59,6 +66,7 @@ func main() {
 	captchaService := &service.CaptchaService{
 		Store:    store,
 		Config:   cfg,
+		Settings: runtimeSettings,
 		Box:      box,
 		Verifier: turnstile,
 	}
@@ -70,6 +78,7 @@ func main() {
 	linkService := &service.LinkService{
 		Store:             store,
 		Cache:             cache,
+		Settings:          runtimeSettings,
 		SequentialAliases: cfg.SequentialAliases(),
 		UniqueURLs:        cfg.UniqueURLs,
 		MaxLinksPerUser:   cfg.MaxLinksPerUser,
@@ -79,15 +88,16 @@ func main() {
 		Hasher:            hasher,
 	}
 	h := &handler.Handler{
-		Config: cfg,
-		Auth:   authService,
-		Links:  linkService,
-		Stats:  &service.StatsService{Store: store, IPMode: cfg.IPHashMode},
-		Tokens: &service.TokenService{Store: store},
-		Audit:  &service.AuditService{Store: store, Hasher: hasher},
-		Users:  &service.UserService{Store: store},
-		Roles:  &service.RoleService{Store: store},
-		MFA:    &service.TwoFactorService{Store: store, Config: cfg, Box: box},
+		Config:   cfg,
+		Settings: runtimeSettings,
+		Auth:     authService,
+		Links:    linkService,
+		Stats:    &service.StatsService{Store: store, IPMode: cfg.IPHashMode},
+		Tokens:   &service.TokenService{Store: store},
+		Audit:    &service.AuditService{Store: store, Hasher: hasher},
+		Users:    &service.UserService{Store: store},
+		Roles:    &service.RoleService{Store: store},
+		MFA:      &service.TwoFactorService{Store: store, Config: cfg, Box: box},
 		OIDC: &service.OIDCService{
 			Store: store, Config: cfg, Box: box,
 			// Built by the service so the timeout that bounds a call to an

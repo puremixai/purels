@@ -14,6 +14,9 @@ type Store struct {
 	// recorded and rolled up; this only decides whether the read paths report
 	// them, so flipping it needs no data migration.
 	CountBots bool
+	// CountBotsProvider lets the API and worker read the database-backed runtime
+	// setting without rebuilding the store or every SQL query object.
+	CountBotsProvider func() bool
 }
 
 // New opens the pool. timeZone sets the session TimeZone, which is what makes

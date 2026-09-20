@@ -32,6 +32,7 @@ const ACTION_LABELS = [
   "oidc.delete",
   "analytics.update",
   "captcha.update",
+  "runtime_settings.update",
 ] as const satisfies ReadonlyArray<string>;
 
 function actionLabel(t: T, action: string) {

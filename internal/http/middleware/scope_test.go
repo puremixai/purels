@@ -64,3 +64,21 @@ func TestRateLimiterPassesThroughWithoutCache(t *testing.T) {
 		}
 	}
 }
+
+func TestDynamicRateLimiterPassesThroughWhenDisabled(t *testing.T) {
+	called := false
+	handler := RateLimiter{}.DynamicLimit("test", func() (bool, int) {
+		called = true
+		return false, 1
+	}, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected disabled limiter to pass through, got %d", recorder.Code)
+	}
+	if !called {
+		t.Fatal("expected dynamic settings callback to be read")
+	}
+}

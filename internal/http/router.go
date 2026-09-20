@@ -19,13 +19,13 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 	r.Use(httpmw.CORS(h.Config))
 	r.Use(middleware.Timeout(30 * time.Second))
 
-	// limit builds a per-IP rate limit middleware, or a pass-through when
-	// rate limiting is switched off.
-	limit := func(name string, perMinute int) func(http.Handler) http.Handler {
-		if !h.Config.RateLimitEnabled {
-			return func(next http.Handler) http.Handler { return next }
-		}
-		return limiter.Limit(name, perMinute, time.Minute)
+	// limit reads the database-backed policy for every request, so changing a
+	// bucket in the console takes effect without restarting the API.
+	limit := func(name string, value func(domain.RuntimeSettings) int) func(http.Handler) http.Handler {
+		return limiter.DynamicLimit(name, func() (bool, int) {
+			settings := h.RuntimeSettings()
+			return settings.RateLimitEnabled, value(settings)
+		}, time.Minute)
 	}
 
 	r.Get("/healthz", h.Health)
@@ -48,32 +48,32 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 		http.Redirect(w, r, target, http.StatusTemporaryRedirect)
 	})
 
-	r.With(limit("login", h.Config.RateLimitLogin)).Post("/api/v1/auth/login", h.Login)
+	r.With(limit("login", func(s domain.RuntimeSettings) int { return s.RateLimitLogin })).Post("/api/v1/auth/login", h.Login)
 	// Sign-up sits beside login: outside the authenticated group, and therefore
 	// also outside the CSRF check, which only applies to cookie sessions.
-	r.With(limit("register", h.Config.RateLimitRegister)).Post("/api/v1/auth/register", h.Register)
+	r.With(limit("register", func(s domain.RuntimeSettings) int { return s.RateLimitRegister })).Post("/api/v1/auth/register", h.Register)
 	// The second step of a login, for the same reason: the caller holds a
 	// challenge, not a session. Its own bucket, and the attempt counter stored
 	// with the challenge is the limit that actually holds.
-	r.With(limit("2fa", h.Config.RateLimit2FA)).Post("/api/v1/auth/2fa/verify", h.VerifySecondFactor)
+	r.With(limit("2fa", func(s domain.RuntimeSettings) int { return s.RateLimit2FA })).Post("/api/v1/auth/2fa/verify", h.VerifySecondFactor)
 	r.Get("/api/v1/auth/csrf", h.CSRF)
 	// The sign-in buttons on the login page, for a visitor who has no session
 	// yet. It reveals only the enabled providers' slug and label.
-	r.With(limit("oidc", h.Config.RateLimitOIDC)).Get("/api/v1/auth/oidc/providers", h.PublicOIDCProviders)
+	r.With(limit("oidc", func(s domain.RuntimeSettings) int { return s.RateLimitOIDC })).Get("/api/v1/auth/oidc/providers", h.PublicOIDCProviders)
 	// The two legs of an external sign-in, for the same reason: the caller is a
 	// browser with no session, arriving by navigation. They share the oidc
 	// bucket with the list above, which is what the name is for.
-	r.With(limit("oidc", h.Config.RateLimitOIDC)).Get("/api/v1/auth/oidc/{slug}/start", h.OIDCStart)
-	r.With(limit("oidc", h.Config.RateLimitOIDC)).Get("/api/v1/auth/oidc/{slug}/callback", h.OIDCCallback)
+	r.With(limit("oidc", func(s domain.RuntimeSettings) int { return s.RateLimitOIDC })).Get("/api/v1/auth/oidc/{slug}/start", h.OIDCStart)
+	r.With(limit("oidc", func(s domain.RuntimeSettings) int { return s.RateLimitOIDC })).Get("/api/v1/auth/oidc/{slug}/callback", h.OIDCCallback)
 	// Registration CAPTCHA metadata is public by design: the browser needs the
 	// site key before it has a session. The route returns no secret.
-	r.With(limit("oidc", h.Config.RateLimitOIDC)).Get("/api/v1/auth/captcha", h.PublicCaptcha)
+	r.With(limit("oidc", func(s domain.RuntimeSettings) int { return s.RateLimitOIDC })).Get("/api/v1/auth/captcha", h.PublicCaptcha)
 
 	auth := httpmw.Auth{Store: h.Auth.Store}
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Use(auth.Require)
 		api.Use(auth.CSRF)
-		api.Use(limit("api", h.Config.RateLimitAPI))
+		api.Use(limit("api", func(s domain.RuntimeSettings) int { return s.RateLimitAPI }))
 
 		// Any authenticated principal may inspect and end its own session.
 		api.Post("/auth/logout", h.Logout)
@@ -149,13 +149,18 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 		api.With(httpmw.RequireScope(domain.ScopeCaptchaManage)).Get("/captcha", h.GetCaptchaSettings)
 		api.With(httpmw.RequireScope(domain.ScopeCaptchaManage)).Patch("/captcha", h.UpdateCaptchaSettings)
 
+		// Runtime settings are the deployment policy knobs that can safely be
+		// changed without restarting either process.
+		api.With(httpmw.RequireScope(domain.ScopeSettingsManage)).Get("/settings/runtime", h.GetRuntimeSettings)
+		api.With(httpmw.RequireScope(domain.ScopeSettingsManage)).Put("/settings/runtime", h.UpdateRuntimeSettings)
+
 		// Token management is intentionally not reachable with an API token.
 		api.With(httpmw.RequireScope(domain.ScopeTokensManage)).Get("/auth/tokens", h.ListTokens)
 		api.With(httpmw.RequireScope(domain.ScopeTokensManage)).Post("/auth/tokens", h.CreateToken)
 		api.With(httpmw.RequireScope(domain.ScopeTokensManage)).Delete("/auth/tokens/{id}", h.RevokeToken)
 	})
 
-	r.With(limit("redirect", h.Config.RateLimitRedirect)).Get("/{alias}", h.Redirect)
-	r.With(limit("redirect", h.Config.RateLimitRedirect)).Head("/{alias}", h.Redirect)
+	r.With(limit("redirect", func(s domain.RuntimeSettings) int { return s.RateLimitRedirect })).Get("/{alias}", h.Redirect)
+	r.With(limit("redirect", func(s domain.RuntimeSettings) int { return s.RateLimitRedirect })).Head("/{alias}", h.Redirect)
 	return r
 }

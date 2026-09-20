@@ -167,6 +167,7 @@ type CaptchaStore interface {
 type CaptchaService struct {
 	Store    CaptchaStore
 	Config   config.Config
+	Settings domain.RuntimeSettingsReader
 	Box      security.SecretBox
 	Verifier TurnstileVerifier
 }
@@ -185,6 +186,9 @@ func (s *CaptchaService) Public(ctx context.Context) (domain.PublicCaptchaSettin
 	public := domain.PublicCaptchaSettings{
 		Provider:            "turnstile",
 		RegistrationEnabled: s.Config.RegistrationEnabled,
+	}
+	if s.Settings != nil {
+		public.RegistrationEnabled = s.Settings.Current().RegistrationEnabled
 	}
 	if settings.Enabled && settings.HasSecret && strings.TrimSpace(settings.SiteKey) != "" {
 		public.Enabled = true
