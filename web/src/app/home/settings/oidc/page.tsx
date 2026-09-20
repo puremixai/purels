@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, OIDCProvider, OIDCProviderInput } from "@/lib/api-client";
 import { useT } from "@/components/i18n-provider";
 import { errorText, type MessageKey, type T } from "@/lib/i18n";
+import { buildOIDCCallbackURL } from "@/lib/oidc-callback";
 
 const DEFAULT_SCOPES = "openid profile email";
 
@@ -183,6 +184,7 @@ export default function OIDCSettingsPage() {
   }
 
   const canCreate = creating.slug !== "" && creating.display_name !== "" && creating.issuer !== "" && creating.client_id !== "";
+  const newCallback = buildOIDCCallbackURL(redirectBase, creating.slug);
 
   return (
     <div className="space-y-6">
@@ -203,7 +205,7 @@ export default function OIDCSettingsPage() {
 
       {providers.map((provider) => {
         const draft = drafts[provider.id] || toDraft(provider);
-        const callback = redirectBase ? `${redirectBase}/api/v1/auth/oidc/${provider.slug}/callback` : "";
+        const callback = buildOIDCCallbackURL(redirectBase, provider.slug);
         return (
           <section className="panel space-y-4 p-6" key={provider.id}>
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -374,6 +376,10 @@ export default function OIDCSettingsPage() {
               value={creating.scopes}
               onChange={(e) => setCreating((current) => ({ ...current, scopes: e.target.value }))}
             />
+          </label>
+          <label className="space-y-1 text-sm sm:col-span-2">
+            <span className="text-[var(--muted)]">{t("settings.oidc.callback")}</span>
+            <input className="field-control font-mono text-xs" readOnly value={newCallback} />
           </label>
         </div>
 
