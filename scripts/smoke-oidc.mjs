@@ -374,9 +374,9 @@ async function main() {
   // ---------- the public-client path, available in both configurations ----------
   const created = await call(admin, "/api/v1/oidc/providers", {
     method: "POST",
-    // A trailing slash, to prove the issuer is canonicalised rather than stored
-    // as typed: the IdP echoes `iss` back and one extra character is enough to
-    // make every ID token fail its issuer check.
+    // A trailing slash, to prove the exact issuer is retained rather than
+    // stripped: the IdP echoes `iss` back and one missing character is enough
+    // to make discovery and every ID token fail its issuer check.
     body: createBody(SLUG, { issuer: "https://idp.example.com/" }),
   });
   const createdBody = await json(created);
@@ -385,7 +385,7 @@ async function main() {
   // check above names the real problem.
   const id = createdBody.provider?.id || "00000000-0000-0000-0000-000000000000";
   record("a public client can be created", created.status === 201, `status=${created.status}`);
-  record("the trailing slash is stripped from the issuer", createdBody.provider?.issuer === "https://idp.example.com", `issuer=${createdBody.provider?.issuer}`);
+  record("the trailing slash is preserved in the issuer", createdBody.provider?.issuer === "https://idp.example.com/", `issuer=${createdBody.provider?.issuer}`);
   record("a provider with no secret reports has_secret false", createdBody.provider?.has_secret === false, `has_secret=${createdBody.provider?.has_secret}`);
   record("an omitted auto_provision defaults to on", createdBody.provider?.auto_provision === true, `auto_provision=${createdBody.provider?.auto_provision}`);
   record("the stored slug is the one that was submitted", createdBody.provider?.slug === SLUG, `slug=${createdBody.provider?.slug}`);

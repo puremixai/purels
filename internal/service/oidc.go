@@ -650,12 +650,14 @@ func (s *OIDCService) normalizeProvider(provider domain.OIDCProvider) (domain.OI
 	return provider, nil
 }
 
-// normalizeIssuer validates the issuer and returns it without a trailing slash.
+// normalizeIssuer validates the issuer while preserving its path and trailing
+// slash. OIDC issuer URLs are exact identifiers, so the stored value must match
+// the issuer returned by the provider's discovery document.
 //
 // The trailing slash matters more than it looks: the IdP echoes `iss` back
-// exactly as it was configured, so an extra one here makes every ID token fail
-// its issuer check with an error that points at the IdP rather than at this
-// field.
+// exactly as it was configured, and the discovery client compares its issuer
+// value literally. Removing one here can make discovery fail before a user ever
+// reaches the provider.
 func (s *OIDCService) normalizeIssuer(raw string) (string, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -678,7 +680,7 @@ func (s *OIDCService) normalizeIssuer(raw string) (string, error) {
 	// folded. The IdP compares `iss` as a string, and one capital letter is
 	// enough to make it disagree.
 	parsed.Host = strings.ToLower(parsed.Host)
-	return strings.TrimRight(parsed.String(), "/"), nil
+	return parsed.String(), nil
 }
 
 // normalizeOIDCScopes cleans a submitted scope list.

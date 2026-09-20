@@ -119,8 +119,8 @@ func TestNormalizeIssuer(t *testing.T) {
 		wantErr       bool
 	}{
 		{name: "https is kept as it is", raw: "https://idp.example.com", want: "https://idp.example.com"},
-		{name: "a trailing slash is stripped", raw: "https://idp.example.com/", want: "https://idp.example.com"},
-		{name: "every trailing slash is stripped", raw: "https://idp.example.com/dex//", want: "https://idp.example.com/dex"},
+		{name: "a trailing slash is preserved", raw: "https://idp.example.com/", want: "https://idp.example.com/"},
+		{name: "path and trailing slashes are preserved", raw: "https://idp.example.com/dex//", want: "https://idp.example.com/dex//"},
 		{name: "the host is folded but the path is not", raw: "https://IDP.Example.COM/Dex", want: "https://idp.example.com/Dex"},
 		{name: "a port is kept", raw: "https://idp.example.com:8443/dex", want: "https://idp.example.com:8443/dex"},
 		{name: "http is refused by default", raw: "http://idp.example.com", wantErr: true},
