@@ -15,7 +15,7 @@ import "./globals.css";
 // metadataBase is what turns a page's relative canonical into an absolute URL.
 // It is set here so every page gets it, but `alternates` is deliberately not:
 // metadata merges down the segment tree, so a canonical set at this level would
-// be inherited by /admin, /login and /register and point all three at the
+// be inherited by /home, /login and /register and point all three at the
 // homepage.
 export async function generateMetadata(): Promise<Metadata> {
   const t = tFor(await getLocale());
@@ -34,13 +34,6 @@ export default async function RootLayout({
   const locale = await getLocale();
   return (
     <html className={`${GeistSans.variable} ${GeistMono.variable}`} data-theme="dark" lang={locale} suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("purels-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}})();`,
-          }}
-        />
-      </head>
       <body>
         <ThemeProvider>
           <I18nProvider locale={locale}>{children}</I18nProvider>

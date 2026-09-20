@@ -6,7 +6,8 @@
 
 - 使用现有技术栈：Next.js 16、React 19、App Router、Tailwind CSS 4、TypeScript。
 - 保留现有路由、API Client、认证流程、权限模型、双语能力和后端接口，不为了视觉改版迁移框架。
-- 主要入口包括首页、登录、注册、后台概览、链接管理、统计、审计、用户管理和设置页面。
+- 主要入口包括首页、登录、注册、控制台概览、链接管理、统计、审计、用户管理和设置页面；控制台统一从 `/home` 进入。
+- `/admin` 仅作为兼容旧链接的跳转入口，新的导航、认证跳转和内部路由必须使用 `/home`。
 - 页面级代码不得直接修改后端接口语义；需要适配数据时，在前端组件或 `src/lib` 中增加明确的适配函数。
 - 当前默认字体继续使用项目已经引入的 Geist，并保留中文字体回退，避免新增外部字体运行时依赖。
 
@@ -143,7 +144,7 @@ src/components/rare/
 
 ### 5.4 Dashboard
 
-涉及：`src/app/admin/page.tsx`。
+涉及：`src/app/home/page.tsx`。
 
 - KPI 使用 Animated Counter，并设置 tabular numbers。
 - 空数据时提供真实的首次使用引导；不得只显示“暂无数据”。
@@ -154,9 +155,9 @@ src/components/rare/
 
 涉及：
 
-- `src/app/admin/links/page.tsx`
-- `src/app/admin/links/new/page.tsx`
-- `src/app/admin/links/[id]/edit/page.tsx`
+- `src/app/home/links/page.tsx`
+- `src/app/home/links/new/page.tsx`
+- `src/app/home/links/[id]/edit/page.tsx`
 - `src/components/qr-dialog.tsx`
 
 要求：
@@ -169,7 +170,7 @@ src/components/rare/
 
 ### 5.6 统计页
 
-涉及：`src/app/admin/stats/page.tsx`。
+涉及：`src/app/home/stats/page.tsx`。
 
 - 日期范围和 top/bottom 切换使用 Gooey Nav。
 - 总点击量、访客数等指标使用 Animated Counter。
@@ -179,7 +180,7 @@ src/components/rare/
 
 ### 5.7 设置、审计和用户页
 
-涉及：`src/app/admin/settings/*`、`src/app/admin/audit/page.tsx`、`src/app/admin/users/page.tsx`。
+涉及：`src/app/home/settings/*`、`src/app/home/audit/page.tsx`、`src/app/home/users/page.tsx`。
 
 - 所有设置页共享统一的标题、说明、分组面板和保存工具栏。
 - Runtime Settings 中可表达为小时/分钟的间隔使用 Duration Picker，并明确完成秒数转换和边界校验。

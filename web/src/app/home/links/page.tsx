@@ -268,7 +268,7 @@ export default function LinksPage() {
           />
           <button className="btn-secondary" disabled={busy} onClick={() => fileInput.current?.click()}>{t("links.import")}</button>
           <button className="btn-secondary" disabled={busy} onClick={exportCsv}>{t("links.export")}</button>
-          <Link href="/admin/links/new" className="btn-primary">{t("links.create")}</Link>
+          <Link href="/home/links/new" className="btn-primary">{t("links.create")}</Link>
         </div>
       </div>
 
@@ -405,7 +405,7 @@ export default function LinksPage() {
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex justify-end gap-2">
-                      <Link href={`/admin/links/${link.id}/edit`} className="btn-secondary">{t("common.edit")}</Link>
+                      <Link href={`/home/links/${link.id}/edit`} className="btn-secondary">{t("common.edit")}</Link>
                       <button className="btn-secondary" onClick={() => setQrLink(link)}>{t("links.qr")}</button>
                       <DeleteButton
                         label={t("common.delete")}

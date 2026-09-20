@@ -25,6 +25,7 @@ export const zhCN: Dictionary = {
   "home.nav.faq": "常见问题",
   "home.nav.signIn": "登录",
   "home.nav.getStarted": "开始使用",
+  "home.nav.console": "控制台",
 
   "home.hero.badge": "Apache-2.0 · 自托管",
   "home.hero.title": "长链接变短，数据留在自己手里",

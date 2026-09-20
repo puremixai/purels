@@ -23,8 +23,8 @@ const SCRIPT_IDS = {
 /**
  * AnalyticsInjector renders the configured tracking snippets.
  *
- * It is mounted by app/admin/layout.tsx, and that placement is the whole of the
- * scope: /login and /register are siblings of /admin rather than children of it,
+ * It is mounted by app/home/layout.tsx, and that placement is the whole of the
+ * scope: /login and /register are siblings of /home rather than children of it,
  * so nothing rendered here can reach them. The public short link redirect is
  * served by the Go API and never touches Next.js at all.
  *

@@ -39,6 +39,7 @@ export const en = {
   "home.nav.faq": "FAQ",
   "home.nav.signIn": "Sign in",
   "home.nav.getStarted": "Get started",
+  "home.nav.console": "Console",
 
   "home.hero.badge": "Apache-2.0 · self-hosted",
   "home.hero.title": "Shorten links. Keep the data.",

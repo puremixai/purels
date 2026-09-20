@@ -11,9 +11,9 @@ import { SECTIONS } from "./sections";
  * which is why the anchors are plain `<a>` rather than `next/link` — a fragment
  * has nothing to prefetch and nothing for the client router to do.
  *
- * The right-hand side always carries exactly one filled button. When sign-up is
- * closed that button is Sign in rather than Get started, because otherwise a
- * closed deployment would leave the header with no way in at all.
+ * The right-hand side always keeps the filled action as Sign in. Registration
+ * is an optional secondary link, so the console entry point never changes
+ * route when sign-up is enabled or disabled.
  */
 export function SiteHeader({ t, registrationOpen }: { t: T; registrationOpen: boolean }) {
   return (
@@ -31,17 +31,20 @@ export function SiteHeader({ t, registrationOpen }: { t: T; registrationOpen: bo
               {t(section.key)}
             </a>
           ))}
+          <Link className="hover:text-[var(--ink)]" href="/home">
+            {t("home.nav.console")}
+          </Link>
         </nav>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <ThemeToggle />
           <LocaleSwitcher className="field-control field-control-inline text-sm" />
           {registrationOpen && (
-            <Link className="hidden text-sm text-[var(--muted)] hover:text-[var(--ink)] sm:block" href="/login">
-              {t("home.nav.signIn")}
+            <Link className="hidden text-sm text-[var(--muted)] hover:text-[var(--ink)] sm:block" href="/register">
+              {t("home.nav.getStarted")}
             </Link>
           )}
-          <Link className="btn-primary" href={registrationOpen ? "/register" : "/login"}>
-            {registrationOpen ? t("home.nav.getStarted") : t("home.nav.signIn")}
+          <Link className="btn-primary" href="/login">
+            {t("home.nav.signIn")}
           </Link>
         </div>
       </div>

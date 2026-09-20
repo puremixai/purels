@@ -21,7 +21,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       // document at all, so neither has anything to offer a crawler. A short
       // link is answered by the API — a redirect, or a page it marks noindex —
       // and is not under this app's control anyway.
-      disallow: ["/admin", "/login", "/register", "/api/"],
+      disallow: ["/home", "/admin", "/login", "/register", "/api/"],
     },
     sitemap: `${origin}/sitemap.xml`,
   };

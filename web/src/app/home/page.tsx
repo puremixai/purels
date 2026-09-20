@@ -44,7 +44,7 @@ export default function Dashboard() {
     <section className="panel overflow-hidden">
       <div className="flex items-center justify-between border-b border-[var(--line)] px-5 py-4">
         <h2 className="font-semibold">{t("dashboard.recentLinks")}</h2>
-        <a href="/admin/links" className="text-sm font-medium text-[var(--brand)]">{t("dashboard.viewAll")}</a>
+        <a href="/home/links" className="text-sm font-medium text-[var(--brand)]">{t("dashboard.viewAll")}</a>
       </div>
       <div className="divide-y divide-[var(--line)]">
         {links.length ? links.map((link) => <div className="flex items-center justify-between gap-4 px-5 py-4" key={link.id}>

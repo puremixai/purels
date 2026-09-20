@@ -48,7 +48,7 @@ export default function RegisterPage() {
       return;
     }
     setLoading(true); setError("");
-    try { await api.auth.register(username, password, captchaToken); router.replace("/admin"); }
+    try { await api.auth.register(username, password, captchaToken); router.replace("/home"); }
     catch (err) {
       setCaptchaToken("");
       setCaptchaReset((value) => value + 1);

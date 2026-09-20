@@ -41,7 +41,7 @@ export default function LoginPage() {
     async function initialise() {
       try {
         await api.auth.me();
-        if (active) router.replace("/admin");
+        if (active) router.replace("/home");
         return;
       } catch {
         // A missing or expired session is the normal anonymous path. The API
@@ -92,7 +92,7 @@ export default function LoginPage() {
         setCode("");
         return;
       }
-      router.replace("/admin");
+      router.replace("/home");
     }
     catch (err) { setError(errorText(t, err, "login.failed")); }
     finally { setLoading(false); }
@@ -102,7 +102,7 @@ export default function LoginPage() {
     event.preventDefault(); setLoading(true); setError("");
     // challenge is empty on the external path, which is what tells the server
     // to take it from the cookie.
-    try { await api.mfa.verify(challenge, code); router.replace("/admin"); }
+    try { await api.mfa.verify(challenge, code); router.replace("/home"); }
     catch (err) { setError(errorText(t, err, "login.verifyFailed")); setCode(""); }
     finally { setLoading(false); }
   }

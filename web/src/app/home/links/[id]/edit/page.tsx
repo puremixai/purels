@@ -117,7 +117,7 @@ export default function EditLinkPage() {
         // Unchecking sends 0, which is what turns the interstitial off.
         interstitial_seconds: interstitialOn ? Number(interstitialSeconds) : 0,
       });
-      router.push("/admin/links");
+      router.push("/home/links");
     } catch (e) {
       setError(errorText(t, e, "error.save"));
     } finally {

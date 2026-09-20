@@ -19,17 +19,17 @@ import { BounceSidebar } from "./ui/rare/bounce-sidebar";
  * before there is a language to resolve them in.
  */
 const navItems: Array<{ href: string; labelKey: MessageKey; icon: IconName; scope?: string }> = [
-  { href: "/admin", labelKey: "nav.overview", icon: "grid" },
-  { href: "/admin/links", labelKey: "nav.links", icon: "link" },
-  { href: "/admin/stats", labelKey: "nav.stats", icon: "chart" },
-  { href: "/admin/audit", labelKey: "nav.audit", icon: "list", scope: "audit:read" },
-  { href: "/admin/users", labelKey: "nav.users", icon: "user", scope: "users:manage" },
-  { href: "/admin/settings/roles", labelKey: "nav.roles", icon: "key", scope: "roles:manage" },
-  { href: "/admin/settings/oidc", labelKey: "nav.oidc", icon: "lock", scope: "oidc:manage" },
-  { href: "/admin/settings/analytics", labelKey: "nav.analytics", icon: "pulse", scope: "analytics:manage" },
-  { href: "/admin/settings/security", labelKey: "nav.security", icon: "shield" },
-  { href: "/admin/settings/captcha", labelKey: "nav.captcha", icon: "shield", scope: "captcha:manage" },
-  { href: "/admin/settings/runtime", labelKey: "nav.runtimeSettings", icon: "refresh", scope: "settings:manage" },
+  { href: "/home", labelKey: "nav.overview", icon: "grid" },
+  { href: "/home/links", labelKey: "nav.links", icon: "link" },
+  { href: "/home/stats", labelKey: "nav.stats", icon: "chart" },
+  { href: "/home/audit", labelKey: "nav.audit", icon: "list", scope: "audit:read" },
+  { href: "/home/users", labelKey: "nav.users", icon: "user", scope: "users:manage" },
+  { href: "/home/settings/roles", labelKey: "nav.roles", icon: "key", scope: "roles:manage" },
+  { href: "/home/settings/oidc", labelKey: "nav.oidc", icon: "lock", scope: "oidc:manage" },
+  { href: "/home/settings/analytics", labelKey: "nav.analytics", icon: "pulse", scope: "analytics:manage" },
+  { href: "/home/settings/security", labelKey: "nav.security", icon: "shield" },
+  { href: "/home/settings/captcha", labelKey: "nav.captcha", icon: "shield", scope: "captcha:manage" },
+  { href: "/home/settings/runtime", labelKey: "nav.runtimeSettings", icon: "refresh", scope: "settings:manage" },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -49,7 +49,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   const scopes = user?.scopes || [];
   const items = navItems.filter((item) => !item.scope || scopes.includes(item.scope));
-  const activeIndex = Math.max(0, items.findIndex((item) => pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href))) + 1);
+  const activeIndex = Math.max(0, items.findIndex((item) => pathname === item.href || (item.href !== "/home" && pathname.startsWith(item.href))) + 1);
   const sidebarItems = [
     { label: t("shell.workspace"), heading: true as const },
     ...items.map((item) => ({ label: t(item.labelKey), href: item.href, icon: <Icon name={item.icon} size={16} /> })),

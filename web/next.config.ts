@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${apiProxyTarget}/api/:path*` }];
   },
+  async redirects() {
+    return [
+      { source: "/admin", destination: "/home", permanent: false },
+      { source: "/admin/:path*", destination: "/home/:path*", permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;
