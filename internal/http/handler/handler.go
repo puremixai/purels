@@ -85,21 +85,10 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 // has been wired with the settings manager. The environment-backed projection
 // keeps small handler tests and older embedders working while they migrate.
 func (h *Handler) runtimeSettings() domain.RuntimeSettings {
-	var settings domain.RuntimeSettings
 	if h.Settings != nil {
-		settings = h.Settings.Current()
-	} else {
-		settings = domain.RuntimeSettings{RuntimeSettingsInput: config.RuntimeDefaults(h.Config)}
+		return h.Settings.Current()
 	}
-	// Keep the JSON contract stable even for an older or partially initialized
-	// provider: list fields are arrays in the console API, never null.
-	if settings.DestinationDenylist == nil {
-		settings.DestinationDenylist = []string{}
-	}
-	if settings.ShortDomains == nil {
-		settings.ShortDomains = []string{}
-	}
-	return settings
+	return domain.RuntimeSettings{RuntimeSettingsInput: config.RuntimeDefaults(h.Config)}
 }
 
 // RuntimeSettings exposes the same snapshot to router wiring without making
