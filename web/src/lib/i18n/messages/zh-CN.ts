@@ -374,6 +374,7 @@ export const zhCN: Dictionary = {
 
   "users.title": "用户管理",
   "users.table.username": "用户名",
+  "users.table.source": "登录来源",
   "users.table.role": "角色",
   "users.table.status": "状态",
   "users.table.mfa": "两步验证",
@@ -384,6 +385,8 @@ export const zhCN: Dictionary = {
   "users.status.disabled": "已禁用",
   "users.mfa.enabled": "已启用",
   "users.mfa.disabled": "未启用",
+  "users.source.password": "密码",
+  "users.source.oidc": "OIDC",
   "users.resetMfa": "重置",
   "users.enable": "启用",
   "users.disable": "禁用",

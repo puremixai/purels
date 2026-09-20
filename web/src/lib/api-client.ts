@@ -49,6 +49,8 @@ export type AccountRecord = {
   username: string;
   role: RoleName;
   disabled: boolean;
+  auth_source: "password" | "oidc";
+  auth_provider?: string;
   mfa_enabled: boolean;
   created_at: string;
 };

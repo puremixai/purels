@@ -410,6 +410,7 @@ export const en = {
 
   "users.title": "User management",
   "users.table.username": "Username",
+  "users.table.source": "Sign-in source",
   "users.table.role": "Role",
   "users.table.status": "Status",
   "users.table.mfa": "Two-factor",
@@ -420,6 +421,8 @@ export const en = {
   "users.status.disabled": "Disabled",
   "users.mfa.enabled": "Enabled",
   "users.mfa.disabled": "Not enabled",
+  "users.source.password": "Password",
+  "users.source.oidc": "OIDC",
   "users.resetMfa": "Reset",
   "users.enable": "Enable",
   "users.disable": "Disable",

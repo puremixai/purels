@@ -102,18 +102,42 @@ func (s *Store) CreateUser(ctx context.Context, id, username, passwordHash, role
 	return normalizeDBError(err)
 }
 
+const accountColumns = `u.id, u.username, u.role, u.disabled,
+	u.totp_confirmed_at IS NOT NULL, u.created_at,
+	CASE WHEN u.password_hash = '!oidc' OR oidc.user_id IS NOT NULL THEN 'oidc' ELSE 'password' END,
+	COALESCE(oidc.display_name, '')`
+
+func scanAccount(row rowScanner) (domain.Account, error) {
+	var account domain.Account
+	err := row.Scan(
+		&account.ID, &account.Username, &account.Role, &account.Disabled,
+		&account.MFAEnabled, &account.CreatedAt, &account.AuthSource,
+		&account.AuthProvider,
+	)
+	return account, err
+}
+
 // ListUsers returns every account, oldest first so the bootstrap administrator
 // stays at the top of the list.
 func (s *Store) ListUsers(ctx context.Context) ([]domain.Account, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT id, username, role, disabled, totp_confirmed_at IS NOT NULL, created_at FROM admin_users ORDER BY created_at ASC, username ASC`)
+	rows, err := s.Pool.Query(ctx, `SELECT `+accountColumns+` FROM admin_users u
+		LEFT JOIN LATERAL (
+			SELECT i.user_id, p.display_name
+			FROM oidc_identities i
+			JOIN oidc_providers p ON p.id = i.provider_id
+			WHERE i.user_id = u.id
+			ORDER BY i.last_login_at DESC NULLS LAST, i.created_at DESC, p.slug ASC
+			LIMIT 1
+		) oidc ON TRUE
+		ORDER BY u.created_at ASC, u.username ASC`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	accounts := make([]domain.Account, 0)
 	for rows.Next() {
-		var account domain.Account
-		if err := rows.Scan(&account.ID, &account.Username, &account.Role, &account.Disabled, &account.MFAEnabled, &account.CreatedAt); err != nil {
+		account, err := scanAccount(rows)
+		if err != nil {
 			return nil, err
 		}
 		accounts = append(accounts, account)

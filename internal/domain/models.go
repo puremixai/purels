@@ -117,6 +117,12 @@ type Account struct {
 	Username string `json:"username"`
 	Role     string `json:"role"`
 	Disabled bool   `json:"disabled"`
+	// AuthSource tells the administrator which sign-in path created this
+	// account. It remains "oidc" for provisioned accounts even if the provider
+	// is later removed, while AuthProvider names the current provider when one
+	// is still configured.
+	AuthSource   string `json:"auth_source"`
+	AuthProvider string `json:"auth_provider,omitempty"`
 	// MFAEnabled lets the administrator see whose second factor is in play, so
 	// the reset action has a visible target rather than being a blind guess.
 	MFAEnabled bool      `json:"mfa_enabled"`

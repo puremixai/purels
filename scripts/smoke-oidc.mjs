@@ -616,6 +616,13 @@ async function main() {
       me.user?.role === "user" && me.user?.unrestricted === false,
       `role=${me.user?.role} unrestricted=${me.user?.unrestricted}`,
     );
+    const listedUsers = await json(await call(admin, "/api/v1/users"));
+    const listedOIDCAccount = (listedUsers.users || []).find((user) => user.id === me.user?.id);
+    record(
+      "the user list identifies the OIDC account and provider",
+      listedOIDCAccount?.auth_source === "oidc" && listedOIDCAccount.auth_provider === "Dex",
+      `source=${listedOIDCAccount?.auth_source} provider=${listedOIDCAccount?.auth_provider}`,
+    );
 
     // The request was claimed before the code was exchanged, so the same
     // callback cannot be presented twice.

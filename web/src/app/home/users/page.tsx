@@ -85,10 +85,11 @@ export default function UsersPage() {
 
       <div className="panel overflow-hidden">
         <div className="mobile-scroll">
-          <table className="w-full min-w-[880px] text-left text-sm">
+          <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="border-b border-[var(--line)] bg-canvas-alt text-xs text-[var(--muted)]">
               <tr>
                 <th className="px-5 py-3">{t("users.table.username")}</th>
+                <th className="px-5 py-3">{t("users.table.source")}</th>
                 <th className="px-5 py-3">{t("users.table.role")}</th>
                 <th className="px-5 py-3">{t("users.table.status")}</th>
                 <th className="px-5 py-3">{t("users.table.mfa")}</th>
@@ -105,6 +106,16 @@ export default function UsersPage() {
                     <td className="px-5 py-4 font-medium">
                       {account.username}
                       {isSelf && <span className="ml-2 rounded-full bg-canvas px-2 py-0.5 text-2xs text-muted">{t("users.self")}</span>}
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full px-2.5 py-1 text-xs ${account.auth_source === "oidc" ? "bg-brand-tint text-[var(--brand)]" : "bg-canvas text-ink-soft"}`}>
+                          {account.auth_source === "oidc" ? t("users.source.oidc") : t("users.source.password")}
+                        </span>
+                        {account.auth_source === "oidc" && account.auth_provider && (
+                          <span className="text-xs text-[var(--muted)]">{account.auth_provider}</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-4">
                       <select
