@@ -84,7 +84,11 @@ func (p *RuntimeProvider) Start(ctx context.Context) {
 }
 
 func cloneRuntimeSettings(settings domain.RuntimeSettings) domain.RuntimeSettings {
-	settings.DestinationDenylist = append([]string(nil), settings.DestinationDenylist...)
-	settings.ShortDomains = append([]string(nil), settings.ShortDomains...)
+	if settings.DestinationDenylist != nil {
+		settings.DestinationDenylist = append([]string{}, settings.DestinationDenylist...)
+	}
+	if settings.ShortDomains != nil {
+		settings.ShortDomains = append([]string{}, settings.ShortDomains...)
+	}
 	return settings
 }

@@ -23,3 +23,21 @@ func TestRuntimeProviderCurrentReturnsIndependentLists(t *testing.T) {
 		t.Fatalf("Current() exposed mutable internal slices: %#v", second)
 	}
 }
+
+func TestRuntimeProviderCurrentPreservesEmptyLists(t *testing.T) {
+	provider := &RuntimeProvider{}
+	provider.current.Store(&domain.RuntimeSettings{
+		RuntimeSettingsInput: domain.RuntimeSettingsInput{
+			ShortDomains:        []string{},
+			DestinationDenylist: []string{},
+		},
+	})
+
+	current := provider.Current()
+	if current.ShortDomains == nil {
+		t.Fatal("Current() changed an empty short-domain list into nil")
+	}
+	if current.DestinationDenylist == nil {
+		t.Fatal("Current() changed an empty denylist into nil")
+	}
+}
