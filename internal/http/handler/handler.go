@@ -374,50 +374,99 @@ func (h *Handler) preview(w http.ResponseWriter, r *http.Request, alias string) 
 }
 
 // previewPage renders the preview as a self-contained document. The styling is
-// inline and minimal on purpose: this page is served by the API, which has no
-// access to the admin UI's stylesheet, and it has to stay readable without one.
+// inline because this page is served by the API, which has no access to the
+// admin UI's stylesheet. It intentionally shares the public redirect shell with
+// the interstitial so a visitor gets one coherent Purels experience.
 //
 // language is one of the constants in lang.go rather than anything the caller
 // supplied, which is why it is interpolated without escaping.
 func previewPage(alias, destination, language string) string {
-	escaped := html.EscapeString(destination)
-	var page strings.Builder
-	page.WriteString(`<!doctype html><html lang="` + language + `"><head><meta charset="utf-8">`)
-	page.WriteString(`<meta name="viewport" content="width=device-width, initial-scale=1">`)
-	page.WriteString(`<meta name="robots" content="noindex, nofollow">`)
-	page.WriteString(`<title>` + html.EscapeString(alias) + `</title></head>`)
-	page.WriteString(`<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f6f7fb;color:#172033;font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif">`)
-	page.WriteString(`<main style="width:min(560px,calc(100% - 32px));padding:28px;border:1px solid #e6e9ef;border-radius:14px;background:#fff;box-shadow:0 2px 8px rgb(32 43 75 / 4%)">`)
-	page.WriteString(`<h1 style="margin:0 0 16px;font-size:20px">` + html.EscapeString(alias) + `</h1>`)
-	page.WriteString(`<p style="margin:0 0 24px;color:#67738a;word-break:break-all">` + escaped + `</p>`)
-	page.WriteString(`<a href="` + escaped + `" style="display:inline-block;padding:10px 18px;border-radius:10px;background:#3855d9;color:#fff;text-decoration:none">` + previewContinueLabel(language) + `</a>`)
-	page.WriteString(`</main></body></html>`)
-	return page.String()
+	return redirectPage(alias, destination, language, false, 0)
 }
 
 // interstitialPage renders the page a link holds its visitor on before sending
-// them on. It shares the preview page's shape, its escaping and its inline
-// styling, and adds one meta refresh, which is what performs the jump: that
-// needs no script, so the page behaves the same wherever the destination does.
+// them on. It shares the preview page's shell, escaping and inline styling, and
+// adds one meta refresh, which is what performs the jump: that needs no script,
+// so the page behaves the same wherever the destination does.
 //
 // seconds is range-checked by the service and language is one of the constants
 // in lang.go, so neither is escaped; the destination is caller-supplied and is.
 func interstitialPage(alias, destination string, seconds int16, language string) string {
-	escaped := html.EscapeString(destination)
+	return redirectPage(alias, destination, language, true, seconds)
+}
+
+// redirectPage renders the public-facing shell used by both preview and
+// interstitial pages. The destination is escaped once and reused in the meta
+// refresh, the link and the visible address so an attacker-controlled URL can
+// never become markup.
+func redirectPage(alias, destination, language string, interstitial bool, seconds int16) string {
+	escapedAlias := html.EscapeString(alias)
+	escapedDestination := html.EscapeString(destination)
 	var page strings.Builder
 	page.WriteString(`<!doctype html><html lang="` + language + `"><head><meta charset="utf-8">`)
 	page.WriteString(`<meta name="viewport" content="width=device-width, initial-scale=1">`)
 	page.WriteString(`<meta name="robots" content="noindex, nofollow">`)
-	page.WriteString(`<meta http-equiv="refresh" content="` + strconv.Itoa(int(seconds)) + `;url=` + escaped + `">`)
-	page.WriteString(`<title>` + html.EscapeString(alias) + `</title></head>`)
-	page.WriteString(`<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f6f7fb;color:#172033;font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif">`)
-	page.WriteString(`<main style="width:min(560px,calc(100% - 32px));padding:28px;border:1px solid #e6e9ef;border-radius:14px;background:#fff;box-shadow:0 2px 8px rgb(32 43 75 / 4%)">`)
-	page.WriteString(`<h1 style="margin:0 0 16px;font-size:20px">` + html.EscapeString(alias) + `</h1>`)
-	page.WriteString(`<p style="margin:0 0 8px;color:#67738a;word-break:break-all">` + escaped + `</p>`)
-	page.WriteString(`<p style="margin:0 0 24px;font-size:14px;color:#67738a">` + interstitialWaitLabel(language, seconds) + `</p>`)
-	page.WriteString(`<a href="` + escaped + `" style="display:inline-block;padding:10px 18px;border-radius:10px;background:#3855d9;color:#fff;text-decoration:none">` + previewContinueLabel(language) + `</a>`)
-	page.WriteString(`</main></body></html>`)
+	if interstitial {
+		page.WriteString(`<meta http-equiv="refresh" content="` + strconv.Itoa(int(seconds)) + `;url=` + escapedDestination + `">`)
+	}
+	page.WriteString(`<title>Purels · ` + escapedAlias + `</title>`)
+	page.WriteString(`<style>` + redirectPageStyles() + `</style></head>`)
+	page.WriteString(`<body class="purels-page"><div class="purels-shell">`)
+	page.WriteString(`<header class="purels-brand"><div class="purels-mark">P</div><div><strong>Purels</strong><span>` + pageServiceLabel(language) + `</span></div></header>`)
+	page.WriteString(`<main class="purels-card"><section class="purels-main">`)
+	if interstitial {
+		page.WriteString(`<p class="purels-eyebrow">` + interstitialEyebrow(language) + `</p>`)
+	} else {
+		page.WriteString(`<p class="purels-eyebrow">` + previewEyebrow(language) + `</p>`)
+	}
+	page.WriteString(`<h1>/` + escapedAlias + `</h1>`)
+	if interstitial {
+		page.WriteString(`<p class="purels-lede">` + interstitialDescription(language) + `</p>`)
+		page.WriteString(`<div class="purels-progress" role="progressbar" aria-label="` + html.EscapeString(interstitialWaitLabel(language, seconds)) + `"><span style="animation-duration:` + strconv.Itoa(int(seconds)) + `s"></span></div>`)
+		page.WriteString(`<p class="purels-wait">` + interstitialWaitLabel(language, seconds) + `</p>`)
+	} else {
+		page.WriteString(`<p class="purels-lede">` + previewDescription(language) + `</p>`)
+	}
+	page.WriteString(`<div class="purels-actions"><a class="purels-continue" href="` + escapedDestination + `">` + previewContinueLabel(language) + `</a></div>`)
+	page.WriteString(`</section><aside class="purels-destination"><p class="purels-eyebrow">` + destinationLabel(language) + `</p><p class="purels-destination-url">` + escapedDestination + `</p><div class="purels-destination-note"><span></span>` + externalDestinationLabel(language) + `</div></aside></main>`)
+	page.WriteString(`<footer class="purels-footer">` + poweredByLabel(language) + `</footer></div></body></html>`)
 	return page.String()
+}
+
+func redirectPageStyles() string {
+	return `
+      :root { color-scheme: dark; --bg: #10110f; --surface: #191b18; --surface-raised: #22251f; --line: #3a3f35; --ink: #f4f1e9; --muted: #a5aa9b; --faint: #72796d; --accent: #f28a52; --accent-strong: #ffad7c; }
+      * { box-sizing: border-box; }
+      html, body { min-height: 100%; }
+      body { margin: 0; background: var(--bg); color: var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .purels-page { min-height: 100vh; overflow: hidden; background: linear-gradient(145deg, #191c18 0%, var(--bg) 46%, #121311 100%); }
+      .purels-page::before { position: fixed; inset: 0; z-index: 0; background: radial-gradient(circle at 8% 8%, rgb(242 138 82 / 16%), transparent 28%); content: ""; pointer-events: none; }
+      .purels-shell { position: relative; z-index: 1; display: flex; min-height: 100vh; width: min(960px, calc(100% - 40px)); margin: 0 auto; flex-direction: column; justify-content: center; padding: 40px 0; }
+      .purels-brand { display: flex; align-items: center; gap: 12px; }
+      .purels-mark { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid rgb(242 138 82 / 62%); border-radius: 11px; background: rgb(242 138 82 / 12%); color: var(--accent-strong); font-size: 14px; font-weight: 800; letter-spacing: -.04em; }
+      .purels-brand strong { display: block; font-size: 15px; letter-spacing: -.02em; }
+      .purels-brand span { display: block; margin-top: 3px; color: var(--faint); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; letter-spacing: .16em; }
+      .purels-card { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(260px, .85fr); margin-top: 24px; overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: rgb(25 27 24 / 94%); box-shadow: 0 24px 80px rgb(0 0 0 / 28%), inset 0 1px 0 rgb(255 255 255 / 5%); }
+      .purels-main { padding: clamp(28px, 6vw, 64px); }
+      .purels-eyebrow { margin: 0; color: var(--accent-strong); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; font-weight: 700; letter-spacing: .18em; line-height: 1.5; }
+      h1 { max-width: 14ch; margin: 18px 0 14px; color: var(--ink); font-size: clamp(34px, 6vw, 66px); font-weight: 700; letter-spacing: -.065em; line-height: .98; overflow-wrap: anywhere; }
+      .purels-lede { max-width: 34ch; margin: 0; color: var(--muted); font-size: 16px; line-height: 1.7; }
+      .purels-actions { margin-top: 34px; }
+      .purels-continue { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; border: 1px solid var(--accent); border-radius: 12px; background: var(--accent); padding: 0 20px; color: #19100b; font-size: 14px; font-weight: 750; text-decoration: none; transition: transform 160ms ease, background 160ms ease, border-color 160ms ease; }
+      .purels-continue:hover { border-color: var(--accent-strong); background: var(--accent-strong); transform: translateY(-1px); }
+      .purels-continue:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 3px; }
+      .purels-destination { display: flex; min-width: 0; flex-direction: column; justify-content: center; border-left: 1px solid var(--line); background: rgb(34 37 31 / 72%); padding: clamp(24px, 5vw, 44px); }
+      .purels-destination-url { margin: 18px 0 0; color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+      .purels-destination-note { display: flex; align-items: center; gap: 8px; margin-top: 28px; color: var(--faint); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; letter-spacing: .08em; }
+      .purels-destination-note span { width: 6px; height: 6px; border-radius: 999px; background: var(--accent); box-shadow: 0 0 0 4px rgb(242 138 82 / 12%); }
+      .purels-progress { height: 5px; margin-top: 30px; overflow: hidden; border-radius: 999px; background: var(--surface-raised); }
+      .purels-progress span { display: block; width: 100%; height: 100%; transform-origin: left center; animation: purels-progress linear forwards; background: var(--accent); }
+      .purels-wait { margin: 12px 0 0; color: var(--faint); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+      .purels-footer { margin-top: 20px; color: var(--faint); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; letter-spacing: .14em; text-align: right; }
+      @keyframes purels-progress { to { transform: scaleX(0); } }
+      @media (max-width: 680px) { .purels-shell { width: min(100% - 28px, 560px); padding: 24px 0; } .purels-card { grid-template-columns: 1fr; border-radius: 20px; } .purels-destination { border-top: 1px solid var(--line); border-left: 0; } .purels-footer { text-align: left; } }
+      @media (prefers-reduced-motion: reduce) { .purels-progress span { animation: none; transform: scaleX(0); } .purels-continue { transition: none; } }
+    `
 }
 
 // notFound answers a short code that does not resolve. A configured fallback

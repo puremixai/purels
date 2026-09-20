@@ -86,6 +86,62 @@ func previewContinueLabel(language string) string {
 	return "Continue"
 }
 
+func pageServiceLabel(language string) string {
+	if language == langChinese {
+		return "短链接服务"
+	}
+	return "SHORT LINK SERVICE"
+}
+
+func previewEyebrow(language string) string {
+	if language == langChinese {
+		return "链接预览"
+	}
+	return "LINK PREVIEW"
+}
+
+func interstitialEyebrow(language string) string {
+	if language == langChinese {
+		return "正在准备跳转"
+	}
+	return "PREPARING YOUR REDIRECT"
+}
+
+func destinationLabel(language string) string {
+	if language == langChinese {
+		return "目标地址"
+	}
+	return "DESTINATION"
+}
+
+func previewDescription(language string) string {
+	if language == langChinese {
+		return "请确认目标地址，再继续前往。"
+	}
+	return "Review the destination before you continue."
+}
+
+func interstitialDescription(language string) string {
+	if language == langChinese {
+		return "即将带你前往下面的地址。"
+	}
+	return "You are about to leave for the destination below."
+}
+
+func externalDestinationLabel(language string) string {
+	if language == langChinese {
+		return "外部目标地址"
+	}
+	return "EXTERNAL DESTINATION"
+}
+
+func poweredByLabel(language string) string {
+	if language == langChinese {
+		return "由 Purels 提供"
+	}
+	return "POWERED BY PURELS"
+}
+
 // interstitialWaitLabel says how long the page will hold. seconds is an int16
 // the service has already range-checked, so the result carries nothing a caller
 // could have supplied.

@@ -1,10 +1,12 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/i18n-provider";
-import { api, LinkRuleInput } from "@/lib/api-client";
+import { api, LinkRecord, LinkRuleInput } from "@/lib/api-client";
 import { errorText } from "@/lib/i18n";
+import { CopyLinkButton } from "@/components/copy-link-button";
 import { LinkDomainPicker } from "@/components/link-domain-picker";
 import { LinkRulesEditor } from "@/components/link-rules-editor";
 
@@ -17,6 +19,8 @@ function parseTags(raw: string) {
   }
   return [...seen];
 }
+
+type CreatedLink = { link: LinkRecord; short_url: string };
 
 export default function NewLinkPage() {
   const router = useRouter();
@@ -34,13 +38,14 @@ export default function NewLinkPage() {
   const [rules, setRules] = useState<LinkRuleInput[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [created, setCreated] = useState<CreatedLink | null>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
     try {
-      await api.links.create({
+      const result = await api.links.create({
         destination_url: url,
         alias: alias || undefined,
         title: title || undefined,
@@ -51,7 +56,7 @@ export default function NewLinkPage() {
         // Unchecking sends 0, which is what turns the interstitial off.
         interstitial_seconds: interstitialOn ? Number(interstitialSeconds) : 0,
       });
-      router.push("/home/links");
+      setCreated(result);
     } catch (err) {
       setError(errorText(t, err, "error.create"));
     } finally {
@@ -59,12 +64,44 @@ export default function NewLinkPage() {
     }
   }
 
+  function startAnother() {
+    setUrl("");
+    setAlias("");
+    setDomain("");
+    setTitle("");
+    setTags("");
+    setCode("302");
+    setInterstitialOn(true);
+    setInterstitialSeconds("2");
+    setRules([]);
+    setError("");
+    setCreated(null);
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("links.title")}</p>
-        <h1 className="mt-1 text-2xl font-bold">{t("links.form.submit")}</h1>
+        <h1 className="mt-1 text-2xl font-bold">{created ? t("links.created.title") : t("links.form.submit")}</h1>
       </div>
+      {created ? (
+        <section className="panel space-y-6 p-6">
+          <div>
+            <p className="text-sm text-[var(--muted)]">{t("links.created.body")}</p>
+            <p className="mt-3 font-mono text-sm text-[var(--muted)]">/{created.link.alias}</p>
+          </div>
+          <CopyLinkButton value={created.short_url} />
+          <div className="flex flex-wrap gap-3">
+            <a href={api.links.previewUrl(created.short_url)} target="_blank" rel="noreferrer" className="btn-secondary">
+              {t("links.created.preview")}
+            </a>
+            <Link href={`/home/links/${created.link.id}/edit`} className="btn-secondary">
+              {t("links.created.edit")}
+            </Link>
+            <button type="button" className="btn-primary" onClick={startAnother}>{t("links.created.new")}</button>
+          </div>
+        </section>
+      ) : (
       <form onSubmit={submit} className="panel space-y-5 p-6">
         <label className="block">
           <span className="field-label">{t("links.form.destination")}</span>
@@ -116,6 +153,7 @@ export default function NewLinkPage() {
           <button className="btn-primary" disabled={loading}>{loading ? t("links.form.submitting") : t("links.form.submit")}</button>
         </div>
       </form>
+      )}
     </div>
   );
 }

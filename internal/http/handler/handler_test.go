@@ -109,6 +109,9 @@ func TestPreviewPageEscapes(t *testing.T) {
 	if !strings.Contains(page, "noindex") {
 		t.Fatal("expected the preview page to keep search engines out")
 	}
+	if !strings.Contains(page, `class="purels-page"`) || !strings.Contains(page, `class="purels-destination"`) {
+		t.Fatal("expected the preview page to use the redesigned layout")
+	}
 }
 
 func TestPreviewPageFollowsTheRequestedLanguage(t *testing.T) {
@@ -157,6 +160,9 @@ func TestInterstitialPageCarriesTheDelay(t *testing.T) {
 	// The delay also has to reach the visitor as text, not only as an attribute.
 	if !strings.Contains(page, "Redirecting in 7 seconds") {
 		t.Fatal("expected the page to say how long it will hold")
+	}
+	if !strings.Contains(page, `class="purels-progress"`) {
+		t.Fatal("expected the interstitial page to show a countdown progress track")
 	}
 }
 

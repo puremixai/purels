@@ -6,6 +6,7 @@ import { useLocale, useT } from "@/components/i18n-provider";
 import { api, LinkRecord, LinkRuleInput } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/format";
 import { errorText } from "@/lib/i18n";
+import { CopyLinkButton } from "@/components/copy-link-button";
 import { LinkDomainPicker } from "@/components/link-domain-picker";
 import { LinkRulesEditor } from "@/components/link-rules-editor";
 import { parseTags } from "@/lib/tags";
@@ -153,22 +154,22 @@ export default function EditLinkPage() {
           </div>
 
           <form onSubmit={submit} className="panel space-y-5 p-6">
-          <div>
-            <span className="field-label">{t("links.table.short")}</span>
-            <p className="mt-1 font-medium">
-              {link.domain ? `${link.domain}/` : "/"}
-              {link.alias}
-              {shortUrl && (
-                <a
-                  href={api.links.previewUrl(shortUrl)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="ml-3 text-sm font-normal text-[var(--brand)] hover:underline"
-                >
-                  {t("links.edit.preview")}
-                </a>
-              )}
-            </p>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="field-label mb-0">{t("links.table.short")}</span>
+              <span className="font-mono text-xs text-[var(--muted)]">/{link.alias}</span>
+            </div>
+            {shortUrl && <CopyLinkButton value={shortUrl} />}
+            {shortUrl && (
+              <a
+                href={api.links.previewUrl(shortUrl)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-[var(--brand)] hover:underline"
+              >
+                {t("links.edit.preview")}
+              </a>
+            )}
           </div>
 
           <LinkDomainPicker value={domain} onChange={setDomain} />
