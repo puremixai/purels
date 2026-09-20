@@ -5,6 +5,10 @@ import { HeroMock } from "@/components/home/hero-mock";
 import { SiteFooter } from "@/components/home/site-footer";
 import { SiteHeader } from "@/components/home/site-header";
 import { Icon, type IconName } from "@/components/icon";
+import { AnimatedCounter } from "@/components/ui/rare/animated-counter";
+import { CodeBlock } from "@/components/ui/rare/code-block";
+import { FluidOrb } from "@/components/ui/rare/fluid-orb";
+import { ScrollProgress } from "@/components/ui/rare/scroll-progress";
 import type { MessageKey } from "@/lib/i18n";
 import { tFor } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
@@ -40,29 +44,31 @@ export default async function HomePage() {
 
   return (
     <>
+      <ScrollProgress />
       <SiteHeader t={t} registrationOpen={registrationOpen} />
       <main>
-        <section className="border-b border-[var(--line)] bg-surface">
-          <div className="mx-auto w-full max-w-6xl px-5 py-16 lg:py-24">
-            <div className="max-w-3xl">
-              <p className="inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--canvas)] px-3 py-1 text-2xs font-semibold text-[var(--muted)]">
+        <section className="relative overflow-hidden border-b border-[var(--line)] bg-canvas">
+          <div className="absolute -right-40 top-20 hidden opacity-20 blur-3xl lg:block"><FluidOrb size={520} color="var(--brand)" /></div>
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-14 px-5 py-18 sm:py-20 lg:grid-cols-[0.88fr_1.12fr] lg:gap-16 lg:py-28">
+            <div className="relative z-10 max-w-3xl">
+              <p className="inline-flex items-center rounded-full border border-[var(--line)] bg-surface px-3 py-1 text-2xs font-semibold tracking-wide text-[var(--muted)]">
                 {t("home.hero.badge")}
               </p>
-              <h1 className="mt-6 max-w-3xl text-5xl font-bold leading-[1.05] tracking-[-0.03em] text-balance sm:text-6xl">{t("home.hero.title")}</h1>
+              <h1 className="mt-6 max-w-3xl text-5xl font-bold leading-[0.98] tracking-[-0.05em] text-balance sm:text-6xl lg:text-7xl">{t("home.hero.title")}</h1>
               <p className="mt-6 max-w-[52ch] text-lg leading-relaxed text-pretty text-[var(--muted)]">{t("home.hero.subhead")}</p>
               <div className="mt-8 flex flex-wrap gap-3">
                 {registrationOpen && <Link className="btn-primary" href="/register">{t("home.hero.ctaPrimary")}</Link>}
                 <Link className={registrationOpen ? "btn-secondary" : "btn-primary"} href="/login">{t("home.hero.ctaSecondary")}</Link>
               </div>
               <div className="mt-10 grid max-w-xl grid-cols-3 border-t border-[var(--line)] pt-5 text-2xs text-[var(--muted)]">
-                <div><span className="block text-lg font-semibold text-[var(--ink)]">100%</span>self-hosted</div>
-                <div><span className="block text-lg font-semibold text-[var(--ink)]">10</span>permission scopes</div>
-                <div><span className="block text-lg font-semibold text-[var(--ink)]">0</span>vendor lock-in</div>
+                <div><AnimatedCounter value={100} suffix="%" className="block text-lg font-semibold text-[var(--ink)]" />self-hosted</div>
+                <div><AnimatedCounter value={10} className="block text-lg font-semibold text-[var(--ink)]" />permission scopes</div>
+                <div><AnimatedCounter value={0} className="block text-lg font-semibold text-[var(--ink)]" />vendor lock-in</div>
               </div>
             </div>
-            <div className="relative mt-14 lg:mt-16">
-              <div className="absolute -inset-6 -z-10 rounded-[32px] bg-brand-tint blur-3xl" />
-              <HeroMock t={t} />
+            <div className="relative min-h-[420px] lg:min-h-[520px]">
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-90"><FluidOrb size={360} color="var(--brand)" /></div>
+              <div className="absolute inset-x-0 top-1/2 z-10 -translate-y-1/2 rotate-[1.5deg] lg:left-4 lg:right-[-2rem]"><HeroMock t={t} /></div>
             </div>
           </div>
         </section>
@@ -115,8 +121,8 @@ export default async function HomePage() {
           <div className="mx-auto w-full max-w-3xl px-5"><h2 className="text-2xl font-bold sm:text-3xl">{t("home.faq.title")}</h2><Faq t={t} /></div>
         </section>
 
-        <section className="bg-linear-to-br from-[var(--brand)] to-[var(--brand-dark)] py-16 lg:py-20">
-          <div className="mx-auto w-full max-w-3xl px-5 text-center"><h2 className="text-2xl font-bold text-white sm:text-3xl">{t("home.cta.title")}</h2><p className="mt-4 text-base text-white/85">{t("home.cta.body")}</p><div className="mt-8 flex flex-wrap justify-center gap-3"><Link className="btn-secondary" href={registrationOpen ? "/register" : "/login"}>{registrationOpen ? t("home.cta.button") : t("home.hero.ctaSecondary")}</Link></div></div>
+        <section className="bg-[var(--brand)] py-16 lg:py-20">
+          <div className="mx-auto w-full max-w-3xl px-5 text-center"><h2 className="text-2xl font-bold text-[#100b08] sm:text-3xl">{t("home.cta.title")}</h2><p className="mt-4 text-base text-[#100b08]/75">{t("home.cta.body")}</p><div className="mt-8 flex flex-wrap justify-center gap-3"><Link className="btn-secondary border-[#100b08]/25 bg-[#100b08] text-[var(--brand)] hover:border-[#100b08] hover:bg-[#100b08]/90" href={registrationOpen ? "/register" : "/login"}>{registrationOpen ? t("home.cta.button") : t("home.hero.ctaSecondary")}</Link></div></div>
         </section>
       </main>
       <SiteFooter t={t} registrationOpen={registrationOpen} />
@@ -125,7 +131,7 @@ export default async function HomePage() {
 }
 
 function TerminalCard() {
-  return <div className="overflow-hidden rounded-[14px] border border-[#2b3550] bg-[#172033] p-5 font-mono text-sm leading-relaxed text-[#d7dcea]"><p><span className="text-[#7f8aa3]">$</span> cp .env.example .env</p><p><span className="text-[#7f8aa3]">$</span> docker compose -f deploy/compose.yaml up -d</p><p><span className="text-[#7f8aa3]">$</span> curl localhost/readyz</p><p className="text-[#8fd4a4]">{'{"status":"ready"}'}</p></div>;
+  return <CodeBlock code={'$ cp .env.example .env\n$ docker compose -f deploy/compose.yaml up -d\n$ curl localhost/readyz\n{"status":"ready"}'} language="bash" filename="quick-start.sh" />;
 }
 
 function MiniChart() {

@@ -117,6 +117,10 @@ export const zhCN: Dictionary = {
   "shell.openMenu": "打开菜单",
   "shell.language": "语言",
 
+  "theme.switch": "切换主题",
+  "theme.light": "浅色",
+  "theme.dark": "深色",
+
   "login.subtitle": "短链接管理后台",
   "login.heading": "登录",
   "login.mfaHeading": "两步验证",

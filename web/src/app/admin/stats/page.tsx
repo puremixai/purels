@@ -6,6 +6,8 @@ import { useLocale, useT } from "@/components/i18n-provider";
 import { downloadCsv } from "@/lib/csv";
 import { formatNumber, formatShortDateTime } from "@/lib/format";
 import { errorText, hasMessage, type Locale, type MessageKey, type T } from "@/lib/i18n";
+import { AnimatedCounter } from "@/components/ui/rare/animated-counter";
+import { GooeyNav } from "@/components/ui/rare/gooey-nav";
 
 const CLICK_PAGE_SIZE = 20;
 
@@ -206,17 +208,13 @@ export default function StatsPage() {
           <p className="text-sm text-[var(--muted)]">{t("shell.workspace")} / {t("stats.title")}</p>
           <h1 className="mt-1 text-2xl font-bold">{t("stats.title")}</h1>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {RANGE_PRESETS.map((option) => (
-            <button
-              key={option.value}
-              className={preset === option.value ? "btn-primary" : "btn-secondary"}
-              onClick={() => setPreset(option.value)}
-            >
-              {t(option.labelKey)}
-            </button>
-          ))}
-        </div>
+        <GooeyNav
+          size="sm"
+          ariaLabel={t("stats.title")}
+          items={RANGE_PRESETS.map((option) => t(option.labelKey))}
+          value={Math.max(0, RANGE_PRESETS.findIndex((option) => option.value === preset))}
+          onChange={(index) => setPreset(RANGE_PRESETS[index]?.value ?? "30d")}
+        />
       </div>
 
       {error && <p className="rounded-lg bg-danger-tint px-4 py-3 text-danger">{error}</p>}
@@ -224,17 +222,17 @@ export default function StatsPage() {
       <div className={`grid gap-4 ${showVisitors ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         <div className="panel p-6">
           <p className="text-sm text-[var(--muted)]">{t("stats.clicksInRange")}</p>
-          <p className="mt-3 text-4xl font-bold tabular-nums">{overview?.total_clicks ?? 0}</p>
+          <p className="mt-3 text-4xl font-bold"><AnimatedCounter value={overview?.total_clicks ?? 0} /></p>
         </div>
         {showVisitors && (
           <div className="panel p-6">
             <p className="text-sm text-[var(--muted)]">{t("stats.uniqueVisitors")}</p>
-            <p className="mt-3 text-4xl font-bold tabular-nums">{overview?.unique_visitors ?? 0}</p>
+            <p className="mt-3 text-4xl font-bold"><AnimatedCounter value={overview?.unique_visitors ?? 0} /></p>
           </div>
         )}
         <div className="panel p-6">
           <p className="text-sm text-[var(--muted)]">{t("stats.totalLinks")}</p>
-          <p className="mt-3 text-4xl font-bold tabular-nums">{overview?.total_links ?? 0}</p>
+          <p className="mt-3 text-4xl font-bold"><AnimatedCounter value={overview?.total_links ?? 0} /></p>
         </div>
       </div>
 
@@ -250,10 +248,13 @@ export default function StatsPage() {
         <section className="panel overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-5 py-4">
             <h2 className="font-semibold">{t("stats.ranking")}</h2>
-            <div className="flex gap-2">
-              <button className={order === "top" ? "btn-primary" : "btn-secondary"} onClick={() => setOrder("top")}>{t("stats.most")}</button>
-              <button className={order === "bottom" ? "btn-primary" : "btn-secondary"} onClick={() => setOrder("bottom")}>{t("stats.fewest")}</button>
-            </div>
+            <GooeyNav
+              size="sm"
+              ariaLabel={t("stats.ranking")}
+              items={[t("stats.most"), t("stats.fewest")]}
+              value={order === "top" ? 0 : 1}
+              onChange={(index) => setOrder(index === 1 ? "bottom" : "top")}
+            />
           </div>
           <div className="mobile-scroll">
             <table className="w-full min-w-[420px] text-left text-sm">

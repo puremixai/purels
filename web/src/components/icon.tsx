@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-export type IconName = "grid" | "link" | "chart" | "shield" | "logout" | "plus" | "search" | "external" | "trash" | "arrow" | "check" | "menu" | "close" | "lock" | "refresh" | "list" | "user" | "key" | "pulse";
+export type IconName = "grid" | "link" | "chart" | "shield" | "logout" | "plus" | "search" | "external" | "trash" | "arrow" | "check" | "menu" | "close" | "lock" | "refresh" | "list" | "user" | "key" | "pulse" | "sun" | "moon";
 
 const paths: Record<IconName, React.ReactNode> = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
@@ -22,6 +22,8 @@ const paths: Record<IconName, React.ReactNode> = {
   user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
   key: <><circle cx="8" cy="15" r="4" /><path d="m10.8 12.2 8.2-8.2" /><path d="m17 6 2 2" /><path d="m14 9 2 2" /></>,
   pulse: <><path d="M3 12h4l2.5-6 4 12 2.5-6h5" /></>,
+  sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" /></>,
+  moon: <path d="M20.8 15.2A8.5 8.5 0 0 1 8.8 3.2 8.5 8.5 0 1 0 20.8 15.2Z" />,
 };
 
 export function Icon({ name, size = 18, strokeWidth = 1.8, ...props }: SVGProps<SVGSVGElement> & { name: IconName; size?: number }) {

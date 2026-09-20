@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { api, MFAEnrollment, MFAStatus, TokenRecord } from "@/lib/api-client";
 import { useT } from "@/components/i18n-provider";
 import { errorText } from "@/lib/i18n";
+import { OtpInput } from "@/components/ui/rare/otp-input";
+import { RareStatus } from "@/components/rare/rare-status";
 
 export default function SecurityPage() {
   const t = useT();
@@ -50,7 +52,7 @@ export default function SecurityPage() {
     <section className="panel space-y-4 p-6">
       <div className="flex items-center justify-between gap-4">
         <h2 className="font-semibold">{t("settings.security.mfa")}</h2>
-        <span className={`rounded-full px-2.5 py-1 text-xs ${status?.enabled ? "bg-success-tint text-success" : "bg-canvas text-ink-soft"}`}>{status?.enabled ? t("settings.security.enabled") : t("settings.security.notEnabled")}</span>
+        <RareStatus tone={status?.enabled ? "success" : "neutral"}>{status?.enabled ? t("settings.security.enabled") : t("settings.security.notEnabled")}</RareStatus>
       </div>
 
       {mfaError && <p className="rounded-lg bg-danger-tint px-4 py-3 text-sm text-danger">{mfaError}</p>}
@@ -71,8 +73,8 @@ export default function SecurityPage() {
             <code className="block break-all font-mono text-xs">{enrollment.secret}</code>
           </div>
         </div>
-        <div className="flex gap-3">
-          <input className="field-control" placeholder={t("settings.security.code")} value={code} onChange={e => setCode(e.target.value)} />
+        <div className="flex flex-wrap items-end gap-3">
+          <OtpInput label={t("settings.security.code")} value={code} onChange={setCode} status={mfaError ? "error" : "idle"} />
           <button className="btn-primary" onClick={confirmEnroll} disabled={mfaBusy || !code}>{t("settings.security.confirm")}</button>
           <button className="btn-secondary" onClick={cancelEnroll} disabled={mfaBusy}>{t("common.cancel")}</button>
         </div>
@@ -82,7 +84,7 @@ export default function SecurityPage() {
         <p className="text-sm text-[var(--muted)]">{t("settings.security.codesRemaining", { count: status.recovery_codes_remaining })}</p>
         <div className="flex flex-wrap gap-3">
           <input className="field-control w-auto" type="password" autoComplete="current-password" placeholder={t("settings.security.currentPassword")} value={password} onChange={e => setPassword(e.target.value)} />
-          <input className="field-control w-auto" placeholder={t("settings.security.code")} value={code} onChange={e => setCode(e.target.value)} />
+          <OtpInput label={t("settings.security.code")} value={code} onChange={setCode} status={mfaError ? "error" : "idle"} />
           <button className="btn-danger" onClick={disable} disabled={mfaBusy || !password || !code}>{t("settings.security.turnOff")}</button>
         </div>
       </div>}

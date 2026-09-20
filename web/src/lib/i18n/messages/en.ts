@@ -139,6 +139,10 @@ export const en = {
   "shell.openMenu": "Open menu",
   "shell.language": "Language",
 
+  "theme.switch": "Switch theme",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+
   "login.subtitle": "Short link console",
   "login.heading": "Sign in",
   "login.mfaHeading": "Two-factor authentication",

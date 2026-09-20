@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
 import type { T } from "@/lib/i18n";
 import { SECTIONS } from "./sections";
 
@@ -19,7 +20,7 @@ export function SiteHeader({ t, registrationOpen }: { t: T; registrationOpen: bo
     <header className="sticky top-0 z-20 border-b border-[var(--line)] bg-surface/90 backdrop-blur-sm">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-4 px-5 sm:gap-6">
         <Link className="flex shrink-0 items-center gap-2.5" href="/">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--brand)] text-base font-bold text-white">P</span>
+          <span className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--brand)] text-base font-bold text-[#100b08]">P</span>
           {/* A span, not a heading: the page gets exactly one h1 and the hero
               has it. */}
           <span className="text-base font-bold">Purels</span>
@@ -32,6 +33,7 @@ export function SiteHeader({ t, registrationOpen }: { t: T; registrationOpen: bo
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          <ThemeToggle />
           <LocaleSwitcher className="field-control field-control-inline text-sm" />
           {registrationOpen && (
             <Link className="hidden text-sm text-[var(--muted)] hover:text-[var(--ink)] sm:block" href="/login">

@@ -8,6 +8,9 @@ import { api, BulkAction, BulkLinkInput, ImportReport, LinkRecord, LinkSort, Lin
 import { downloadCsvText } from "@/lib/csv";
 import { errorText, type MessageKey, type T } from "@/lib/i18n";
 import { parseTags } from "@/lib/tags";
+import { DeleteButton } from "@/components/ui/rare/delete-button";
+import { GooeyNav } from "@/components/ui/rare/gooey-nav";
+import { RareStatus } from "@/components/rare/rare-status";
 
 const PAGE_SIZE = 20;
 
@@ -41,10 +44,11 @@ const BULK_ACTIONS: Array<{ value: BulkAction; labelKey: MessageKey; needsValue:
   { value: "set_expiry", labelKey: "bulk.setExpiry", needsValue: "date" },
 ];
 
-function statusStyle(status: string) {
-  if (status === "active") return "bg-success-tint text-success";
-  if (status === "disabled") return "bg-warning-tint text-warning";
-  return "bg-canvas text-ink-soft";
+function statusTone(status: string): "neutral" | "success" | "warning" | "danger" {
+  if (status === "active") return "success";
+  if (status === "disabled") return "warning";
+  if (status === "expired") return "danger";
+  return "neutral";
 }
 
 /** "Check 200" / "Check failed" — only shown once the link has been checked. */
@@ -131,7 +135,6 @@ export default function LinksPage() {
   }, [loadTags]);
 
   async function remove(id: string) {
-    if (!confirm(t("links.confirmDelete"))) return;
     try {
       await api.links.remove(id);
       await load();
@@ -170,8 +173,6 @@ export default function LinksPage() {
       setError(t("links.bulkNeedDate"));
       return;
     }
-    if (bulkAction === "delete" && !confirm(t("links.confirmBulkDelete", { count: ids.length }))) return;
-
     const input: BulkLinkInput = { action: bulkAction, ids };
     if (needsValue === "tag") {
       const tags = parseTags(bulkValue);
@@ -278,9 +279,13 @@ export default function LinksPage() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <select className="field-control w-auto" value={status} onChange={(event) => { setStatus(event.target.value as LinkStatusFilter); setPage(0); }}>
-          {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{t(option.labelKey)}</option>)}
-        </select>
+        <GooeyNav
+          size="sm"
+          ariaLabel={t("links.table.status")}
+          items={STATUS_OPTIONS.map((option) => t(option.labelKey))}
+          value={Math.max(0, STATUS_OPTIONS.findIndex((option) => option.value === status))}
+          onChange={(index) => { setStatus(STATUS_OPTIONS[index]?.value ?? "all"); setPage(0); }}
+        />
         {tags.length > 0 && (
           <select className="field-control w-auto" value={tag} onChange={(event) => { setTag(event.target.value); setPage(0); }}>
             <option value="">{t("links.allTags")}</option>
@@ -328,7 +333,17 @@ export default function LinksPage() {
           {bulkNeedsValue === "date" && (
             <input type="date" className="field-control w-auto" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} />
           )}
-          <button className="btn-primary" disabled={busy} onClick={runBulk}>{t("links.run")}</button>
+          {bulkAction === "delete" ? (
+            <DeleteButton
+              label={t("common.delete")}
+              confirmLabel={t("common.delete")}
+              cancelLabel={t("common.cancel")}
+              disabled={busy}
+              onConfirm={runBulk}
+            />
+          ) : (
+            <button className="btn-primary" disabled={busy} onClick={runBulk}>{t("links.run")}</button>
+          )}
           <button className="btn-secondary" disabled={busy} onClick={() => setSelected(new Set())}>{t("links.clearSelection")}</button>
         </div>
       )}
@@ -383,7 +398,7 @@ export default function LinksPage() {
                   <td className="px-5 py-4 text-right tabular-nums">{link.clicks ?? 0}</td>
                   <td className="px-5 py-4">{link.redirect_code}</td>
                   <td className="px-5 py-4">
-                    <span className={`rounded-full px-2.5 py-1 text-xs ${statusStyle(link.status)}`}>{link.status}</span>
+                    <RareStatus tone={statusTone(link.status)}>{link.status}</RareStatus>
                     {link.last_checked_at && (
                       <span className="mt-1 block text-xs text-[var(--muted)]">{checkLabel(t, link)}</span>
                     )}
@@ -392,7 +407,12 @@ export default function LinksPage() {
                     <div className="flex justify-end gap-2">
                       <Link href={`/admin/links/${link.id}/edit`} className="btn-secondary">{t("common.edit")}</Link>
                       <button className="btn-secondary" onClick={() => setQrLink(link)}>{t("links.qr")}</button>
-                      <button className="btn-danger" onClick={() => remove(link.id)}>{t("common.delete")}</button>
+                      <DeleteButton
+                        label={t("common.delete")}
+                        confirmLabel={t("common.delete")}
+                        cancelLabel={t("common.cancel")}
+                        onConfirm={() => remove(link.id)}
+                      />
                     </div>
                   </td>
                 </tr>

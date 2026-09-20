@@ -16,7 +16,7 @@ export function SiteFooter({ t, registrationOpen }: { t: T; registrationOpen: bo
       <div className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-12 sm:grid-cols-3">
         <div className="sm:col-span-1">
           <div className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--brand)] text-base font-bold text-white">P</span>
+            <span className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--brand)] text-base font-bold text-[#100b08]">P</span>
             <span className="text-base font-bold">Purels</span>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">{t("home.footer.tagline")}</p>

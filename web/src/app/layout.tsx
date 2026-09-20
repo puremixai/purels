@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import { I18nProvider } from "@/components/i18n-provider";
+import { ThemeProvider } from "@/components/theme-provider";
 import { tFor } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
 import { requestOrigin } from "@/lib/request-origin";
@@ -32,9 +33,18 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale();
   return (
-    <html className={`${GeistSans.variable} ${GeistMono.variable}`} lang={locale}>
+    <html className={`${GeistSans.variable} ${GeistMono.variable}`} data-theme="dark" lang={locale} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("purels-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body>
-        <I18nProvider locale={locale}>{children}</I18nProvider>
+        <ThemeProvider>
+          <I18nProvider locale={locale}>{children}</I18nProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

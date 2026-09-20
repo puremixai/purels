@@ -4,6 +4,8 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { FluidOrb } from "@/components/ui/rare/fluid-orb";
+import { OtpInput } from "@/components/ui/rare/otp-input";
 import { useT } from "@/components/i18n-provider";
 import { api, PublicProvider } from "@/lib/api-client";
 import { errorText, hasMessage } from "@/lib/i18n";
@@ -74,7 +76,7 @@ export default function LoginPage() {
   const shownError = error || oidcFailure;
 
   if (checkingSession) {
-    return <main className="grid min-h-screen place-items-center bg-[var(--canvas)] px-5">
+    return <main className="grid min-h-[100dvh] place-items-center bg-[var(--canvas)] px-5">
       <section className="panel w-full max-w-md p-8 text-center text-sm text-[var(--muted)]">
         {t("common.loading")}
       </section>
@@ -107,13 +109,14 @@ export default function LoginPage() {
 
   function restart() { setChallenge(""); setCookieMfa(false); setCode(""); setError(""); }
 
-  return <main className="grid min-h-screen place-items-center bg-[var(--canvas)] px-5">
-    <section className="panel w-full max-w-md p-8">
-      <div className="mb-8 flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--brand)] text-lg font-bold text-white">P</div><div><h1 className="text-xl font-bold">Purels</h1><p className="text-sm text-[var(--muted)]">{t("login.subtitle")}</p></div></div>
+  return <main className="relative grid min-h-[100dvh] place-items-center overflow-hidden bg-[var(--canvas)] px-5 py-8">
+    <div className="pointer-events-none absolute -right-32 top-1/2 -translate-y-1/2 opacity-20 blur-2xl"><FluidOrb size={480} color="var(--brand)" /></div>
+    <section className="panel relative z-10 w-full max-w-md p-7 sm:p-8">
+      <div className="mb-8 flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--brand)] text-lg font-bold text-[#100b08]">P</div><div><h1 className="text-xl font-bold tracking-tight">Purels</h1><p className="text-sm text-[var(--muted)]">{t("login.subtitle")}</p></div></div>
       <h2 className="mb-6 text-lg font-semibold">{verifying ? t("login.mfaHeading") : t("login.heading")}</h2>
       {verifying
         ? <form onSubmit={verify} className="space-y-4">
-            <label className="block"><span className="field-label">{t("login.code")}</span><input required autoFocus autoComplete="one-time-code" className="field-control" value={code} onChange={e => setCode(e.target.value)} /></label>
+            <label className="block"><span className="field-label">{t("login.code")}</span><OtpInput required autoFocus length={6} value={code} onChange={setCode} status={shownError ? "error" : "idle"} label={t("login.code")} /></label>
             {shownError && <p className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{shownError}</p>}
             <button className="btn-primary w-full" disabled={loading}>{loading ? t("login.verifying") : t("login.verify")}</button>
             <button type="button" className="w-full text-sm text-[var(--muted)] hover:text-ink-soft" onClick={restart}>{t("login.back")}</button>
