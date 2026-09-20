@@ -24,14 +24,16 @@ func (c *Cache) Close() error { return c.Client.Close() }
 // linkKey is the one place the cache key is built, so the version below cannot
 // drift between the reader and the two writers.
 //
-// The version moved to v2 when links gained interstitial_seconds. A cached
+// The version moved to v2 when links gained interstitial_seconds. It moves to
+// v3 because aliases are case-sensitive now; a lower-cased key could make two
+// distinct links share a cache entry. A cached
 // record is the whole domain.Link as JSON, so a blob written before that column
 // existed would unmarshal with a zero delay — the interstitial off — and the
 // link would keep redirecting immediately for up to the TTL. Bumping the
 // version retires those blobs at once instead of leaving the new default to
 // arrive link by link. The old keys hold nothing but public link data and
 // expire on their own.
-func linkKey(alias string) string { return "purels:link:v2:" + alias }
+func linkKey(alias string) string { return "purels:link:v3:" + alias }
 
 func (c *Cache) GetLink(ctx context.Context, alias string) (*domain.Link, error) {
 	value, err := c.Client.Get(ctx, linkKey(alias)).Result()

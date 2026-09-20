@@ -48,6 +48,8 @@ decisions that shape it:
 
 - Custom aliases, or generated ones — random by default, or opt-in sequential
   Base36 (`ALIAS_MODE`)
+- Aliases preserve their casing and are matched case-sensitively: `AbC` and
+  `abc` are different short codes
 - Optional reuse of an existing code for a destination that was shortened before
   (`UNIQUE_URLS`), so re-shortening the same page does not mint a second alias
 - Multiple short domains (`SHORT_DOMAINS`), with a configurable default
@@ -164,9 +166,10 @@ production configuration, and the differences are not cosmetic:
 
 A real deployment needs all of those addressed, a TLS-terminating proxy in front,
 and the API port left unpublished — it is bound to loopback in the bundled stack
-on purpose, because the API trusts the `X-Forwarded-For` that the proxy appends
-and a caller who can reach it directly can name their own address. The reasoning
-is recorded in `internal/http/middleware/clientip.go`.
+on purpose. Behind Cloudflare, the API uses the `CF-Connecting-IP` header and
+otherwise falls back to the proxy-appended `X-Forwarded-For`; a caller who can
+reach the API directly can name their own address. The reasoning is recorded in
+`internal/http/middleware/clientip.go`.
 
 Back up PostgreSQL. That is where links, accounts, sessions and the audit trail
 live; Redis holds only a redirect cache and rate-limit counters and can be

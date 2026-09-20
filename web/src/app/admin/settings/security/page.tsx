@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { api, MFAEnrollment, MFAStatus, TokenRecord } from "@/lib/api-client";
 import { useT } from "@/components/i18n-provider";
@@ -64,7 +65,7 @@ export default function SecurityPage() {
 
       {status?.available && enrollment && recoveryCodes.length === 0 && <div className="space-y-4">
         <div className="flex flex-wrap items-start gap-5">
-          <img alt={t("settings.security.qrAlt")} className="h-40 w-40 rounded-lg border border-[var(--line)] bg-surface p-1" src={enrollment.qr} />
+          <Image alt={t("settings.security.qrAlt")} className="h-40 w-40 rounded-lg border border-[var(--line)] bg-surface p-1" height={160} src={enrollment.qr} unoptimized width={160} />
           <div className="min-w-0 space-y-1 text-sm">
             <p className="text-[var(--muted)]">{t("settings.security.secret")}</p>
             <code className="block break-all font-mono text-xs">{enrollment.secret}</code>

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"bytes"
+	"errors"
 	"strings"
 	"testing"
 
@@ -166,5 +168,25 @@ func TestMergeQuery(t *testing.T) {
 		if got := mergeQuery(c.destination, c.rawQuery); got != c.want {
 			t.Fatalf("mergeQuery(%q, %q) = %q, want %q", c.destination, c.rawQuery, got, c.want)
 		}
+	}
+}
+
+func TestReadImportBodyRejectsOversizePayload(t *testing.T) {
+	tooLarge := bytes.Repeat([]byte{'x'}, maxImportBytes+1)
+
+	if _, err := readImportBody(bytes.NewReader(tooLarge)); !errors.Is(err, errImportTooLarge) {
+		t.Fatalf("readImportBody() error = %v, want errImportTooLarge", err)
+	}
+}
+
+func TestReadImportBodyAcceptsPayloadAtLimit(t *testing.T) {
+	content := bytes.Repeat([]byte{'x'}, maxImportBytes)
+
+	got, err := readImportBody(bytes.NewReader(content))
+	if err != nil {
+		t.Fatalf("readImportBody() returned an error at the limit: %v", err)
+	}
+	if len(got) != len(content) {
+		t.Fatalf("readImportBody() returned %d bytes, want %d", len(got), len(content))
 	}
 }

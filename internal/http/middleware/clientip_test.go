@@ -19,6 +19,19 @@ func TestClientIPPrefersRightmostForwardedEntry(t *testing.T) {
 	}
 }
 
+func TestClientIPPrefersCloudflareConnectingIP(t *testing.T) {
+	request := &http.Request{
+		RemoteAddr: "172.18.0.5:41234",
+		Header:     http.Header{},
+	}
+	request.Header.Set("CF-Connecting-IP", "203.0.113.77")
+	request.Header.Set("X-Forwarded-For", "198.51.100.2, 172.64.1.4")
+
+	if got := ClientIP(request); got != "203.0.113.77" {
+		t.Fatalf("expected the Cloudflare client IP, got %q", got)
+	}
+}
+
 func TestClientIPFallsBackToRemoteAddr(t *testing.T) {
 	request := &http.Request{RemoteAddr: "198.51.100.7:5555", Header: http.Header{}}
 	if got := ClientIP(request); got != "198.51.100.7" {

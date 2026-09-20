@@ -507,7 +507,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     // An expired or missing session should send the operator back to the login page
     // instead of leaving every admin page showing a generic load error.
     if (response.status === 401 && !preSessionPaths.has(path) && typeof window !== "undefined") {
-      if (!window.location.pathname.startsWith("/login")) window.location.href = "/login";
+      if (!window.location.pathname.startsWith("/login")) window.location.replace("/login");
       throw new ApiError("Your session has expired. Please sign in again.", 401, "session_expired", payload);
     }
     throw new ApiError(

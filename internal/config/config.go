@@ -212,6 +212,10 @@ func Load() Config {
 		slog.Warn("ignoring negative MAX_LINKS_PER_USER", "max_links_per_user", maxLinksPerUser)
 		maxLinksPerUser = 0
 	}
+	adminOriginValue := ""
+	if len(origins) > 0 {
+		adminOriginValue = origins[0]
+	}
 	ipHashMode := ipHashModeEnv()
 	publicURL := env("PUBLIC_URL", "http://localhost:8080")
 	// A zero or negative TTL would make every challenge expire before the
@@ -233,7 +237,7 @@ func Load() Config {
 		DatabaseURL:       env("DATABASE_URL", "postgres://purels:purels@localhost:5432/purels?sslmode=disable"),
 		RedisURL:          env("REDIS_URL", "redis://localhost:6379/0"),
 		PublicURL:         publicURL,
-		AdminOrigin:       origins[0],
+		AdminOrigin:       adminOriginValue,
 		AdminOrigins:      origins,
 		CookieSecure:      boolEnv("COOKIE_SECURE", false),
 		SessionTTL:        durationEnv("SESSION_TTL", 24*time.Hour),

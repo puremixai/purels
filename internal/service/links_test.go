@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -251,5 +252,22 @@ func TestInterstitialSeconds(t *testing.T) {
 		if _, err := interstitialSeconds(&rejected); err == nil {
 			t.Errorf("%d: expected a rejection", rejected)
 		}
+	}
+}
+
+func TestGeneratedAliasPreservesCase(t *testing.T) {
+	service := &LinkService{}
+	sawUppercase := false
+	for i := 0; i < 100; i++ {
+		alias, err := service.nextAlias(context.Background())
+		if err != nil {
+			t.Fatalf("nextAlias() returned an error: %v", err)
+		}
+		if alias != strings.ToLower(alias) {
+			sawUppercase = true
+		}
+	}
+	if !sawUppercase {
+		t.Fatal("generated aliases never contained an uppercase character")
 	}
 }

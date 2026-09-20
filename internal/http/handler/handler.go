@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -616,6 +617,19 @@ func (h *Handler) LinkClicks(w http.ResponseWriter, r *http.Request) {
 // table is far smaller than this, so the limit only stops abusive uploads.
 const maxImportBytes = 8 << 20
 
+var errImportTooLarge = errors.New("import file is too large")
+
+func readImportBody(reader io.Reader) ([]byte, error) {
+	content, err := io.ReadAll(io.LimitReader(reader, maxImportBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(content) > maxImportBytes {
+		return nil, errImportTooLarge
+	}
+	return content, nil
+}
+
 // ExportLinks downloads the links matching the same filters the list page uses,
 // so "export what I am looking at" behaves as expected.
 func (h *Handler) ExportLinks(w http.ResponseWriter, r *http.Request) {
@@ -637,7 +651,16 @@ func (h *Handler) ExportLinks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ImportLinks(w http.ResponseWriter, r *http.Request) {
-	report, err := h.Links.ImportCSV(r.Context(), io.LimitReader(r.Body, maxImportBytes))
+	content, err := readImportBody(r.Body)
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, errImportTooLarge) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		Error(w, status, err.Error())
+		return
+	}
+	report, err := h.Links.ImportCSV(r.Context(), bytes.NewReader(content))
 	if err != nil {
 		Error(w, 400, err.Error())
 		return

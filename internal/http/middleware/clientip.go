@@ -8,11 +8,11 @@ import (
 
 // ClientIP returns the caller's address.
 //
-// In the bundled deployment the service runs behind Caddy, which appends the
-// peer address it observed to X-Forwarded-For. We therefore trust the
-// *rightmost* entry — the one written by our own proxy — and ignore earlier
-// entries, which a client could have supplied itself. When there is no
-// forwarding header the TCP peer address is used.
+// Cloudflare authenticates and forwards the original visitor address in
+// CF-Connecting-IP. Prefer it when it is a valid IP; it is the only header that
+// survives the Cloudflare hop without being mixed with client-supplied entries.
+// For local/Caddy-only deployments, fall back to the rightmost X-Forwarded-For
+// entry, which is the address appended by the proxy, and finally the TCP peer.
 //
 // This holds only while the proxy is the sole way in. A caller who reaches the
 // API directly controls the whole header, so every entry looks proxy-written and
@@ -21,6 +21,9 @@ import (
 // it on the network reopens a rate-limit bypass and lets a caller forge the
 // address recorded against their own audit entries.
 func ClientIP(r *http.Request) string {
+	if candidate := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); net.ParseIP(candidate) != nil {
+		return candidate
+	}
 	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
 		parts := strings.Split(forwarded, ",")
 		if candidate := strings.TrimSpace(parts[len(parts)-1]); candidate != "" {

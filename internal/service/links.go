@@ -215,10 +215,10 @@ func (l *LinkService) checkQuota(ctx context.Context) error {
 	return nil
 }
 
-// Expand resolves a short code back to its link. Codes are case-insensitive, so
-// the lookup folds the case the same way creation did.
+// Expand resolves a short code back to its link. Alias casing is significant,
+// so the lookup uses the path exactly as supplied by the client.
 func (l *LinkService) Expand(ctx context.Context, alias string) (domain.Link, error) {
-	return l.Store.GetLinkByAlias(ctx, strings.ToLower(alias))
+	return l.Store.GetLinkByAlias(ctx, alias)
 }
 
 // nextAlias produces the next short code: a random string, or the next value of
@@ -263,9 +263,8 @@ func interstitialSeconds(requested *int16) (int16, error) {
 }
 
 func (l *LinkService) Resolve(ctx context.Context, alias string) (domain.Link, error) {
-	// Folding here keeps the cache key and the stored alias in step: a request
-	// for /AbCdE and one for /abcde must share a cache entry.
-	alias = strings.ToLower(alias)
+	// The cache key and database lookup both retain the path's casing, so
+	// /AbCdE and /abcde are two distinct aliases.
 	if cached, err := l.Cache.GetLink(ctx, alias); err == nil {
 		if isUsable(cached) {
 			return *cached, nil

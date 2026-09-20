@@ -79,7 +79,7 @@ func TestEncodeBase36(t *testing.T) {
 }
 
 func TestAliasReserved(t *testing.T) {
-	for _, alias := range []string{"api", "API", "admin", "login", "healthz", "readyz", "metrics"} {
+	for _, alias := range []string{"api", "API", "admin", "login", "register", "healthz", "readyz", "metrics"} {
 		if !AliasReserved(alias) {
 			t.Fatalf("expected %q to be reserved", alias)
 		}
@@ -91,9 +91,9 @@ func TestAliasReserved(t *testing.T) {
 
 func TestNormalizeAlias(t *testing.T) {
 	cases := map[string]string{
-		"AbCdE": "abcde",
+		"AbCdE": "AbCdE",
 		"abc":   "abc",
-		"A_1-B": "a_1-b",
+		"A_1-B": "A_1-B",
 	}
 	for input, want := range cases {
 		got, err := NormalizeAlias(input)
@@ -104,8 +104,8 @@ func TestNormalizeAlias(t *testing.T) {
 			t.Fatalf("NormalizeAlias(%q) = %q, want %q", input, got, want)
 		}
 	}
-	// The reserved words stay reserved in any casing, and the length and charset
-	// rules still apply after folding.
+	// The reserved words stay reserved in any casing, while valid aliases retain
+	// their original casing.
 	for _, input := range []string{"API", "Admin", "ab", "bad space", "a/b", "a?b"} {
 		if _, err := NormalizeAlias(input); err == nil {
 			t.Fatalf("expected invalid alias %q", input)

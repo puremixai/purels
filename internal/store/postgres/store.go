@@ -1005,6 +1005,48 @@ func parseScopes(raw []byte) []string {
 // AggregateClicks rolls pending raw events into the daily table. Both the total
 // and the bot subset are maintained on every rollup, so a later change to
 // COUNT_BOTS never has to recompute history.
+type clickRows interface {
+	Close()
+	Err() error
+	Next() bool
+	Scan(dest ...any) error
+}
+
+type clickAggregate struct {
+	linkID   string
+	day      time.Time
+	count    int64
+	botCount int64
+}
+
+func scanClickAggregates(rows clickRows) ([]string, map[string]*clickAggregate, error) {
+	defer rows.Close()
+
+	var ids []string
+	counts := map[string]*clickAggregate{}
+	for rows.Next() {
+		var id, linkID string
+		var day time.Time
+		var isBot bool
+		if err := rows.Scan(&id, &linkID, &day, &isBot); err != nil {
+			return nil, nil, err
+		}
+		ids = append(ids, id)
+		key := linkID + ":" + day.Format("2006-01-02")
+		if counts[key] == nil {
+			counts[key] = &clickAggregate{linkID: linkID, day: day}
+		}
+		counts[key].count++
+		if isBot {
+			counts[key].botCount++
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+	return ids, counts, nil
+}
+
 func (s *Store) AggregateClicks(ctx context.Context, batchSize int) error {
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
@@ -1015,33 +1057,10 @@ func (s *Store) AggregateClicks(ctx context.Context, batchSize int) error {
 	if err != nil {
 		return err
 	}
-	var ids []string
-	type aggregate struct {
-		linkID   string
-		day      time.Time
-		count    int64
-		botCount int64
+	ids, counts, err := scanClickAggregates(rows)
+	if err != nil {
+		return err
 	}
-	counts := map[string]*aggregate{}
-	for rows.Next() {
-		var id, linkID string
-		var day time.Time
-		var isBot bool
-		if err := rows.Scan(&id, &linkID, &day, &isBot); err != nil {
-			rows.Close()
-			return err
-		}
-		ids = append(ids, id)
-		key := linkID + ":" + day.Format("2006-01-02")
-		if counts[key] == nil {
-			counts[key] = &aggregate{linkID: linkID, day: day}
-		}
-		counts[key].count++
-		if isBot {
-			counts[key].botCount++
-		}
-	}
-	rows.Close()
 	for _, item := range counts {
 		if _, err := tx.Exec(ctx, `INSERT INTO link_click_daily (link_id, day, clicks, bot_clicks) VALUES ($1,$2,$3,$4) ON CONFLICT (link_id,day) DO UPDATE SET clicks=link_click_daily.clicks+EXCLUDED.clicks, bot_clicks=link_click_daily.bot_clicks+EXCLUDED.bot_clicks`, item.linkID, item.day, item.count, item.botCount); err != nil {
 			return err

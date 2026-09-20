@@ -126,3 +126,15 @@ func TestOIDCRequestTTLIsClamped(t *testing.T) {
 		t.Fatalf("OIDC_REQUEST_TTL=3m produced %v, want 3m", got)
 	}
 }
+
+func TestLoadToleratesEmptyAdminOriginList(t *testing.T) {
+	t.Setenv("ADMIN_ORIGIN", ", ,")
+
+	cfg := Load()
+	if cfg.AdminOrigin != "" {
+		t.Fatalf("AdminOrigin = %q, want empty", cfg.AdminOrigin)
+	}
+	if len(cfg.AdminOrigins) != 0 {
+		t.Fatalf("AdminOrigins = %#v, want an empty list", cfg.AdminOrigins)
+	}
+}

@@ -19,7 +19,7 @@ const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
 
 var aliasPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$`)
 var reserved = map[string]struct{}{
-	"api": {}, "admin": {}, "login": {}, "healthz": {}, "readyz": {}, "metrics": {},
+	"api": {}, "admin": {}, "login": {}, "register": {}, "healthz": {}, "readyz": {}, "metrics": {},
 	"favicon.ico": {}, "robots.txt": {},
 }
 
@@ -144,15 +144,14 @@ func ValidateAlias(alias string) error {
 	return nil
 }
 
-// NormalizeAlias lower-cases a caller-supplied alias and validates it. Aliases
-// are case-insensitive, which the unique index on lower(alias) enforces for rows
-// written outside the application.
+// NormalizeAlias validates a caller-supplied alias without changing its case.
+// Alias lookups and uniqueness are case-sensitive; only built-in route names
+// remain reserved in every casing.
 func NormalizeAlias(alias string) (string, error) {
-	normalized := strings.ToLower(alias)
-	if err := ValidateAlias(normalized); err != nil {
+	if err := ValidateAlias(alias); err != nil {
 		return "", err
 	}
-	return normalized, nil
+	return alias, nil
 }
 
 // botMarkers identify a non-human visitor. The list is the same one the device

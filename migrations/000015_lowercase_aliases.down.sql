@@ -1,0 +1,2 @@
+-- Alias normalization is intentionally irreversible: the original casing is
+-- not part of the link's identity and cannot be reconstructed safely.
