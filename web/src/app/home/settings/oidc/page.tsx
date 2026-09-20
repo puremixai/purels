@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, OIDCProvider, OIDCProviderInput } from "@/lib/api-client";
 import { useT } from "@/components/i18n-provider";
+import { useToast } from "@/components/toast-provider";
 import { errorText, type MessageKey, type T } from "@/lib/i18n";
 import { buildOIDCCallbackURL } from "@/lib/oidc-callback";
 
@@ -61,6 +62,7 @@ function describeError(t: T, e: unknown, fallback: MessageKey) {
 
 export default function OIDCSettingsPage() {
   const t = useT();
+  const { toast } = useToast();
   const [providers, setProviders] = useState<OIDCProvider[]>([]);
   const [redirectBase, setRedirectBase] = useState("");
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
@@ -134,6 +136,7 @@ export default function OIDCSettingsPage() {
       await api.oidc.update(provider.id, input);
       await load();
       setNotice(t("settings.oidc.saved", { name: draft.display_name || provider.slug }));
+      toast({ kind: "success", title: t("settings.oidc.saved", { name: draft.display_name || provider.slug }) });
     } catch (e) {
       setError(describeError(t, e, "error.save"));
     } finally {
@@ -150,6 +153,7 @@ export default function OIDCSettingsPage() {
       setConfirming("");
       await load();
       setNotice(t("settings.oidc.deleted", { name: provider.display_name || provider.slug }));
+      toast({ kind: "success", title: t("settings.oidc.deleted", { name: provider.display_name || provider.slug }) });
     } catch (e) {
       setError(describeError(t, e, "error.save"));
     } finally {
@@ -176,6 +180,7 @@ export default function OIDCSettingsPage() {
       setCreating(emptyNew);
       await load();
       setNotice(t("settings.oidc.created"));
+      toast({ kind: "success", title: t("settings.oidc.created") });
     } catch (e) {
       setError(describeError(t, e, "error.create"));
     } finally {

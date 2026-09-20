@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type CaptchaInput, type CaptchaSettings } from "@/lib/api-client";
 import { useT } from "@/components/i18n-provider";
+import { useToast } from "@/components/toast-provider";
 import { errorText, type MessageKey, type T } from "@/lib/i18n";
 
 type Draft = {
@@ -45,6 +46,7 @@ function describeError(t: T, e: unknown, fallback: MessageKey) {
 
 export default function CaptchaSettingsPage() {
   const t = useT();
+  const { toast } = useToast();
   const [saved, setSaved] = useState<Draft>(emptyDraft);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [error, setError] = useState("");
@@ -93,6 +95,7 @@ export default function CaptchaSettingsPage() {
       setSaved(next);
       setDraft(next);
       setNotice(t("settings.saved"));
+      toast({ kind: "success", title: t("settings.saved") });
     } catch (e) {
       setError(describeError(t, e, "error.save"));
     } finally {

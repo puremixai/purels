@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/i18n-provider";
+import { useToast } from "@/components/toast-provider";
 import { api, LinkRecord, LinkRuleInput } from "@/lib/api-client";
 import { errorText } from "@/lib/i18n";
 import { CopyLinkButton } from "@/components/copy-link-button";
@@ -25,6 +26,7 @@ type CreatedLink = { link: LinkRecord; short_url: string };
 export default function NewLinkPage() {
   const router = useRouter();
   const t = useT();
+  const { toast } = useToast();
   const [url, setUrl] = useState("");
   const [alias, setAlias] = useState("");
   const [domain, setDomain] = useState("");
@@ -57,6 +59,7 @@ export default function NewLinkPage() {
         interstitial_seconds: interstitialOn ? Number(interstitialSeconds) : 0,
       });
       setCreated(result);
+      toast({ kind: "success", title: t("links.created.title") });
     } catch (err) {
       setError(errorText(t, err, "error.create"));
     } finally {

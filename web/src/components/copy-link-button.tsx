@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/components/i18n-provider";
+import { useToast } from "@/components/toast-provider";
 
 type CopyStatus = "idle" | "copied" | "error";
 
@@ -20,6 +21,7 @@ function fallbackCopy(value: string) {
 
 export function CopyLinkButton({ value, compact = false }: { value: string; compact?: boolean }) {
   const t = useT();
+  const { toast } = useToast();
   const [status, setStatus] = useState<CopyStatus>("idle");
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -35,8 +37,10 @@ export function CopyLinkButton({ value, compact = false }: { value: string; comp
         fallbackCopy(value);
       }
       setStatus("copied");
+      toast({ kind: "success", title: t("links.copied") });
     } catch {
       setStatus("error");
+      toast({ kind: "error", title: t("links.copyFailed") });
     }
     if (resetTimer.current) clearTimeout(resetTimer.current);
     resetTimer.current = setTimeout(() => setStatus("idle"), 2200);

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useT } from "@/components/i18n-provider";
+import { useToast } from "@/components/toast-provider";
 import { CopyLinkButton } from "@/components/copy-link-button";
 import { QrDialog } from "@/components/qr-dialog";
 import { api, BulkAction, BulkLinkInput, ImportReport, LinkListRecord, LinkRecord, LinkSort, LinkStatusFilter, TagStat } from "@/lib/api-client";
@@ -60,6 +61,7 @@ function checkLabel(t: T, link: LinkRecord) {
 
 export default function LinksPage() {
   const t = useT();
+  const { toast } = useToast();
   const [links, setLinks] = useState<LinkListRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -140,6 +142,7 @@ export default function LinksPage() {
       await api.links.remove(id);
       await load();
       await loadTags();
+      toast({ kind: "success", title: t("links.deleted") });
     } catch (e) {
       setError(errorText(t, e, "error.delete"));
     }
@@ -198,6 +201,8 @@ export default function LinksPage() {
       // shortfall is reported instead of being silently swallowed.
       if (result.affected < ids.length) {
         setError(t("links.bulkSkipped", { count: ids.length - result.affected }));
+      } else {
+        toast({ kind: "success", title: t("links.bulkComplete", { count: result.affected }) });
       }
     } catch (e) {
       setError(errorText(t, e, "error.bulk"));
@@ -219,6 +224,7 @@ export default function LinksPage() {
         tag: tag || undefined,
       });
       downloadCsvText(`purels-links-${new Date().toISOString().slice(0, 10)}.csv`, content);
+      toast({ kind: "success", title: t("links.exported") });
     } catch (e) {
       setError(errorText(t, e, "error.export"));
     } finally {
@@ -236,6 +242,11 @@ export default function LinksPage() {
       setPage(0);
       await load();
       await loadTags();
+      toast({
+        kind: result.failed > 0 ? "info" : "success",
+        title: t("links.imported", { count: result.created }),
+        description: result.failed > 0 ? t("links.importFailed", { count: result.failed }) : undefined,
+      });
     } catch (e) {
       setError(errorText(t, e, "error.import"));
     } finally {

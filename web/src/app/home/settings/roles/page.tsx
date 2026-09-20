@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, RoleRecord } from "@/lib/api-client";
 import { useT } from "@/components/i18n-provider";
+import { useToast } from "@/components/toast-provider";
 import { errorText, hasMessage, type T } from "@/lib/i18n";
 
 type Draft = { scopes: string[]; unrestricted: boolean };
@@ -43,6 +44,7 @@ function sameDraft(a: Draft, b: Draft) {
 
 export default function RolesPage() {
   const t = useT();
+  const { toast } = useToast();
   const [roles, setRoles] = useState<RoleRecord[]>([]);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [error, setError] = useState("");
@@ -92,6 +94,7 @@ export default function RolesPage() {
       await api.roles.update(name, draft);
       await load();
       setNotice(t("settings.roles.saved", { name: roleLabel(t, name) }));
+      toast({ kind: "success", title: t("settings.roles.saved", { name: roleLabel(t, name) }) });
     } catch (e) {
       setError(errorText(t, e, "error.save"));
     } finally {

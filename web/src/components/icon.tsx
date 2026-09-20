@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-export type IconName = "grid" | "link" | "chart" | "shield" | "logout" | "plus" | "search" | "external" | "trash" | "arrow" | "check" | "menu" | "close" | "lock" | "refresh" | "list" | "user" | "key" | "pulse" | "sun" | "moon";
+export type IconName = "grid" | "link" | "chart" | "shield" | "logout" | "plus" | "search" | "external" | "trash" | "arrow" | "check" | "info" | "menu" | "close" | "lock" | "refresh" | "list" | "user" | "key" | "pulse" | "sun" | "moon";
 
 const paths: Record<IconName, React.ReactNode> = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
@@ -14,6 +14,7 @@ const paths: Record<IconName, React.ReactNode> = {
   trash: <><path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="m6 7 1 14h10l1-14" /><path d="M9 7V4h6v3" /></>,
   arrow: <><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></>,
   check: <path d="m5 12 4 4L19 6" />,
+  info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5" /><path d="M12 8h.01" /></>,
   menu: <><path d="M4 6h16M4 12h16M4 18h16" /></>,
   close: <><path d="m6 6 12 12M18 6 6 18" /></>,
   lock: <><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></>,

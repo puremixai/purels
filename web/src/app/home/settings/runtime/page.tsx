@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type RuntimeSettings, type RuntimeSettingsInput } from "@/lib/api-client";
 import { useT } from "@/components/i18n-provider";
+import { useToast } from "@/components/toast-provider";
 import { errorText, type MessageKey, type T } from "@/lib/i18n";
 
 const emptyDraft: RuntimeSettingsInput = {
@@ -56,6 +57,7 @@ function describeError(t: T, error: unknown, fallback: MessageKey) {
 
 export default function RuntimeSettingsPage() {
   const t = useT();
+  const { toast } = useToast();
   const [saved, setSaved] = useState<RuntimeSettingsInput>(emptyDraft);
   const [draft, setDraft] = useState<RuntimeSettingsInput>(emptyDraft);
   const [revision, setRevision] = useState(0);
@@ -102,6 +104,7 @@ export default function RuntimeSettingsPage() {
       setDraft(next);
       setRevision(settings.revision);
       setNotice(t("settings.saved"));
+      toast({ kind: "success", title: t("settings.saved") });
     } catch (e) {
       setError(describeError(t, e, "error.save"));
     } finally {

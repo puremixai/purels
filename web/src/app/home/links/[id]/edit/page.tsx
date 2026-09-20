@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useLocale, useT } from "@/components/i18n-provider";
+import { useToast } from "@/components/toast-provider";
 import { api, LinkRecord, LinkRuleInput } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/format";
 import { errorText } from "@/lib/i18n";
@@ -24,6 +25,7 @@ function toRuleInputs(link: LinkRecord): LinkRuleInput[] {
 export default function EditLinkPage() {
   const router = useRouter();
   const t = useT();
+  const { toast } = useToast();
   const locale = useLocale();
   const params = useParams<{ id: string }>();
   const id = typeof params?.id === "string" ? params.id : "";
@@ -91,6 +93,7 @@ export default function EditLinkPage() {
       // than stored: the recorded status code is 0. The probe's own message is
       // not translated — it names what the network did.
       if (result.error) setError(result.error);
+      else toast({ kind: "success", title: t("links.checkOk", { code: result.status_code }) });
     } catch (e) {
       setError(errorText(t, e, "error.check"));
     } finally {
@@ -118,6 +121,7 @@ export default function EditLinkPage() {
         // Unchecking sends 0, which is what turns the interstitial off.
         interstitial_seconds: interstitialOn ? Number(interstitialSeconds) : 0,
       });
+      toast({ kind: "success", title: t("settings.saved") });
       router.push("/home/links");
     } catch (e) {
       setError(errorText(t, e, "error.save"));

@@ -59,7 +59,7 @@ export function DeleteButton({
   }
 
   return (
-    <motion.span initial={{ opacity: 0, width: 36 }} animate={{ opacity: 1, width: "auto" }} className={cn("rare-delete-confirm", className)}>
+    <motion.span initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className={cn("rare-delete-confirm", className)}>
       <span className="sr-only">{label}</span>
       <button type="button" className="rare-delete-confirm-button" disabled={busy} onClick={confirm}>{confirmLabel}</button>
       <button type="button" className="rare-delete-cancel-button" disabled={busy} onClick={() => { setOpen(false); onCancel?.(); }}>{cancelLabel}</button>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, AnalyticsInput, AnalyticsSettings } from "@/lib/api-client";
 import { useT } from "@/components/i18n-provider";
+import { useToast } from "@/components/toast-provider";
 import { errorText, type MessageKey, type T } from "@/lib/i18n";
 import { validateAnalyticsInput } from "@/lib/analytics-config";
 
@@ -33,6 +34,7 @@ function describeError(t: T, e: unknown, fallback: MessageKey) {
 
 export default function AnalyticsSettingsPage() {
   const t = useT();
+  const { toast } = useToast();
   const [saved, setSaved] = useState<AnalyticsInput>(emptyDraft);
   const [draft, setDraft] = useState<AnalyticsInput>(emptyDraft);
   const [error, setError] = useState("");
@@ -82,6 +84,7 @@ export default function AnalyticsSettingsPage() {
       setSaved(next);
       setDraft(next);
       setNotice(t("settings.saved"));
+      toast({ kind: "success", title: t("settings.saved") });
     } catch (e) {
       setError(describeError(t, e, "error.save"));
     } finally {

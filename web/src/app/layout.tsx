@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import { I18nProvider } from "@/components/i18n-provider";
+import { ToastProvider } from "@/components/toast-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { tFor } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
@@ -36,7 +37,9 @@ export default async function RootLayout({
     <html className={`${GeistSans.variable} ${GeistMono.variable}`} data-theme="dark" lang={locale} suppressHydrationWarning>
       <body>
         <ThemeProvider>
-          <I18nProvider locale={locale}>{children}</I18nProvider>
+          <I18nProvider locale={locale}>
+            <ToastProvider>{children}</ToastProvider>
+          </I18nProvider>
         </ThemeProvider>
       </body>
     </html>

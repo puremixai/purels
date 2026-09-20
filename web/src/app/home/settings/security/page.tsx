@@ -3,12 +3,15 @@ import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { api, MFAEnrollment, MFAStatus, TokenRecord } from "@/lib/api-client";
 import { useT } from "@/components/i18n-provider";
+import { useToast } from "@/components/toast-provider";
 import { errorText } from "@/lib/i18n";
 import { OtpInput } from "@/components/ui/rare/otp-input";
+import { DeleteButton } from "@/components/ui/rare/delete-button";
 import { RareStatus } from "@/components/rare/rare-status";
 
 export default function SecurityPage() {
   const t = useT();
+  const { toast } = useToast();
   const [tokens, setTokens] = useState<TokenRecord[]>([]); const [name, setName] = useState(""); const [secret, setSecret] = useState(""); const [error, setError] = useState("");
 
   const [status, setStatus] = useState<MFAStatus | null>(null);
@@ -24,8 +27,8 @@ export default function SecurityPage() {
 
   useEffect(() => { loadTokens(); loadStatus(); }, [loadTokens, loadStatus]);
 
-  async function create() { try { const result = await api.tokens.create(name); setSecret(result.secret); setName(""); await loadTokens(); } catch (e) { setError(errorText(t, e, "error.create")); } }
-  async function revoke(id: string) { try { await api.tokens.revoke(id); await loadTokens(); } catch (e) { setError(errorText(t, e, "error.revoke")); } }
+  async function create() { try { const result = await api.tokens.create(name); setSecret(result.secret); setName(""); await loadTokens(); toast({ kind: "success", title: t("settings.security.tokenCreated"), description: t("settings.security.tokenWarning") }); } catch (e) { setError(errorText(t, e, "error.create")); } }
+  async function revoke(id: string) { try { await api.tokens.revoke(id); await loadTokens(); toast({ kind: "success", title: t("settings.security.tokenRevoked") }); } catch (e) { setError(errorText(t, e, "error.revoke")); } }
 
   async function run(action: () => Promise<void>) {
     setMfaBusy(true); setMfaError("");
@@ -38,11 +41,13 @@ export default function SecurityPage() {
     setRecoveryCodes(result.recovery_codes);
     setEnrollment(null); setCode("");
     await loadStatus();
+    toast({ kind: "success", title: t("settings.security.enabled") });
   });
   const disable = () => run(async () => {
     await api.mfa.disable(password, code);
     setPassword(""); setCode(""); setEnrollment(null);
     await loadStatus();
+    toast({ kind: "success", title: t("settings.security.notEnabled") });
   });
   const cancelEnroll = () => { setEnrollment(null); setCode(""); setMfaError(""); };
 
@@ -96,6 +101,6 @@ export default function SecurityPage() {
 
     <section className="console-panel space-y-4 p-4 sm:p-5"><h2 className="console-panel-title">{t("settings.security.tokensTitle")}</h2>{error && <p className="console-alert" role="alert">{error}</p>}{secret && <div className="rounded-lg border border-warning/20 bg-warning-tint p-4 text-sm text-warning"><p className="font-semibold">{t("settings.security.tokenWarning")}</p><code className="mt-2 block break-all">{secret}</code></div>}<div className="flex gap-3"><input className="field-control" placeholder={t("settings.security.tokenName")} value={name} onChange={e => setName(e.target.value)} /><button className="btn-primary" onClick={create} disabled={!name}>{t("settings.security.create")}</button></div></section>
 
-    <section className="console-panel overflow-hidden"><div className="console-panel-header"><h2 className="console-panel-title">{t("settings.security.tokenList")}</h2></div>{tokens.length ? tokens.map(token => <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] px-4 py-3 last:border-0" key={token.id}><div className="min-w-0"><p className="font-medium">{token.name}</p><p className="text-sm text-[var(--muted)]">{token.token_prefix}••••</p><p className="mt-1 flex flex-wrap gap-1">{(token.scopes || []).map(scope => <span key={scope} className="rounded bg-canvas px-1.5 py-0.5 text-2xs text-ink-soft">{scope}</span>)}</p></div><button className="btn-danger" onClick={() => revoke(token.id)}>{t("settings.security.revoke")}</button></div>) : <p className="console-empty">{t("settings.security.noTokens")}</p>}</section>
+    <section className="console-panel overflow-hidden"><div className="console-panel-header"><h2 className="console-panel-title">{t("settings.security.tokenList")}</h2></div>{tokens.length ? tokens.map(token => <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] px-4 py-3 last:border-0" key={token.id}><div className="min-w-0"><p className="font-medium">{token.name}</p><p className="text-sm text-[var(--muted)]">{token.token_prefix}••••</p><p className="mt-1 flex flex-wrap gap-1">{(token.scopes || []).map(scope => <span key={scope} className="rounded bg-canvas px-1.5 py-0.5 text-2xs text-ink-soft">{scope}</span>)}</p></div><DeleteButton label={t("settings.security.revoke")} confirmLabel={t("settings.security.revoke")} cancelLabel={t("common.cancel")} onConfirm={() => revoke(token.id)} /></div>) : <p className="console-empty">{t("settings.security.noTokens")}</p>}</section>
   </div>;
 }
