@@ -29,7 +29,6 @@ const PAGES = [
   // header's anchors, because the anchors are hidden below the md breakpoint and
   // innerText does not see a display:none element.
   { name: "home", path: "/", expect: ["Purels", "Shorten links. Keep the data.", "Core features", "Link management", "Click statistics", "How it works", "Runs on your own machine", "Frequently asked questions", "Ready when you are", "Get started", "Sign in"] },
-  { name: "login", path: "/login", expect: ["Sign in", "Username"] },
   { name: "register", path: "/register", expect: ["Register", "Username"] },
   { name: "dashboard", path: "/admin", expect: ["Overview", "Total links", "Recent links"] },
   { name: "links", path: "/admin/links", expect: ["Link management", "Destination", "Clicks", "Previous"] },
@@ -404,6 +403,24 @@ async function main() {
   const results = [];
   const record = (name, ok, detail) => results.push({ name, ok, detail });
 
+  const signIn = async () => {
+    await go("/login");
+    const submitted = await evaluate(`(() => {
+      const setVal = (el, v) => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, v);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      };
+      const inputs = document.querySelectorAll("form input");
+      if (inputs.length < 2) return false;
+      setVal(inputs[0], ${JSON.stringify(USER)});
+      setVal(inputs[1], ${JSON.stringify(PASS)});
+      document.querySelector("form button").click();
+      return true;
+    })()`);
+    const reachedAdmin = await waitForPath("/admin");
+    return { submitted, reachedAdmin };
+  };
+
   // ---------- phase 1: every page renders ----------
   await go("/login");
   // The login form is driven by position below — the first two inputs are the
@@ -462,21 +479,12 @@ async function main() {
     `inputs=${registerShape.inputs} autocomplete=${registerShape.autoComplete.join(",")} button=${registerShape.button} turnstile=${registerShape.turnstile} captchaError=${registerShape.captchaError}`,
   );
 
-  await go("/login");
-  const submitted = await evaluate(`(() => {
-    const setVal = (el, v) => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, v);
-      el.dispatchEvent(new Event("input", { bubbles: true }));
-    };
-    const inputs = document.querySelectorAll("form input");
-    if (inputs.length < 2) return false;
-    setVal(inputs[0], ${JSON.stringify(USER)});
-    setVal(inputs[1], ${JSON.stringify(PASS)});
-    document.querySelector("form button").click();
-    return true;
-  })()`);
-  await sleep(3000);
-  record("login form -> /admin", submitted && (await path()) === "/admin", `landed on ${await path()}`);
+  const signedIn = await signIn();
+  record("login form -> /admin", signedIn.submitted && signedIn.reachedAdmin, `landed on ${await path()}`);
+
+  await go("/login", 1500);
+  const alreadySignedIn = await waitForPath("/admin");
+  record("authenticated /login -> /admin", alreadySignedIn, `landed on ${await path()}`);
 
   for (const page of PAGES) {
     await go(page.path);
@@ -1059,6 +1067,9 @@ async function main() {
     return response.status;`);
   record("a sign-in provider can be configured", providerCreated === 201, `status=${providerCreated}`);
 
+  const providerLogoutClicked = await clickText("button", "Sign out");
+  const providerLogoutReached = await waitForPath("/login");
+  record("logout before anonymous provider check", providerLogoutClicked && providerLogoutReached, `path=${await path()}`);
   await go("/login");
   const withProvider = await evaluate(`(() => {
     const inputs = [...document.querySelectorAll("form input")];
@@ -1070,6 +1081,13 @@ async function main() {
     "a configured provider adds a sign-in link without disturbing the form",
     withProvider.inputs === 2 && withProvider.button === "Sign in" && withProvider.link === providerName,
     `inputs=${withProvider.inputs} button=${withProvider.button} link=${withProvider.link || "none"}`,
+  );
+
+  const signedInAfterProviderCheck = await signIn();
+  record(
+    "anonymous provider check can return to the console",
+    signedInAfterProviderCheck.submitted && signedInAfterProviderCheck.reachedAdmin,
+    `landed on ${await path()}`,
   );
 
   const providerRemoved = await apiCall(`const list = await (await fetch("/api/v1/oidc/providers", { credentials: "include" })).json();
@@ -1118,12 +1136,23 @@ async function main() {
       `filtered ${pageErrors.length - unexpectedErrors.length} tracker-load error(s)`,
   );
 
+  const trackerLogoutClicked = await clickText("button", "Sign out");
+  const trackerLogoutReached = await waitForPath("/login");
+  record("logout before anonymous tracker check", trackerLogoutClicked && trackerLogoutReached, `path=${await path()}`);
+
   // A full load rather than a client-side transition: next/script appends its
   // element to the document body and never removes it, so a /login reached by
   // clicking a link would still be carrying what the console injected.
   await go("/login", 1500);
   const leaked = await evaluate(`document.querySelector('script[id^="purels-analytics-"]') !== null`);
   record("the login page carries no tracker", leaked === false, `present=${leaked}`);
+
+  const signedInBeforeAnalyticsClear = await signIn();
+  record(
+    "the tracker check can return to the console",
+    signedInBeforeAnalyticsClear.submitted && signedInBeforeAnalyticsClear.reachedAdmin,
+    `landed on ${await path()}`,
+  );
 
   const analyticsCleared = await apiCall(`const response = await fetch("/api/v1/analytics", {
       method: "PUT",

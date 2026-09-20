@@ -23,6 +23,7 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [providers, setProviders] = useState<PublicProvider[]>([]);
   // A failed external sign-in comes back as a code in the query rather than a
   // message, because the message could name an issuer or a host and this page is
@@ -33,20 +34,52 @@ export default function LoginPage() {
   const verifying = Boolean(challenge) || cookieMfa;
 
   useEffect(() => {
-    // Read the query from window.location rather than with useSearchParams: that
-    // hook needs a Suspense boundary in the App Router, and there is nothing here
-    // worth suspending for — the query is read once, on mount.
-    const query = new URLSearchParams(window.location.search);
-    if (query.get("mfa") === "1") setCookieMfa(true);
-    setFailureCode(query.get("error") || "");
-    api.oidc.publicProviders()
-      .then(setProviders)
-      .catch(() => setProviders([]));
-  }, []);
+    let active = true;
+
+    async function initialise() {
+      try {
+        await api.auth.me();
+        if (active) router.replace("/admin");
+        return;
+      } catch {
+        // A missing or expired session is the normal anonymous path. The API
+        // client deliberately does not redirect a 401 while already on /login.
+      }
+
+      if (!active) return;
+      // Read the query from window.location rather than with useSearchParams: that
+      // hook needs a Suspense boundary in the App Router, and there is nothing here
+      // worth suspending for — the query is read once, after the session check.
+      const query = new URLSearchParams(window.location.search);
+      if (query.get("mfa") === "1") setCookieMfa(true);
+      setFailureCode(query.get("error") || "");
+      setCheckingSession(false);
+      api.oidc.publicProviders()
+        .then((nextProviders) => {
+          if (active) setProviders(nextProviders);
+        })
+        .catch(() => {
+          if (active) setProviders([]);
+        });
+    }
+
+    void initialise();
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
   const failureKey = failureCode ? `oidcError.${failureCode}` : "";
   const oidcFailure = failureCode ? t(hasMessage(failureKey) ? failureKey : "oidcError.oidc_failed") : "";
   const shownError = error || oidcFailure;
+
+  if (checkingSession) {
+    return <main className="grid min-h-screen place-items-center bg-[var(--canvas)] px-5">
+      <section className="panel w-full max-w-md p-8 text-center text-sm text-[var(--muted)]">
+        {t("common.loading")}
+      </section>
+    </main>;
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setLoading(true); setError("");
