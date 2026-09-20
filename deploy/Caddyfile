@@ -18,7 +18,7 @@
 	# Admin UI, its build assets, and the files a crawler asks for.
 	# Every root-level path the console serves has to be named here: anything
 	# that is not is treated as a short code and answered by the API instead.
-	@web path / /_next/* /admin /admin/* /login /login/* /register /register/* /favicon.ico /robots.txt /sitemap.xml /icon.svg
+	@web path / /_next/* /admin /admin/* /home /home/* /login /login/* /register /register/* /favicon.ico /robots.txt /sitemap.xml /icon.svg
 	handle @web {
 		reverse_proxy web:3000
 	}
