@@ -132,6 +132,10 @@ export const en = {
 
   "shell.console": "Admin console",
   "shell.workspace": "Workspace",
+  "shell.account": "Purels account",
+  "shell.accountMenu": "Account menu",
+  "shell.settings": "Settings",
+  "shell.theme": "Theme",
   "shell.welcome": "Welcome back",
   "shell.welcomeNamed": "Welcome back, {username}",
   "shell.logout": "Sign out",

@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-export type IconName = "grid" | "link" | "chart" | "shield" | "logout" | "plus" | "search" | "external" | "trash" | "arrow" | "check" | "info" | "menu" | "close" | "lock" | "refresh" | "list" | "user" | "key" | "pulse" | "sun" | "moon";
+export type IconName = "grid" | "link" | "chart" | "shield" | "logout" | "plus" | "search" | "external" | "trash" | "arrow" | "check" | "info" | "menu" | "close" | "lock" | "refresh" | "list" | "user" | "key" | "pulse" | "sun" | "moon" | "settings" | "globe" | "chevronUp";
 
 const paths: Record<IconName, React.ReactNode> = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
@@ -25,6 +25,9 @@ const paths: Record<IconName, React.ReactNode> = {
   pulse: <><path d="M3 12h4l2.5-6 4 12 2.5-6h5" /></>,
   sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" /></>,
   moon: <path d="M20.8 15.2A8.5 8.5 0 0 1 8.8 3.2 8.5 8.5 0 1 0 20.8 15.2Z" />,
+  settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.41 1.41-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-2v-.09a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.41-1.41.06-.06A1.7 1.7 0 0 0 9.4 15a1.7 1.7 0 0 0-1.56-1.03H7v-2h.84A1.7 1.7 0 0 0 9.4 11a1.7 1.7 0 0 0-.34-1.88L9 9.06l1.41-1.41.06.06A1.7 1.7 0 0 0 12.35 8a1.7 1.7 0 0 0 1.03-1.56V5h2v1.44A1.7 1.7 0 0 0 16.4 8c.68.28 1.46.13 1.99-.4l.06-.06 1.41 1.41-.06.06A1.7 1.7 0 0 0 19.46 11c.28.68.94 1.13 1.67 1.13H22v2h-.87A1.7 1.7 0 0 0 19.4 15Z" /></>,
+  globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>,
+  chevronUp: <path d="m6 15 6-6 6 6" />,
 };
 
 export function Icon({ name, size = 18, strokeWidth = 1.8, ...props }: SVGProps<SVGSVGElement> & { name: IconName; size?: number }) {

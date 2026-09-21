@@ -110,6 +110,10 @@ export const zhCN: Dictionary = {
 
   "shell.console": "管理后台",
   "shell.workspace": "工作台",
+  "shell.account": "Purels 账户",
+  "shell.accountMenu": "账户菜单",
+  "shell.settings": "设置",
+  "shell.theme": "主题",
   "shell.welcome": "欢迎回来",
   "shell.welcomeNamed": "欢迎回来，{username}",
   "shell.logout": "退出登录",

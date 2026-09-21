@@ -6,8 +6,7 @@ import { api, type AdminUser } from "@/lib/api-client";
 import { hasMessage, type MessageKey } from "@/lib/i18n";
 import { Icon, type IconName } from "./icon";
 import { useT } from "./i18n-provider";
-import { LocaleSwitcher } from "./locale-switcher";
-import { ThemeToggle } from "./theme-toggle";
+import { AccountMenu } from "./rare/account-menu";
 import { BounceSidebar } from "./ui/rare/bounce-sidebar";
 
 /**
@@ -83,10 +82,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <button className="ml-auto rounded p-1 text-faint md:hidden" onClick={() => setMobileNav(false)} aria-label={t("shell.closeMenu")}><Icon name="close" size={17} /></button>
         </div>
         <BounceSidebar items={sidebarItems} value={activeIndex} dotColor="var(--brand)" ariaLabel={t("shell.console")} className="px-1" />
-        <div className="mt-auto border-t border-[var(--line)] pt-4">
-          <ThemeToggle />
-          <LocaleSwitcher className="field-control mb-2 py-1.5 text-sm text-ink-soft" />
-          <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted hover:bg-danger-tint hover:text-danger" disabled={loggingOut} onClick={logout}><Icon name="logout" size={17} />{loggingOut ? t("shell.loggingOut") : t("shell.logout")}</button>
+        <div className="mt-auto border-t border-[var(--line)] pt-3">
+          <AccountMenu
+            username={username}
+            secondaryLabel={roleLabel || t("shell.account")}
+            avatar={avatar}
+            loggingOut={loggingOut}
+            onLogout={logout}
+          />
         </div>
       </aside>
       {mobileNav && <button className="fixed inset-0 z-30 bg-black/70 md:hidden" aria-label={t("shell.closeMenu")} onClick={() => setMobileNav(false)} />}

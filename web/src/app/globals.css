@@ -28,9 +28,9 @@
 
   --text-2xs: 0.75rem;
   --text-2xs--line-height: 1.4;
-  --text-xs: 0.8125rem;
+  --text-xs: 0.75rem;
   --text-xs--line-height: 1.45;
-  --text-sm: 0.9375rem;
+  --text-sm: 0.875rem;
   --text-sm--line-height: 1.5;
   --text-base: 1rem;
   --text-base--line-height: 1.5;
@@ -164,7 +164,7 @@
     color: var(--ink);
     color-scheme: dark;
     font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
   }
 
   :root[data-theme="light"] body {
@@ -636,6 +636,28 @@
   .rare-sidebar-item:hover, .rare-sidebar-item[data-active="true"] { color: var(--ui-ink); background: var(--ui-surface-elevated); }
   .rare-sidebar-item[data-active="true"] { box-shadow: inset 2px 0 0 var(--ui-accent); }
   .rare-sidebar-marker { position: absolute; left: 0.3rem; top: 50%; width: 0.38rem; height: 0.38rem; border-radius: 999px; transform: translateY(-50%); }
+
+  .rare-account-menu { position: relative; margin-inline: 0.25rem; }
+  .rare-account-trigger { display: flex; min-height: 4rem; width: 100%; align-items: center; gap: 0.7rem; border: 1px solid transparent; border-radius: var(--ui-radius-panel); padding: 0.65rem 0.7rem; text-align: left; transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease; }
+  .rare-account-trigger:hover, .rare-account-trigger[aria-expanded="true"] { border-color: color-mix(in srgb, var(--ui-accent) 24%, var(--ui-line)); background: var(--ui-accent-tint); }
+  .rare-account-trigger:active { transform: translateY(1px); }
+  .rare-account-avatar { display: grid; width: 2.5rem; height: 2.5rem; flex: 0 0 auto; place-items: center; border-radius: 50%; background: var(--ui-ink); color: var(--ui-canvas); font-size: 1rem; font-weight: 700; }
+  .rare-account-caret { flex: 0 0 auto; color: var(--ui-muted); }
+  .rare-account-popover { position: absolute; right: 0; bottom: calc(100% + 0.7rem); left: 0; z-index: 60; overflow: hidden; border: 1px solid var(--ui-line-strong); border-radius: var(--ui-radius-panel); background: var(--ui-surface); box-shadow: var(--shadow-pop); }
+  .rare-account-summary { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; padding: 0.9rem; }
+  .rare-account-logout { display: inline-flex; min-height: 2rem; flex: 0 0 auto; align-items: center; gap: 0.35rem; border-radius: var(--ui-radius-control); padding: 0.25rem 0.4rem; color: var(--ui-danger); font-size: var(--text-xs); font-weight: 650; transition: background-color 180ms ease, color 180ms ease; }
+  .rare-account-logout:hover { background: var(--ui-danger-tint); color: var(--ui-danger); }
+  .rare-account-divider { height: 1px; background: var(--ui-line); }
+  .rare-account-theme { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.25rem; margin: 0.75rem; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-control); background: var(--ui-canvas); padding: 0.25rem; }
+  .rare-account-theme-button { display: inline-flex; min-height: 2.25rem; align-items: center; justify-content: center; gap: 0.35rem; border-radius: 0.45rem; color: var(--ui-muted); font-size: var(--text-xs); transition: background-color 180ms ease, color 180ms ease, transform 180ms ease; }
+  .rare-account-theme-button:hover { color: var(--ui-ink); background: var(--ui-surface-elevated); }
+  .rare-account-theme-button[aria-pressed="true"] { background: var(--ui-surface-elevated); color: var(--ui-accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent) 28%, transparent); }
+  .rare-account-theme-button:active { transform: scale(0.98); }
+  .rare-account-actions { display: grid; gap: 0.25rem; padding: 0.55rem; }
+  .rare-account-action { display: flex; min-height: 2.6rem; width: 100%; align-items: center; gap: 0.65rem; border-radius: var(--ui-radius-control); padding: 0.55rem 0.65rem; color: var(--ui-ink-soft); font-size: var(--text-sm); transition: background-color 180ms ease, color 180ms ease; }
+  .rare-account-action:hover { background: var(--ui-surface-elevated); color: var(--ui-ink); }
+  .rare-account-language { justify-content: space-between; }
+  .rare-account-locale { width: auto; min-height: 2rem; border-color: var(--ui-line); background: var(--ui-canvas); padding: 0.25rem 1.9rem 0.25rem 0.55rem; font-size: var(--text-xs); }
 
   .rare-gooey-nav { display: inline-flex; align-items: center; gap: 0.25rem; overflow-x: auto; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-pill); background: var(--ui-surface); padding: 0.25rem; }
   .rare-gooey-item { position: relative; display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; border-radius: 999px; padding: 0.55rem 0.85rem; color: var(--ui-muted); font-size: var(--text-xs); font-weight: 650; transition: color 180ms ease; }
