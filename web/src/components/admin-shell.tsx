@@ -3,33 +3,12 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, type AdminUser } from "@/lib/api-client";
-import { hasMessage, type MessageKey } from "@/lib/i18n";
-import { Icon, type IconName } from "./icon";
+import { hasMessage } from "@/lib/i18n";
+import { getVisibleNavigation } from "./admin-navigation";
+import { Icon } from "./icon";
 import { useT } from "./i18n-provider";
 import { AccountMenu } from "./rare/account-menu";
 import { BounceSidebar } from "./ui/rare/bounce-sidebar";
-
-/**
- * Each entry names the scope that unlocks it, or none when every signed-in
- * account may use it. The API enforces the same scopes, so this only decides
- * what is worth showing.
- *
- * The labels are keys rather than text: this list is built once at module load,
- * before there is a language to resolve them in.
- */
-const navItems: Array<{ href: string; labelKey: MessageKey; icon: IconName; scope?: string }> = [
-  { href: "/home", labelKey: "nav.overview", icon: "grid" },
-  { href: "/home/links", labelKey: "nav.links", icon: "link" },
-  { href: "/home/stats", labelKey: "nav.stats", icon: "chart" },
-  { href: "/home/audit", labelKey: "nav.audit", icon: "list", scope: "audit:read" },
-  { href: "/home/users", labelKey: "nav.users", icon: "user", scope: "users:manage" },
-  { href: "/home/settings/roles", labelKey: "nav.roles", icon: "key", scope: "roles:manage" },
-  { href: "/home/settings/oidc", labelKey: "nav.oidc", icon: "lock", scope: "oidc:manage" },
-  { href: "/home/settings/analytics", labelKey: "nav.analytics", icon: "pulse", scope: "analytics:manage" },
-  { href: "/home/settings/security", labelKey: "nav.security", icon: "shield" },
-  { href: "/home/settings/captcha", labelKey: "nav.captcha", icon: "shield", scope: "captcha:manage" },
-  { href: "/home/settings/runtime", labelKey: "nav.runtimeSettings", icon: "refresh", scope: "settings:manage" },
-];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -47,11 +26,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const scopes = user?.scopes || [];
-  const items = navItems.filter((item) => !item.scope || scopes.includes(item.scope));
-  const activeIndex = Math.max(0, items.findIndex((item) => pathname === item.href || (item.href !== "/home" && pathname.startsWith(item.href))) + 1);
+  const [primarySection, settingsSection] = getVisibleNavigation(scopes);
   const sidebarItems = [
     { label: t("shell.workspace"), heading: true as const },
-    ...items.map((item) => ({ label: t(item.labelKey), href: item.href, icon: <Icon name={item.icon} size={16} /> })),
+    ...primarySection.groups.flatMap((group) => group.items).map((item) => ({ label: t(item.labelKey), href: item.href, icon: <Icon name={item.icon} size={16} /> })),
+    {
+      label: t(settingsSection.labelKey ?? "shell.settings"),
+      group: true as const,
+      icon: <Icon name={settingsSection.icon ?? "settings"} size={16} />,
+      sections: settingsSection.groups.map((group) => ({
+        label: group.labelKey ? t(group.labelKey) : "",
+        items: group.items.map((item) => ({ label: t(item.labelKey), href: item.href, icon: <Icon name={item.icon} size={15} /> })),
+      })),
+    },
   ];
   const username = user?.username || "";
   const avatar = (username || "P").slice(0, 1).toUpperCase();
@@ -81,7 +68,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
           <button className="ml-auto rounded p-1 text-faint md:hidden" onClick={() => setMobileNav(false)} aria-label={t("shell.closeMenu")}><Icon name="close" size={17} /></button>
         </div>
-        <BounceSidebar items={sidebarItems} value={activeIndex} dotColor="var(--brand)" ariaLabel={t("shell.console")} className="px-1" />
+        <BounceSidebar items={sidebarItems} activeHref={pathname} dotColor="var(--brand)" ariaLabel={t("shell.console")} className="px-1" />
         <div className="mt-auto border-t border-[var(--line)] pt-3">
           <AccountMenu
             username={username}

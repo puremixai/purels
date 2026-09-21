@@ -129,6 +129,9 @@ export const en = {
   "nav.security": "Security settings",
   "nav.captcha": "Registration protection",
   "nav.runtimeSettings": "Runtime settings",
+  "nav.group.access": "Account & access",
+  "nav.group.security": "Security & protection",
+  "nav.group.system": "System & analytics",
 
   "shell.console": "Admin console",
   "shell.workspace": "Workspace",

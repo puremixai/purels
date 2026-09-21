@@ -636,6 +636,16 @@
   .rare-sidebar-item:hover, .rare-sidebar-item[data-active="true"] { color: var(--ui-ink); background: var(--ui-surface-elevated); }
   .rare-sidebar-item[data-active="true"] { box-shadow: inset 2px 0 0 var(--ui-accent); }
   .rare-sidebar-marker { position: absolute; left: 0.3rem; top: 50%; width: 0.38rem; height: 0.38rem; border-radius: 999px; transform: translateY(-50%); }
+  .rare-sidebar-group { display: grid; gap: 0.25rem; }
+  .rare-sidebar-group-trigger { justify-content: space-between; cursor: pointer; }
+  .rare-sidebar-group-trigger[data-group-active="true"] { color: var(--ui-ink); }
+  .rare-sidebar-chevron { position: relative; z-index: 10; color: var(--ui-faint); font-size: 1rem; line-height: 1; transform: translateY(-1px); transition: color 180ms ease, transform 180ms ease; }
+  .rare-sidebar-chevron[data-open="true"] { color: var(--ui-muted); transform: rotate(180deg) translateY(1px); }
+  .rare-sidebar-subnav { display: grid; gap: 0.55rem; margin: 0.05rem 0 0.25rem; padding-left: 0.6rem; }
+  .rare-sidebar-subsection { display: grid; gap: 0.15rem; }
+  .rare-sidebar-subheading { padding: 0.15rem 1.35rem 0.1rem; color: var(--ui-faint); font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em; line-height: 1.4; }
+  .rare-sidebar-subsection-items { display: grid; gap: 0.25rem; }
+  .rare-sidebar-subitem { padding-left: 1.35rem; font-size: var(--text-sm); }
 
   .rare-account-menu { position: relative; margin-inline: 0.25rem; }
   .rare-account-trigger { display: flex; min-height: 4rem; width: 100%; align-items: center; gap: 0.7rem; border: 1px solid transparent; border-radius: var(--ui-radius-panel); padding: 0.65rem 0.7rem; text-align: left; transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease; }
@@ -657,7 +667,8 @@
   .rare-account-action { display: flex; min-height: 2.6rem; width: 100%; align-items: center; gap: 0.65rem; border-radius: var(--ui-radius-control); padding: 0.55rem 0.65rem; color: var(--ui-ink-soft); font-size: var(--text-sm); transition: background-color 180ms ease, color 180ms ease; }
   .rare-account-action:hover { background: var(--ui-surface-elevated); color: var(--ui-ink); }
   .rare-account-language { justify-content: space-between; }
-  .rare-account-locale { width: auto; min-height: 2rem; border-color: var(--ui-line); background: var(--ui-canvas); padding: 0.25rem 1.9rem 0.25rem 0.55rem; font-size: var(--text-xs); }
+  .rare-account-language-label { flex: 0 0 auto; min-width: max-content; white-space: nowrap; }
+  .rare-account-locale { width: auto; min-height: 2rem; flex: 0 0 auto; border-color: var(--ui-line); background: var(--ui-canvas); padding: 0.25rem 1.9rem 0.25rem 0.55rem; font-size: var(--text-xs); }
 
   .rare-gooey-nav { display: inline-flex; align-items: center; gap: 0.25rem; overflow-x: auto; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-pill); background: var(--ui-surface); padding: 0.25rem; }
   .rare-gooey-item { position: relative; display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; border-radius: 999px; padding: 0.55rem 0.85rem; color: var(--ui-muted); font-size: var(--text-xs); font-weight: 650; transition: color 180ms ease; }

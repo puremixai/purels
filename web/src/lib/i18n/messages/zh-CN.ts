@@ -107,6 +107,9 @@ export const zhCN: Dictionary = {
   "nav.security": "安全设置",
   "nav.captcha": "注册保护",
   "nav.runtimeSettings": "运行时配置",
+  "nav.group.access": "账户与权限",
+  "nav.group.security": "安全与防护",
+  "nav.group.system": "系统与分析",
 
   "shell.console": "管理后台",
   "shell.workspace": "工作台",

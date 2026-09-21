@@ -130,7 +130,7 @@ export function AccountMenu({
                 <Icon name="arrow" size={15} className="ml-auto" />
               </Link>
               <div className="rare-account-action rare-account-language">
-                <span className="inline-flex items-center gap-2">
+                <span className="rare-account-language-label inline-flex items-center gap-2">
                   <Icon name="globe" size={17} />
                   <span>{t("shell.language")}</span>
                 </span>
