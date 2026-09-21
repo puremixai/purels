@@ -6,6 +6,8 @@ import { useT } from "@/components/i18n-provider";
 import { useToast } from "@/components/toast-provider";
 import { errorText, type MessageKey, type T } from "@/lib/i18n";
 import { validateAnalyticsInput } from "@/lib/analytics-config";
+import { RareStatus } from "@/components/rare/rare-status";
+import { SettingsPage, SettingsSection } from "@/components/settings/settings-page";
 
 const emptyDraft: AnalyticsInput = {
   ga4_measurement_id: "",
@@ -66,6 +68,7 @@ export default function AnalyticsSettingsPage() {
   }
 
   const dirty = (Object.keys(draft) as Array<keyof AnalyticsInput>).some((key) => draft[key] !== saved[key]);
+  const configuredCount = [draft.ga4_measurement_id, draft.gtm_container_id, draft.matomo_url && draft.matomo_site_id].filter(Boolean).length;
 
   async function save() {
     // Checked here so the operator gets a sentence naming the field, rather than
@@ -93,65 +96,65 @@ export default function AnalyticsSettingsPage() {
   }
 
   return (
-    <div className="console-page">
-      <div className="console-page-header">
-        <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")} / {t("settings.analytics.title")}</p>
-          <h1 className="console-page-title">{t("settings.analytics.title")}</h1>
-        </div>
-      </div>
+    <SettingsPage
+      group={t("nav.group.analytics")}
+      title={t("settings.analytics.title")}
+      description={t("settings.analytics.description")}
+    >
 
       {error && <p className="console-alert" role="alert">{error}</p>}
       {notice && <p className="console-notice" role="status">{notice}</p>}
       {loading && <span className="console-skeleton w-32" role="status" aria-label={t("common.loading")} />}
 
       {!loading && (
-        <section className="console-panel space-y-4 p-4 sm:p-5">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">{t("settings.analytics.ga4")}</span>
-              <input
-                className="field-control"
-                placeholder="G-XXXXXXXXXX"
-                value={draft.ga4_measurement_id}
-                onChange={(e) => edit({ ga4_measurement_id: e.target.value })}
-              />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">{t("settings.analytics.gtm")}</span>
-              <input
-                className="field-control"
-                placeholder="GTM-XXXXXXX"
-                value={draft.gtm_container_id}
-                onChange={(e) => edit({ gtm_container_id: e.target.value })}
-              />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">{t("settings.analytics.matomoUrl")}</span>
-              <input
-                className="field-control"
-                placeholder="https://matomo.example.com"
-                value={draft.matomo_url}
-                onChange={(e) => edit({ matomo_url: e.target.value })}
-              />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">{t("settings.analytics.matomoSiteId")}</span>
-              <input
-                className="field-control"
-                placeholder="1"
-                value={draft.matomo_site_id}
-                onChange={(e) => edit({ matomo_site_id: e.target.value })}
-              />
-            </label>
+        <SettingsSection
+          title={t("settings.analytics.providersTitle")}
+          description={t("settings.analytics.providersDescription")}
+          status={<RareStatus tone={configuredCount ? "success" : "neutral"}>{t("settings.analytics.configuredCount", { count: configuredCount })}</RareStatus>}
+        >
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="settings-provider-card">
+              <div className="settings-provider-card-header">
+                <div>
+                  <h3 className="settings-provider-card-title">{t("settings.analytics.ga4")}</h3>
+                  <p className="settings-provider-card-description">{t("settings.analytics.ga4Description")}</p>
+                </div>
+                <RareStatus tone={draft.ga4_measurement_id ? "success" : "neutral"}>{draft.ga4_measurement_id ? t("settings.configured") : t("settings.notConfigured")}</RareStatus>
+              </div>
+              <input className="field-control" placeholder="G-XXXXXXXXXX" aria-label={t("settings.analytics.ga4")} value={draft.ga4_measurement_id} onChange={(e) => edit({ ga4_measurement_id: e.target.value })} />
+            </div>
+            <div className="settings-provider-card">
+              <div className="settings-provider-card-header">
+                <div>
+                  <h3 className="settings-provider-card-title">{t("settings.analytics.gtm")}</h3>
+                  <p className="settings-provider-card-description">{t("settings.analytics.gtmDescription")}</p>
+                </div>
+                <RareStatus tone={draft.gtm_container_id ? "success" : "neutral"}>{draft.gtm_container_id ? t("settings.configured") : t("settings.notConfigured")}</RareStatus>
+              </div>
+              <input className="field-control" placeholder="GTM-XXXXXXX" aria-label={t("settings.analytics.gtm")} value={draft.gtm_container_id} onChange={(e) => edit({ gtm_container_id: e.target.value })} />
+            </div>
+            <div className="settings-provider-card">
+              <div className="settings-provider-card-header">
+                <div>
+                  <h3 className="settings-provider-card-title">Matomo</h3>
+                  <p className="settings-provider-card-description">{t("settings.analytics.matomoDescription")}</p>
+                </div>
+                <RareStatus tone={draft.matomo_url && draft.matomo_site_id ? "success" : "neutral"}>{draft.matomo_url && draft.matomo_site_id ? t("settings.configured") : t("settings.notConfigured")}</RareStatus>
+              </div>
+              <div className="grid gap-3">
+                <input className="field-control" placeholder="https://matomo.example.com" aria-label={t("settings.analytics.matomoUrl")} value={draft.matomo_url} onChange={(e) => edit({ matomo_url: e.target.value })} />
+                <input className="field-control" placeholder="1" aria-label={t("settings.analytics.matomoSiteId")} value={draft.matomo_site_id} onChange={(e) => edit({ matomo_site_id: e.target.value })} />
+              </div>
+            </div>
           </div>
-          <div className="flex justify-end">
+          <div className="settings-savebar">
+            {dirty && <span className="mr-auto text-xs text-[var(--muted)]">{t("settings.unsaved")}</span>}
             <button className="btn-primary" disabled={!dirty || busy} onClick={save}>
               {busy ? t("common.saving") : t("common.save")}
             </button>
           </div>
-        </section>
+        </SettingsSection>
       )}
-    </div>
+    </SettingsPage>
   );
 }

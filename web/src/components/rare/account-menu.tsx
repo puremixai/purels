@@ -124,7 +124,7 @@ export function AccountMenu({
             <div className="rare-account-divider" />
 
             <div className="rare-account-actions">
-              <Link className="rare-account-action" href="/home/settings/runtime" onClick={closeAfterNavigation}>
+              <Link className="rare-account-action" href="/home/settings" onClick={closeAfterNavigation}>
                 <Icon name="settings" size={18} />
                 <span>{t("shell.settings")}</span>
                 <Icon name="arrow" size={15} className="ml-auto" />

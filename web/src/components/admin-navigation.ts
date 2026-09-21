@@ -4,6 +4,7 @@ import type { IconName } from "./icon";
 export type AdminNavItem = {
   href: string;
   labelKey: MessageKey;
+  descriptionKey?: MessageKey;
   icon: IconName;
   scope?: string;
 };
@@ -11,6 +12,7 @@ export type AdminNavItem = {
 export type AdminNavGroup = {
   id: string;
   labelKey?: MessageKey;
+  descriptionKey?: MessageKey;
   items: readonly AdminNavItem[];
 };
 
@@ -40,28 +42,45 @@ export const adminNavSections: readonly AdminNavSection[] = [
     icon: "settings",
     groups: [
       {
+        id: "overview",
+        labelKey: "nav.group.overview",
+        items: [
+          { href: "/home/settings", labelKey: "nav.settingsOverview", descriptionKey: "settings.home.overviewDescription", icon: "grid" },
+        ],
+      },
+      {
         id: "access",
         labelKey: "nav.group.access",
+        descriptionKey: "settings.home.accessDescription",
         items: [
-          { href: "/home/users", labelKey: "nav.users", icon: "user", scope: "users:manage" },
-          { href: "/home/settings/roles", labelKey: "nav.roles", icon: "key", scope: "roles:manage" },
-          { href: "/home/settings/oidc", labelKey: "nav.oidc", icon: "lock", scope: "oidc:manage" },
+          { href: "/home/users", labelKey: "nav.users", descriptionKey: "settings.home.usersDescription", icon: "user", scope: "users:manage" },
+          { href: "/home/settings/roles", labelKey: "nav.roles", descriptionKey: "settings.home.rolesDescription", icon: "key", scope: "roles:manage" },
+          { href: "/home/settings/oidc", labelKey: "nav.oidc", descriptionKey: "settings.home.oidcDescription", icon: "lock", scope: "oidc:manage" },
         ],
       },
       {
         id: "security",
         labelKey: "nav.group.security",
+        descriptionKey: "settings.home.securityDescription",
         items: [
-          { href: "/home/settings/security", labelKey: "nav.security", icon: "shield" },
-          { href: "/home/settings/captcha", labelKey: "nav.captcha", icon: "shield", scope: "captcha:manage" },
+          { href: "/home/settings/security", labelKey: "nav.security", descriptionKey: "settings.home.securityPageDescription", icon: "shield" },
+          { href: "/home/settings/captcha", labelKey: "nav.captcha", descriptionKey: "settings.home.captchaDescription", icon: "shield", scope: "captcha:manage" },
         ],
       },
       {
-        id: "system",
-        labelKey: "nav.group.system",
+        id: "links",
+        labelKey: "nav.group.links",
+        descriptionKey: "settings.home.linksDescription",
         items: [
-          { href: "/home/settings/analytics", labelKey: "nav.analytics", icon: "pulse", scope: "analytics:manage" },
-          { href: "/home/settings/runtime", labelKey: "nav.runtimeSettings", icon: "refresh", scope: "settings:manage" },
+          { href: "/home/settings/runtime", labelKey: "nav.runtimeSettings", descriptionKey: "settings.home.runtimeDescription", icon: "link", scope: "settings:manage" },
+        ],
+      },
+      {
+        id: "analytics",
+        labelKey: "nav.group.analytics",
+        descriptionKey: "settings.home.analyticsDescription",
+        items: [
+          { href: "/home/settings/analytics", labelKey: "nav.analytics", descriptionKey: "settings.home.analyticsPageDescription", icon: "pulse", scope: "analytics:manage" },
         ],
       },
     ],

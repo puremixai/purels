@@ -5,6 +5,7 @@ import { api, AccountRecord, RoleRecord } from "@/lib/api-client";
 import { useLocale, useT } from "@/components/i18n-provider";
 import { formatDateTime } from "@/lib/format";
 import { errorText, hasMessage, type T } from "@/lib/i18n";
+import { SettingsPage, SettingsSection } from "@/components/settings/settings-page";
 
 function roleLabel(t: T, name: string) {
   const key = `role.${name}`;
@@ -75,17 +76,15 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="console-page">
-      <div className="console-page-header">
-        <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")} / {t("users.title")}</p>
-          <h1 className="console-page-title">{t("users.title")}</h1>
-        </div>
-      </div>
+    <SettingsPage
+      group={t("nav.group.access")}
+      title={t("users.title")}
+      description={t("settings.home.usersDescription")}
+    >
 
       {error && <p className="console-alert" role="alert">{error}</p>}
 
-      <div className="console-panel">
+      <SettingsSection title={t("users.directoryTitle")} description={t("users.directoryDescription")}>
         <div className="mobile-scroll">
           <table className="console-table min-w-[980px]">
             <thead>
@@ -170,7 +169,7 @@ export default function UsersPage() {
             <p className="console-empty">{t("users.empty")}</p>
           )}
         </div>
-      </div>
-    </div>
+      </SettingsSection>
+    </SettingsPage>
   );
 }

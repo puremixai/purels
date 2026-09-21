@@ -5,6 +5,7 @@ import { api, type RuntimeSettings, type RuntimeSettingsInput } from "@/lib/api-
 import { useT } from "@/components/i18n-provider";
 import { useToast } from "@/components/toast-provider";
 import { errorText, type MessageKey, type T } from "@/lib/i18n";
+import { SettingsPage, SettingsSection } from "@/components/settings/settings-page";
 
 const emptyDraft: RuntimeSettingsInput = {
   alias_mode: "random",
@@ -143,14 +144,11 @@ export default function RuntimeSettingsPage() {
   }
 
   return (
-    <div className="console-page">
-      <div className="console-page-header">
-        <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")} / {t("settings.runtime.title")}</p>
-          <h1 className="console-page-title">{t("settings.runtime.title")}</h1>
-          <p className="console-page-description">{t("settings.runtime.description")}</p>
-        </div>
-      </div>
+    <SettingsPage
+      group={t("nav.group.links")}
+      title={t("settings.runtime.title")}
+      description={t("settings.runtime.description")}
+    >
 
       {error && <p className="console-alert" role="alert">{error}</p>}
       {notice && <p className="console-notice" role="status">{notice}</p>}
@@ -158,12 +156,9 @@ export default function RuntimeSettingsPage() {
 
       {!loading && (
         <div className="space-y-4">
-          <section className="console-panel space-y-4 p-4 sm:p-5">
+          <SettingsSection title={t("settings.runtime.linksTitle")} description={t("settings.runtime.linksDescription")}>
             <div>
-              <h2 className="font-semibold">{t("settings.runtime.linksTitle")}</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">{t("settings.runtime.linksDescription")}</p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-1 text-sm">
                 <span className="text-[var(--muted)]">{t("settings.runtime.aliasMode")}</span>
                 <select className="field-control" value={draft.alias_mode} onChange={(event) => edit({ alias_mode: event.target.value as RuntimeSettingsInput["alias_mode"] })}>
@@ -186,47 +181,51 @@ export default function RuntimeSettingsPage() {
                 <textarea className="field-control min-h-24" value={listText(draft.destination_denylist)} placeholder="localhost\n169.254.169.254" onChange={(event) => edit({ destination_denylist: parseList(event.target.value) })} />
                 <span className="text-xs text-[var(--muted)]">{t("settings.runtime.hostHelp")}</span>
               </label>
+              </div>
+              <div className="mt-5 border-t border-[var(--line)] pt-4">
+                <h3 className="text-sm font-semibold text-[var(--ink)]">{t("settings.runtime.accessTitle")}</h3>
+                <p className="mt-1 text-xs text-[var(--muted)]">{t("settings.runtime.accessDescription")}</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {toggle("unique_urls", "settings.runtime.uniqueUrls")}
+                  {toggle("registration_enabled", "settings.runtime.registration")}
+                  {toggle("forward_query", "settings.runtime.forwardQuery")}
+                  {toggle("count_bots", "settings.runtime.countBots")}
+                </div>
+              </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {toggle("unique_urls", "settings.runtime.uniqueUrls")}
-              {toggle("registration_enabled", "settings.runtime.registration")}
-              {toggle("forward_query", "settings.runtime.forwardQuery")}
-              {toggle("count_bots", "settings.runtime.countBots")}
-            </div>
-          </section>
+          </SettingsSection>
 
-          <section className="console-panel space-y-4 p-4 sm:p-5">
+          <SettingsSection title={t("settings.runtime.jobsTitle")} description={t("settings.runtime.jobsDescription")}>
             <div>
-              <h2 className="font-semibold">{t("settings.runtime.jobsTitle")}</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">{t("settings.runtime.jobsDescription")}</p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2">
               {numberField("prune_grace_seconds", "settings.runtime.pruneGrace")}
               {numberField("health_check_interval_seconds", "settings.runtime.healthInterval", 1)}
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {toggle("auto_prune_expired", "settings.runtime.autoPrune")}
+                {toggle("health_check_enabled", "settings.runtime.healthCheck")}
+              </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {toggle("auto_prune_expired", "settings.runtime.autoPrune")}
-              {toggle("health_check_enabled", "settings.runtime.healthCheck")}
-            </div>
-          </section>
+          </SettingsSection>
 
-          <section className="console-panel space-y-4 p-4 sm:p-5">
+          <SettingsSection title={t("settings.runtime.rateTitle")} description={t("settings.runtime.rateDescription")}>
             <div>
-              <h2 className="font-semibold">{t("settings.runtime.rateTitle")}</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">{t("settings.runtime.rateDescription")}</p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {numberField("rate_limit_login", "settings.runtime.rateLogin")}
               {numberField("rate_limit_register", "settings.runtime.rateRegister")}
               {numberField("rate_limit_2fa", "settings.runtime.rate2fa")}
               {numberField("rate_limit_oidc", "settings.runtime.rateOidc")}
               {numberField("rate_limit_api", "settings.runtime.rateApi")}
               {numberField("rate_limit_redirect", "settings.runtime.rateRedirect")}
+              </div>
+              <div className="mt-4">
+                {toggle("rate_limit_enabled", "settings.runtime.rateEnabled")}
+              </div>
             </div>
-            {toggle("rate_limit_enabled", "settings.runtime.rateEnabled")}
-          </section>
+          </SettingsSection>
 
-          <div className="flex items-center justify-between gap-4">
+          <div className="settings-savebar">
+            {dirty && <span className="mr-auto text-xs text-[var(--muted)]">{t("settings.unsaved")}</span>}
             <span className="text-xs text-[var(--muted)]">{t("settings.runtime.revision", { revision })}</span>
             <button className="btn-primary" disabled={!dirty || busy} onClick={save}>
               {busy ? t("common.saving") : t("common.save")}
@@ -234,6 +233,6 @@ export default function RuntimeSettingsPage() {
           </div>
         </div>
       )}
-    </div>
+    </SettingsPage>
   );
 }

@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { api, RoleRecord } from "@/lib/api-client";
 import { useT } from "@/components/i18n-provider";
 import { useToast } from "@/components/toast-provider";
-import { errorText, hasMessage, type T } from "@/lib/i18n";
+import { errorText, hasMessage, type MessageKey, type T } from "@/lib/i18n";
+import { RareStatus } from "@/components/rare/rare-status";
+import { SettingsPage, SettingsSection } from "@/components/settings/settings-page";
 
 type Draft = { scopes: string[]; unrestricted: boolean };
 
@@ -23,6 +25,13 @@ const SCOPES = [
   "captcha:manage",
   "settings:manage",
 ] as const;
+
+const SCOPE_GROUPS: ReadonlyArray<{ labelKey: MessageKey; scopes: readonly string[] }> = [
+  { labelKey: "settings.roles.group.links", scopes: ["links:read", "links:write"] },
+  { labelKey: "settings.roles.group.workspace", scopes: ["stats:read", "audit:read"] },
+  { labelKey: "settings.roles.group.access", scopes: ["tokens:manage", "users:manage", "roles:manage", "oidc:manage"] },
+  { labelKey: "settings.roles.group.service", scopes: ["analytics:manage", "captcha:manage", "settings:manage"] },
+];
 
 function scopeLabel(t: T, scope: string) {
   const key = `scope.${scope}`;
@@ -103,13 +112,11 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="console-page">
-      <div className="console-page-header">
-        <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")} / {t("settings.roles.title")}</p>
-          <h1 className="console-page-title">{t("settings.roles.title")}</h1>
-        </div>
-      </div>
+    <SettingsPage
+      group={t("nav.group.access")}
+      title={t("settings.roles.title")}
+      description={t("settings.roles.description")}
+    >
 
       {error && <p className="console-alert" role="alert">{error}</p>}
       {notice && <p className="console-notice" role="status">{notice}</p>}
@@ -120,40 +127,52 @@ export default function RolesPage() {
         const draft = drafts[role.name] || toDraft(role);
         const dirty = !sameDraft(draft, toDraft(role));
         return (
-          <section className="console-panel space-y-4 p-4 sm:p-5" key={role.name}>
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="font-semibold">{roleLabel(t, role.name)}</h2>
+          <SettingsSection
+            key={role.name}
+            title={roleLabel(t, role.name)}
+            status={<RareStatus tone={dirty ? "warning" : "neutral"}>{dirty ? t("settings.unsaved") : t("settings.synced")}</RareStatus>}
+            actions={(
               <button className="btn-primary" disabled={!dirty || busy === role.name} onClick={() => save(role.name)}>
                 {busy === role.name ? t("common.saving") : t("common.save")}
               </button>
-            </div>
-
-            <div className="grid gap-2 sm:grid-cols-2">
-              {SCOPES.map((scope) => (
-                <label className="flex items-center gap-2 text-sm" key={scope}>
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={draft.scopes.includes(scope)}
-                    onChange={() => toggleScope(role.name, scope)}
-                  />
-                  {scopeLabel(t, scope)}
-                </label>
+            )}
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              {SCOPE_GROUPS.map((group) => (
+                <fieldset className="settings-permission-group" key={group.labelKey}>
+                  <legend>{t(group.labelKey)}</legend>
+                  <div className="mt-2 grid gap-2">
+                    {group.scopes.filter((scope) => SCOPES.includes(scope as typeof SCOPES[number])).map((scope) => (
+                      <label className="flex items-start gap-2 text-sm" key={scope}>
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4"
+                          checked={draft.scopes.includes(scope)}
+                          onChange={() => toggleScope(role.name, scope)}
+                        />
+                        <span>{scopeLabel(t, scope)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
               ))}
             </div>
 
-            <label className="flex items-center gap-2 border-t border-[var(--line)] pt-4 text-sm">
+            <label className="mt-4 flex items-start gap-2 border-t border-[var(--line)] pt-4 text-sm">
               <input
                 type="checkbox"
-                className="h-4 w-4"
+                className="mt-0.5 h-4 w-4"
                 checked={draft.unrestricted}
                 onChange={() => edit(role.name, (current) => ({ ...current, unrestricted: !current.unrestricted }))}
               />
-              {t("settings.roles.unrestricted")}
+              <span>
+                <span className="block font-medium">{t("settings.roles.unrestricted")}</span>
+                <span className="mt-0.5 block text-xs text-[var(--muted)]">{t("settings.roles.unrestrictedDescription")}</span>
+              </span>
             </label>
-          </section>
+          </SettingsSection>
         );
       })}
-    </div>
+    </SettingsPage>
   );
 }

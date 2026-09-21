@@ -5,6 +5,8 @@ import { api, type CaptchaInput, type CaptchaSettings } from "@/lib/api-client";
 import { useT } from "@/components/i18n-provider";
 import { useToast } from "@/components/toast-provider";
 import { errorText, type MessageKey, type T } from "@/lib/i18n";
+import { RareStatus } from "@/components/rare/rare-status";
+import { SettingsPage, SettingsSection } from "@/components/settings/settings-page";
 
 type Draft = {
   enabled: boolean;
@@ -104,37 +106,35 @@ export default function CaptchaSettingsPage() {
   }
 
   return (
-    <div className="console-page">
-      <div className="console-page-header">
-        <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")} / {t("settings.captcha.title")}</p>
-          <h1 className="console-page-title">{t("settings.captcha.title")}</h1>
-        </div>
-      </div>
+    <SettingsPage
+      group={t("nav.group.security")}
+      title={t("settings.captcha.title")}
+      description={t("settings.captcha.description")}
+    >
 
       {error && <p className="console-alert" role="alert">{error}</p>}
       {notice && <p className="console-notice" role="status">{notice}</p>}
       {loading && <span className="console-skeleton w-32" role="status" aria-label={t("common.loading")} />}
 
       {!loading && (
-        <section className="console-panel space-y-4 p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="font-semibold">Cloudflare Turnstile</h2>
-            </div>
+        <SettingsSection
+          title="Cloudflare Turnstile"
+          description={t("settings.captcha.providerDescription")}
+          status={<RareStatus tone={draft.enabled ? "success" : "neutral"}>{draft.enabled ? t("settings.security.enabled") : t("settings.security.notEnabled")}</RareStatus>}
+          actions={(
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" className="h-4 w-4" checked={draft.enabled} onChange={() => edit({ enabled: !draft.enabled })} />
               {t("settings.captcha.enable")}
             </label>
-          </div>
-
+          )}
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">{t("settings.captcha.siteKey")}</span>
+              <span className="text-[var(--ink)]">{t("settings.captcha.siteKey")}</span>
               <input className="field-control" value={draft.site_key} onChange={(e) => edit({ site_key: e.target.value })} />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">{t("settings.captcha.secretKey")}{draft.has_secret ? t("settings.leaveBlank") : ""}</span>
+              <span className="text-[var(--ink)]">{t("settings.captcha.secretKey")}{draft.has_secret ? t("settings.leaveBlank") : ""}</span>
               <input
                 className="field-control"
                 type="password"
@@ -145,22 +145,23 @@ export default function CaptchaSettingsPage() {
               />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">{t("settings.captcha.expectedHostname")}</span>
+              <span className="text-[var(--ink)]">{t("settings.captcha.expectedHostname")}</span>
               <input className="field-control" placeholder="example.com" value={draft.expected_hostname} onChange={(e) => edit({ expected_hostname: e.target.value })} />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="text-[var(--muted)]">{t("settings.captcha.expectedAction")}</span>
+              <span className="text-[var(--ink)]">{t("settings.captcha.expectedAction")}</span>
               <input className="field-control" placeholder="register" value={draft.expected_action} onChange={(e) => edit({ expected_action: e.target.value })} />
             </label>
           </div>
 
-          <div className="flex justify-end">
+          <div className="settings-savebar">
+            {dirty && <span className="mr-auto text-xs text-[var(--muted)]">{t("settings.unsaved")}</span>}
             <button className="btn-primary" disabled={!dirty || busy} onClick={save}>
               {busy ? t("common.saving") : t("common.save")}
             </button>
           </div>
-        </section>
+        </SettingsSection>
       )}
-    </div>
+    </SettingsPage>
   );
 }

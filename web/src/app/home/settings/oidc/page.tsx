@@ -6,6 +6,8 @@ import { useT } from "@/components/i18n-provider";
 import { useToast } from "@/components/toast-provider";
 import { errorText, type MessageKey, type T } from "@/lib/i18n";
 import { buildOIDCCallbackURL } from "@/lib/oidc-callback";
+import { RareStatus } from "@/components/rare/rare-status";
+import { SettingsPage, SettingsSection } from "@/components/settings/settings-page";
 
 const DEFAULT_SCOPES = "openid profile email";
 
@@ -192,13 +194,11 @@ export default function OIDCSettingsPage() {
   const newCallback = buildOIDCCallbackURL(redirectBase, creating.slug);
 
   return (
-    <div className="console-page">
-      <div className="console-page-header">
-        <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")} / {t("settings.oidc.title")}</p>
-          <h1 className="console-page-title">{t("settings.oidc.title")}</h1>
-        </div>
-      </div>
+    <SettingsPage
+      group={t("nav.group.access")}
+      title={t("settings.oidc.title")}
+      description={t("settings.oidc.description")}
+    >
 
       {error && <p className="console-alert" role="alert">{error}</p>}
       {notice && <p className="console-notice" role="status">{notice}</p>}
@@ -210,20 +210,18 @@ export default function OIDCSettingsPage() {
 
       {loading && !providers.length && <span className="console-skeleton w-32" role="status" aria-label={t("common.loading")} />}
 
+      {!loading && providers.length > 0 && <p className="text-sm text-[var(--muted)]">{t("settings.oidc.providerListDescription")}</p>}
+
       {providers.map((provider) => {
         const draft = drafts[provider.id] || toDraft(provider);
         const callback = buildOIDCCallbackURL(redirectBase, provider.slug);
         return (
-          <section className="console-panel space-y-4 p-4 sm:p-5" key={provider.id}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <h2 className="font-semibold">{provider.display_name}</h2>
-                <code className="rounded bg-canvas px-1.5 py-0.5 text-xs text-ink-soft">{provider.slug}</code>
-                <span className={`rounded-full px-2.5 py-1 text-xs ${provider.enabled ? "bg-success-tint text-success" : "bg-canvas text-ink-soft"}`}>
-                  {provider.enabled ? t("settings.oidc.enabled") : t("settings.oidc.disabled")}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
+          <SettingsSection
+            key={provider.id}
+            title={provider.display_name}
+            status={<RareStatus tone={provider.enabled ? "success" : "neutral"}>{provider.enabled ? t("settings.oidc.enabled") : t("settings.oidc.disabled")}</RareStatus>}
+            actions={(
+              <div className="flex flex-wrap items-center gap-2">
                 <button className="btn-primary" disabled={!dirty(provider) || busy === provider.id} onClick={() => save(provider)}>
                   {busy === provider.id ? t("common.saving") : t("common.save")}
                 </button>
@@ -242,6 +240,11 @@ export default function OIDCSettingsPage() {
                   </button>
                 )}
               </div>
+            )}
+          >
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+              <code className="rounded bg-canvas px-1.5 py-0.5 font-mono text-[var(--ink-soft)]">{provider.slug}</code>
+              <span>{t("settings.oidc.boundAccounts", { count: provider.identity_count })}</span>
             </div>
 
             {confirming === provider.id && (
@@ -261,7 +264,7 @@ export default function OIDCSettingsPage() {
                 />
               </label>
               <label className="space-y-1 text-sm">
-                <span className="text-[var(--muted)]">Issuer</span>
+                <span className="text-[var(--ink)]">{t("settings.oidc.issuer")}</span>
                 <input
                   className="field-control"
                   value={draft.issuer}
@@ -269,7 +272,7 @@ export default function OIDCSettingsPage() {
                 />
               </label>
               <label className="space-y-1 text-sm">
-                <span className="text-[var(--muted)]">Client ID</span>
+                <span className="text-[var(--ink)]">{t("settings.oidc.clientId")}</span>
                 <input
                   className="field-control"
                   value={draft.client_id}
@@ -277,7 +280,7 @@ export default function OIDCSettingsPage() {
                 />
               </label>
               <label className="space-y-1 text-sm">
-                <span className="text-[var(--muted)]">Client Secret{provider.has_secret ? t("settings.leaveBlank") : ""}</span>
+                <span className="text-[var(--ink)]">{t("settings.oidc.clientSecret")}{provider.has_secret ? t("settings.leaveBlank") : ""}</span>
                 <input
                   className="field-control"
                   type="password"
@@ -288,7 +291,7 @@ export default function OIDCSettingsPage() {
                 />
               </label>
               <label className="space-y-1 text-sm">
-                <span className="text-[var(--muted)]">Scopes</span>
+                <span className="text-[var(--ink)]">{t("settings.oidc.scopes")}</span>
                 <input
                   className="field-control"
                   value={draft.scopes}
@@ -323,12 +326,11 @@ export default function OIDCSettingsPage() {
                 <code className="block break-all rounded bg-canvas-alt px-3 py-2 font-mono text-xs">{callback}</code>
               </div>
             )}
-          </section>
+          </SettingsSection>
         );
       })}
 
-      <section className="console-panel space-y-4 p-4 sm:p-5">
-        <h2 className="font-semibold">{t("settings.oidc.newTitle")}</h2>
+      <SettingsSection title={t("settings.oidc.newTitle")} description={t("settings.oidc.newDescription")}>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="space-y-1 text-sm">
@@ -350,7 +352,7 @@ export default function OIDCSettingsPage() {
             />
           </label>
           <label className="space-y-1 text-sm">
-            <span className="text-[var(--muted)]">Issuer</span>
+            <span className="text-[var(--ink)]">{t("settings.oidc.issuer")}</span>
             <input
               className="field-control"
               placeholder="https://idp.example.com"
@@ -359,7 +361,7 @@ export default function OIDCSettingsPage() {
             />
           </label>
           <label className="space-y-1 text-sm">
-            <span className="text-[var(--muted)]">Client ID</span>
+            <span className="text-[var(--ink)]">{t("settings.oidc.clientId")}</span>
             <input
               className="field-control"
               value={creating.client_id}
@@ -377,7 +379,7 @@ export default function OIDCSettingsPage() {
             />
           </label>
           <label className="space-y-1 text-sm">
-            <span className="text-[var(--muted)]">Scopes</span>
+            <span className="text-[var(--ink)]">{t("settings.oidc.scopes")}</span>
             <input
               className="field-control"
               value={creating.scopes}
@@ -413,7 +415,7 @@ export default function OIDCSettingsPage() {
             {busy === "new" ? t("settings.oidc.adding") : t("settings.oidc.add")}
           </button>
         </div>
-      </section>
-    </div>
+      </SettingsSection>
+    </SettingsPage>
   );
 }
