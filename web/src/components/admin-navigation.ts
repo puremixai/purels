@@ -20,6 +20,12 @@ export type AdminNavSection = {
   id: "primary" | "settings";
   labelKey?: MessageKey;
   icon?: IconName;
+  /**
+   * Where the section heading itself goes. A collapsed group whose heading is
+   * only a disclosure triangle leaves the reader clicking twice to reach the
+   * page they named, so the heading is the page and the triangle is the triangle.
+   */
+  href?: string;
   groups: readonly AdminNavGroup[];
 };
 
@@ -40,14 +46,8 @@ export const adminNavSections: readonly AdminNavSection[] = [
     id: "settings",
     labelKey: "shell.settings",
     icon: "settings",
+    href: "/home/settings",
     groups: [
-      {
-        id: "overview",
-        labelKey: "nav.group.overview",
-        items: [
-          { href: "/home/settings", labelKey: "nav.settingsOverview", descriptionKey: "settings.home.overviewDescription", icon: "grid" },
-        ],
-      },
       {
         id: "access",
         labelKey: "nav.group.access",

@@ -16,7 +16,7 @@ export function SiteFooter({ t, registrationOpen }: { t: T; registrationOpen: bo
       <div className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-8 sm:grid-cols-3">
         <div className="sm:col-span-1">
           <div className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--brand)] text-base font-bold text-[#100b08]">P</span>
+            <span className="grid h-9 w-9 place-items-center rounded-2xl bg-brand-fill text-base font-bold text-on-brand">P</span>
             <span className="text-base font-bold">Purels</span>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">{t("home.footer.tagline")}</p>
@@ -24,7 +24,7 @@ export function SiteFooter({ t, registrationOpen }: { t: T; registrationOpen: bo
         <ul className="grid content-start gap-2 text-sm text-[var(--muted)]">
           {SECTIONS.map((section) => (
             <li key={section.id}>
-              <a className="hover:text-[var(--ink)]" href={`#${section.id}`}>
+              <a className="inline-flex min-h-6 items-center hover:text-[var(--ink)]" href={`#${section.id}`}>
                 {t(section.key)}
               </a>
             </li>
@@ -32,13 +32,13 @@ export function SiteFooter({ t, registrationOpen }: { t: T; registrationOpen: bo
         </ul>
         <ul className="grid content-start gap-2 text-sm text-[var(--muted)]">
           <li>
-            <Link className="hover:text-[var(--ink)]" href="/login">
+            <Link className="inline-flex min-h-6 items-center hover:text-[var(--ink)]" href="/login">
               {t("home.nav.signIn")}
             </Link>
           </li>
           {registrationOpen && (
             <li>
-              <Link className="hover:text-[var(--ink)]" href="/register">
+              <Link className="inline-flex min-h-6 items-center hover:text-[var(--ink)]" href="/register">
                 {t("home.nav.getStarted")}
               </Link>
             </li>

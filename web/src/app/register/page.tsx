@@ -60,9 +60,9 @@ export default function RegisterPage() {
   return <main className="relative grid min-h-[100dvh] place-items-center overflow-hidden bg-[var(--canvas)] px-5 py-6">
     <div className="pointer-events-none absolute -left-32 top-1/2 -translate-y-1/2 opacity-20 blur-2xl"><FluidOrb size={480} color="var(--brand)" /></div>
     <section className="panel relative z-10 w-full max-w-md p-6 sm:p-7">
-      <div className="mb-6 flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--brand)] text-lg font-bold text-[#100b08]">P</div><div><h1 className="text-xl font-bold tracking-tight">Purels</h1><p className="text-sm text-[var(--muted)]">{t("login.subtitle")}</p></div></div>
+      <div className="mb-6 flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-2xl bg-brand-fill text-lg font-bold text-on-brand">P</div><div><h1 className="text-xl font-bold tracking-tight">Purels</h1><p className="text-sm text-[var(--muted)]">{t("login.subtitle")}</p></div></div>
       <h2 className="mb-4 text-lg font-semibold">{t("register.heading")}</h2>
-      {captchaError && <p className="mb-3 rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger" role="alert">{captchaError}</p>}
+      {captchaError && <p className="console-alert mb-3" role="alert">{captchaError}</p>}
       {registrationClosed ? (
         <p className="rounded-lg bg-warning-tint px-3 py-2 text-sm text-warning">{t("error.registration_disabled")}</p>
       ) : (
@@ -70,7 +70,7 @@ export default function RegisterPage() {
           <form onSubmit={submit} className="space-y-3">
             <label className="block"><span className="field-label">{t("register.username")}</span><input required autoComplete="username" className="field-control" value={username} onChange={e => setUsername(e.target.value)} /></label>
             <label className="block"><span className="field-label">{t("register.password")}</span><input required minLength={12} type="password" autoComplete="new-password" className="field-control" value={password} onChange={e => setPassword(e.target.value)} /></label>
-            {error && <p className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger" role="alert">{error}</p>}
+            {error && <p className="console-alert" role="alert">{error}</p>}
             <button className="btn-primary w-full" disabled={loading || captchaLoading || Boolean(captchaError) || (captchaRequired && !captchaToken)}>{loading ? t("register.submitting") : t("register.submit")}</button>
           </form>
           {captchaRequired && captcha?.site_key && (

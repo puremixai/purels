@@ -24,7 +24,7 @@ export function GooeyNav({
   defaultValue = 0,
   onChange,
   size = "md",
-  activeColor = "var(--ui-accent)",
+  activeColor = "var(--ui-accent-fill)",
   ariaLabel = "Section navigation",
   className,
 }: GooeyNavProps) {

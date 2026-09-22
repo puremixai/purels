@@ -20,7 +20,7 @@ export function SiteHeader({ t, registrationOpen }: { t: T; registrationOpen: bo
     <header className="sticky top-0 z-20 border-b border-[var(--line)] bg-surface/90 backdrop-blur-sm">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-4 px-5 sm:gap-6">
         <Link className="flex shrink-0 items-center gap-2.5" href="/">
-          <span className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--brand)] text-base font-bold text-[#100b08]">P</span>
+          <span className="grid h-9 w-9 place-items-center rounded-2xl bg-brand-fill text-base font-bold text-on-brand">P</span>
           {/* A span, not a heading: the page gets exactly one h1 and the hero
               has it. */}
           <span className="text-base font-bold">Purels</span>

@@ -248,7 +248,7 @@ export default function OIDCSettingsPage() {
             </div>
 
             {confirming === provider.id && (
-              <p className="rounded-lg bg-danger-tint px-4 py-3 text-sm text-danger">
+              <p className="console-alert">
                 {t("settings.oidc.deleteWarning")}
                 {provider.identity_count > 0 ? ` ${t("settings.oidc.boundAccounts", { count: provider.identity_count })}` : ""}
               </p>

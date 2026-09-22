@@ -36,6 +36,12 @@ export default async function RootLayout({
   return (
     <html className={`${GeistSans.variable} ${GeistMono.variable}`} data-theme="dark" lang={locale} suppressHydrationWarning>
       <body>
+        {/*
+          Applied before first paint. The provider also sets the theme, but it
+          does so in an effect — a light-mode operator would load every page as
+          dark for a frame first, which reads as a fault rather than a delay.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: 'try{var t=localStorage.getItem("purels-theme");if(t==="light"||t==="dark"){document.documentElement.dataset.theme=t;}}catch(e){}' }} />
         <ThemeProvider>
           <I18nProvider locale={locale}>
             <ToastProvider>{children}</ToastProvider>

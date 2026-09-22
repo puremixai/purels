@@ -817,6 +817,27 @@ export const api = {
   config() {
     return request<AppConfig>("/api/v1/config");
   },
+  system: {
+    /**
+     * `/readyz` pings the database, so it is the only answer on the page that
+     * says whether this deployment can serve traffic at all. The route is public
+     * and never redirects to /login, which is why a thrown error is read as a
+     * verdict rather than as a lost session: status 0 is the transport failing
+     * to reach the API, anything else is the API answering "not ready".
+     */
+    async readiness(): Promise<"ready" | "degraded" | "unreachable"> {
+      try {
+        await request<{ status: string }>("/readyz", { cache: "no-store" });
+        return "ready";
+      } catch (e) {
+        // Status 0 is the fetch never reaching anyone. `/readyz` itself only ever
+        // answers 200 or 503, so any other 5xx — including the 500 the Next proxy
+        // returns when its target is down — means the request never got through.
+        if (e instanceof ApiError && e.status === 503) return "degraded";
+        return e instanceof ApiError && (e.status === 0 || e.status >= 500) ? "unreachable" : "degraded";
+      }
+    },
+  },
   stats: {
     summary() {
       return request<StatsSummary>("/api/v1/stats/summary");

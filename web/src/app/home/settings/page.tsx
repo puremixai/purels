@@ -19,7 +19,7 @@ export default function SettingsHomePage() {
   }, []);
 
   const settings = getVisibleNavigation(scopes || []).find((section) => section.id === "settings");
-  const groups = settings?.groups.filter((group) => group.id !== "overview" && group.labelKey) || [];
+  const groups = settings?.groups.filter((group) => group.labelKey) || [];
 
   return (
     <SettingsPage

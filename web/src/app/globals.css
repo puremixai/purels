@@ -19,6 +19,10 @@
   --color-brand: var(--brand);
   --color-brand-dark: var(--brand-dark);
   --color-brand-tint: var(--brand-tint);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-fill: var(--brand-fill);
+  --color-on-brand: var(--on-brand);
+  --color-on-danger: var(--on-danger);
   --color-success: var(--success);
   --color-success-tint: var(--success-tint);
   --color-warning: var(--warning);
@@ -67,16 +71,21 @@
   --ui-ink: #f7f7f5;
   --ui-ink-soft: #d2d2d7;
   --ui-muted: #9999a2;
-  --ui-faint: #686871;
+  --ui-faint: #87878f;
   --ui-accent: #f75001;
   --ui-accent-strong: #d94100;
   --ui-accent-tint: #2b160d;
+  --ui-accent-ink: #f75001;
+  --ui-accent-fill: #f75001;
   --ui-success: #48d597;
   --ui-success-tint: #10251d;
   --ui-warning: #f2b84b;
   --ui-warning-tint: #2b2110;
   --ui-danger: #ff6b5b;
   --ui-danger-tint: #301512;
+  --ui-on-accent: #100b08;
+  --ui-on-danger: #190604;
+  --ui-scrim: rgb(0 0 0 / 62%);
   --ui-radius-panel: 16px;
   --ui-radius-control: 10px;
   --ui-radius-pill: 999px;
@@ -98,6 +107,11 @@
   --brand: var(--ui-accent);
   --brand-dark: var(--ui-accent-strong);
   --brand-tint: var(--ui-accent-tint);
+  --brand-ink: var(--ui-accent-ink);
+  --brand-fill: var(--ui-accent-fill);
+  --on-brand: var(--ui-on-accent);
+  --on-danger: var(--ui-on-danger);
+  --scrim: var(--ui-scrim);
   --success: var(--ui-success);
   --success-tint: var(--ui-success-tint);
   --warning: var(--ui-warning);
@@ -118,12 +132,16 @@
   --ui-line-strong: #c6c6bf;
   --ui-ink: #171717;
   --ui-ink-soft: #3e3e43;
-  --ui-muted: #6e6e75;
-  --ui-faint: #98989f;
+  --ui-muted: #565660;
+  --ui-faint: #6b6b75;
   --ui-accent: #d94100;
   --ui-accent-strong: #b73700;
   --ui-accent-tint: #fff0e7;
-  --ui-success: #1d8b62;
+  --ui-accent-ink: #a83200;
+  --ui-accent-fill: #b73700;
+  --ui-on-accent: #ffffff;
+  --ui-on-danger: #ffffff;
+  --ui-success: #157a53;
   --ui-success-tint: #e8f7ef;
   --ui-warning: #9a5b00;
   --ui-warning-tint: #fff3d8;
@@ -174,6 +192,12 @@
   button:disabled {
     cursor: not-allowed;
     opacity: 0.55;
+  }
+
+  /* A hit area the icon can sit in, so a 17px glyph is still a 44px target. */
+  .icon-button {
+    display: grid;
+    place-items: center;
   }
 
   ::selection {
@@ -419,7 +443,7 @@
     border: 1px solid color-mix(in srgb, var(--brand) 25%, var(--line));
     border-radius: 0.65rem;
     background: var(--brand-tint);
-    color: var(--brand);
+    color: var(--brand-ink);
   }
 
   .settings-home-group-title {
@@ -585,13 +609,13 @@
   .rare-toast-icon { display: grid; width: 1.75rem; height: 1.75rem; place-items: center; border-radius: 999px; background: var(--canvas-alt); }
   .rare-toast[data-kind="success"] .rare-toast-icon { color: var(--success); background: var(--success-tint); }
   .rare-toast[data-kind="error"] .rare-toast-icon { color: var(--danger); background: var(--danger-tint); }
-  .rare-toast[data-kind="info"] .rare-toast-icon { color: var(--brand); background: var(--brand-tint); }
+  .rare-toast[data-kind="info"] .rare-toast-icon { color: var(--brand-ink); background: var(--brand-tint); }
   .rare-toast-title { color: var(--ink); font-size: var(--text-sm); font-weight: 700; line-height: 1.35; }
   .rare-toast-description { margin-top: 0.2rem; color: var(--muted); font-size: var(--text-xs); line-height: 1.45; }
   .rare-toast-dismiss, .rare-dialog-close { display: grid; width: 1.75rem; height: 1.75rem; place-items: center; border-radius: 0.5rem; color: var(--muted); transition: color 180ms ease, background-color 180ms ease; }
   .rare-toast-dismiss:hover, .rare-dialog-close:hover { color: var(--ink); background: var(--canvas-alt); }
 
-  .rare-dialog-overlay { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; overflow-y: auto; padding: 1rem; background: rgb(0 0 0 / 62%); }
+  .rare-dialog-overlay { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; overflow-y: auto; padding: 1rem; background: var(--ui-scrim); }
   .rare-dialog { width: 100%; max-height: calc(100dvh - 2rem); overflow-y: auto; border: 1px solid var(--line-strong); border-radius: var(--ui-radius-panel); background: var(--surface); box-shadow: var(--shadow-pop); }
   .rare-dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--line); padding: 1rem 1.1rem; }
   .rare-dialog-title { color: var(--ink); font-size: var(--text-base); font-weight: 700; line-height: 1.35; }
@@ -618,7 +642,7 @@
     border-bottom: 1px solid var(--line);
     background: var(--canvas-alt);
     color: var(--muted);
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     letter-spacing: 0.045em;
     text-transform: uppercase;
   }
@@ -630,8 +654,23 @@
   }
 
   .console-table td {
-    padding: 0.7rem 1rem;
+    padding: 0.5rem 1rem;
     vertical-align: middle;
+  }
+
+  /*
+   * A 40px control in every cell pushes each row past 60px, which is what made
+   * the list pages read as a wall of buttons. Compact controls inside a row keep
+   * the height in the 44-48px band; the 640px block below lifts them back to a
+   * touchable size, where the row no longer has to carry that much data.
+   */
+  .console-table .btn-primary,
+  .console-table .btn-secondary,
+  .console-table .btn-danger,
+  .console-table .rare-delete-trigger {
+    min-height: 2rem;
+    padding-inline: 0.65rem;
+    font-size: var(--text-xs);
   }
 
   .console-empty {
@@ -708,15 +747,15 @@
   }
 
   .btn-primary {
-    border: 1px solid var(--brand);
-    background: var(--brand);
-    color: #100b08;
+    border: 1px solid var(--brand-fill);
+    background: var(--brand-fill);
+    color: var(--on-brand);
     box-shadow: 0 8px 22px color-mix(in srgb, var(--brand) 22%, transparent);
   }
 
   .btn-primary:hover {
-    border-color: var(--brand-dark);
-    background: var(--brand-dark);
+    border-color: color-mix(in srgb, var(--brand-fill) 86%, #000);
+    background: color-mix(in srgb, var(--brand-fill) 86%, #000);
     transform: translateY(-1px);
     box-shadow: 0 12px 28px color-mix(in srgb, var(--brand) 28%, transparent);
   }
@@ -799,13 +838,14 @@
   .rare-theme-toggle:hover {
     border-color: var(--ui-accent);
     background: var(--ui-accent-tint);
-    color: var(--ui-accent);
+    color: var(--ui-accent-ink);
     transform: translateY(-1px);
   }
 
   .rare-button-sm { min-height: 2.125rem; padding-inline: 0.75rem; font-size: var(--text-xs); }
   .rare-button-lg { min-height: 2.875rem; padding-inline: 1.25rem; }
-  .rare-button-primary { background: var(--ui-accent); color: #100b08; box-shadow: 0 8px 22px color-mix(in srgb, var(--ui-accent) 22%, transparent); }
+  .rare-button-primary { background: var(--ui-accent-fill); color: var(--ui-on-accent); box-shadow: 0 8px 22px color-mix(in srgb, var(--ui-accent) 22%, transparent); }
+  .rare-button-primary:hover { background: color-mix(in srgb, var(--ui-accent-fill) 86%, #000); }
   .rare-button-secondary { border-color: var(--ui-line-strong); background: var(--ui-surface); color: var(--ui-ink-soft); }
   .rare-button-quiet { color: var(--ui-muted); }
   .rare-button-danger { border-color: color-mix(in srgb, var(--ui-danger) 38%, var(--ui-line)); background: var(--ui-danger-tint); color: var(--ui-danger); }
@@ -837,13 +877,13 @@
   }
 
   .rare-code-block { overflow: hidden; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-panel); background: #0e0e10; box-shadow: var(--shadow-pop); }
-  .rare-code-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--ui-line); padding: 0.8rem 1rem; color: var(--ui-muted); font-family: var(--font-mono); font-size: 0.7rem; }
-  .rare-code-copy { border: 1px solid var(--ui-line-strong); border-radius: 999px; padding: 0.3rem 0.6rem; color: var(--ui-ink-soft); font-family: var(--font-sans); font-size: 0.7rem; transition: border-color 180ms ease, color 180ms ease; }
-  .rare-code-copy:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
+  .rare-code-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--ui-line); padding: 0.8rem 1rem; color: var(--ui-muted); font-family: var(--font-mono); font-size: 0.75rem; }
+  .rare-code-copy { border: 1px solid var(--ui-line-strong); border-radius: 999px; padding: 0.3rem 0.6rem; color: var(--ui-ink-soft); font-family: var(--font-sans); font-size: 0.75rem; transition: border-color 180ms ease, color 180ms ease; }
+  .rare-code-copy:hover { border-color: var(--ui-accent); color: var(--ui-accent-ink); }
   .rare-code-pre { overflow-x: auto; margin: 0; padding: 1.25rem; color: #f3c5a7; font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.75; white-space: pre; }
 
   .rare-sidebar-nav { color: var(--ui-ink); }
-  .rare-sidebar-heading { padding: 0.9rem 0.65rem 0.3rem; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+  .rare-sidebar-heading { padding: 0.9rem 0.65rem 0.3rem; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
   .rare-sidebar-item { position: relative; display: flex; width: 100%; align-items: center; gap: 0.625rem; border-radius: 0.7rem; padding: 0.6rem 0.65rem 0.6rem 0.9rem; color: var(--ui-muted); text-align: left; transition: color 180ms ease, background-color 180ms ease; }
   .rare-sidebar-item:hover, .rare-sidebar-item[data-active="true"] { color: var(--ui-ink); background: var(--ui-surface-elevated); }
   .rare-sidebar-item[data-active="true"] { box-shadow: inset 2px 0 0 var(--ui-accent); }
@@ -851,11 +891,15 @@
   .rare-sidebar-group { display: grid; gap: 0.25rem; }
   .rare-sidebar-group-trigger { justify-content: space-between; cursor: pointer; }
   .rare-sidebar-group-trigger[data-group-active="true"] { color: var(--ui-ink); }
-  .rare-sidebar-chevron { position: relative; z-index: 10; color: var(--ui-faint); font-size: 1rem; line-height: 1; transform: translateY(-1px); transition: color 180ms ease, transform 180ms ease; }
+  .rare-sidebar-group-row { display: flex; align-items: stretch; }
+  .rare-sidebar-group-link { flex: 1 1 auto; min-width: 0; }
+  .rare-sidebar-group-disclosure { display: grid; flex: 0 0 auto; width: 2.25rem; place-items: center; border-radius: 0.5rem; color: var(--ui-faint); transition: color 180ms ease, background-color 180ms ease; }
+  .rare-sidebar-group-disclosure:hover { color: var(--ui-ink); background: var(--ui-surface-elevated); }
+  .rare-sidebar-chevron { position: relative; z-index: 10; flex: 0 0 auto; color: var(--ui-faint); transform: translateY(-1px); transition: color 180ms ease, transform 180ms ease; }
   .rare-sidebar-chevron[data-open="true"] { color: var(--ui-muted); transform: rotate(180deg) translateY(1px); }
   .rare-sidebar-subnav { display: grid; gap: 0.55rem; margin: 0.05rem 0 0.25rem; padding-left: 0.6rem; }
   .rare-sidebar-subsection { display: grid; gap: 0.15rem; }
-  .rare-sidebar-subheading { padding: 0.15rem 1.35rem 0.1rem; color: var(--ui-faint); font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em; line-height: 1.4; }
+  .rare-sidebar-subheading { padding: 0.15rem 1.35rem 0.1rem; color: var(--ui-faint); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; line-height: 1.4; }
   .rare-sidebar-subsection-items { display: grid; gap: 0.25rem; }
   .rare-sidebar-subitem { padding-left: 1.35rem; font-size: var(--text-sm); }
 
@@ -873,7 +917,7 @@
   .rare-account-theme { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.25rem; margin: 0.75rem; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-control); background: var(--ui-canvas); padding: 0.25rem; }
   .rare-account-theme-button { display: inline-flex; min-height: 2.25rem; align-items: center; justify-content: center; gap: 0.35rem; border-radius: 0.45rem; color: var(--ui-muted); font-size: var(--text-xs); transition: background-color 180ms ease, color 180ms ease, transform 180ms ease; }
   .rare-account-theme-button:hover { color: var(--ui-ink); background: var(--ui-surface-elevated); }
-  .rare-account-theme-button[aria-pressed="true"] { background: var(--ui-surface-elevated); color: var(--ui-accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent) 28%, transparent); }
+  .rare-account-theme-button[aria-pressed="true"] { background: var(--ui-surface-elevated); color: var(--ui-accent-ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent) 28%, transparent); }
   .rare-account-theme-button:active { transform: scale(0.98); }
   .rare-account-actions { display: grid; gap: 0.25rem; padding: 0.55rem; }
   .rare-account-action { display: flex; min-height: 2.6rem; width: 100%; align-items: center; gap: 0.65rem; border-radius: var(--ui-radius-control); padding: 0.55rem 0.65rem; color: var(--ui-ink-soft); font-size: var(--text-sm); transition: background-color 180ms ease, color 180ms ease; }
@@ -883,10 +927,17 @@
   .rare-account-locale { width: auto; min-height: 2rem; flex: 0 0 auto; border-color: var(--ui-line); background: var(--ui-canvas); padding: 0.25rem 1.9rem 0.25rem 0.55rem; font-size: var(--text-xs); }
 
   .rare-gooey-nav { display: inline-flex; align-items: center; gap: 0.25rem; overflow-x: auto; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-pill); background: var(--ui-surface); padding: 0.25rem; }
-  .rare-gooey-item { position: relative; display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; border-radius: 999px; padding: 0.55rem 0.85rem; color: var(--ui-muted); font-size: var(--text-xs); font-weight: 650; transition: color 180ms ease; }
-  .rare-gooey-item:hover, .rare-gooey-item[aria-pressed="true"], .rare-gooey-item[data-active="true"] { color: #100b08; }
+  .rare-gooey-item { position: relative; display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; border-radius: 999px; padding: 0.55rem 0.85rem; color: var(--ui-muted); font-size: var(--text-xs); font-weight: 650; cursor: pointer; transition: color 180ms ease, background-color 180ms ease; }
+  .rare-gooey-item:hover { color: var(--ui-ink); background: var(--ui-surface-elevated); }
+  /*
+   * The accent pill is only rendered inside the active item, so ink meant to sit
+   * on it is unreadable anywhere else — near-black on a near-black track. Only
+   * the selected item gets the on-accent colour; a hover just brightens.
+   */
+  .rare-gooey-item[aria-pressed="true"], .rare-gooey-item[data-active="true"] { color: var(--ui-on-accent); }
+  .rare-gooey-item[aria-pressed="true"]:hover, .rare-gooey-item[data-active="true"]:hover { background: transparent; }
   .rare-gooey-active { position: absolute; inset: 0; border-radius: inherit; }
-  .rare-gooey-nav-sm .rare-gooey-item { padding: 0.4rem 0.65rem; font-size: 0.7rem; }
+  .rare-gooey-nav-sm .rare-gooey-item { padding: 0.5rem 0.7rem; font-size: 0.75rem; }
   .rare-gooey-nav-lg .rare-gooey-item { padding: 0.7rem 1.1rem; font-size: var(--text-sm); }
 
   .rare-scroll-progress { position: fixed; inset: 0 0 auto; z-index: 80; height: 3px; transform-origin: left; background: var(--ui-accent); box-shadow: 0 0 20px color-mix(in srgb, var(--ui-accent) 70%, transparent); }
@@ -909,8 +960,8 @@
   .rare-delete-trigger { display: inline-flex; align-items: center; gap: 0.45rem; min-height: 2.25rem; border: 1px solid color-mix(in srgb, var(--ui-danger) 42%, var(--ui-line)); border-radius: var(--ui-radius-pill); background: var(--ui-danger-tint); padding: 0 0.75rem; color: var(--ui-danger); font-size: var(--text-xs); font-weight: 650; transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease; }
   .rare-delete-trigger:hover { border-color: var(--ui-danger); background: color-mix(in srgb, var(--ui-danger) 18%, var(--ui-surface)); transform: translateY(-1px); }
   .rare-delete-confirm { display: inline-flex; align-items: center; gap: 0.35rem; overflow: hidden; border: 1px solid color-mix(in srgb, var(--ui-danger) 42%, var(--ui-line)); border-radius: var(--ui-radius-pill); background: var(--ui-danger-tint); padding: 0.25rem; }
-  .rare-delete-confirm-button, .rare-delete-cancel-button { border-radius: 999px; padding: 0.35rem 0.65rem; font-size: 0.7rem; font-weight: 700; }
-  .rare-delete-confirm-button { background: var(--ui-danger); color: #190604; }
+  .rare-delete-confirm-button, .rare-delete-cancel-button { border-radius: 999px; padding: 0.35rem 0.65rem; font-size: 0.75rem; font-weight: 700; }
+  .rare-delete-confirm-button { background: var(--ui-danger); color: var(--ui-on-danger); }
   .rare-delete-cancel-button { color: var(--ui-muted); }
 
   @keyframes rare-spin { to { transform: rotate(360deg); } }
@@ -921,6 +972,32 @@
 }
 
 @media (max-width: 640px) {
+  /* Pointer targets are 40px, touch targets are not: everything a thumb has to
+     hit is lifted to 44px, including the compact controls inside a table row. */
+  .icon-button,
+  .rare-theme-toggle,
+  .rare-code-copy,
+  .rare-dialog-close,
+  .rare-toast-dismiss,
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger,
+  .field-control,
+  .rare-button,
+  .rare-sidebar-item,
+  .rare-gooey-item,
+  .rare-delete-trigger,
+  .rare-delete-confirm-button,
+  .rare-delete-cancel-button,
+  .rare-account-logout,
+  .console-table .btn-primary,
+  .console-table .btn-secondary,
+  .console-table .btn-danger,
+  .console-table .rare-delete-trigger { min-height: 2.75rem; }
+
+  .icon-button { min-width: 2.75rem; }
+  .rare-sidebar-group-disclosure { width: 2.75rem; }
+
   .rare-toast-viewport { top: 1rem; right: 1rem; left: 1rem; width: auto; }
   .console-page-header { align-items: flex-start; flex-direction: column; }
   .console-actions { width: 100%; justify-content: flex-start; }

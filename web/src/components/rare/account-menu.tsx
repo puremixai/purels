@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Icon } from "@/components/icon";
@@ -62,10 +61,6 @@ export function AccountMenu({
     };
   }, [open]);
 
-  function closeAfterNavigation() {
-    setOpen(false);
-  }
-
   function handleLogout() {
     setOpen(false);
     onLogout();
@@ -124,11 +119,6 @@ export function AccountMenu({
             <div className="rare-account-divider" />
 
             <div className="rare-account-actions">
-              <Link className="rare-account-action" href="/home/settings" onClick={closeAfterNavigation}>
-                <Icon name="settings" size={18} />
-                <span>{t("shell.settings")}</span>
-                <Icon name="arrow" size={15} className="ml-auto" />
-              </Link>
               <div className="rare-account-action rare-account-language">
                 <span className="rare-account-language-label inline-flex items-center gap-2">
                   <Icon name="globe" size={17} />

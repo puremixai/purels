@@ -5,6 +5,7 @@ import { api, AuditEntry } from "@/lib/api-client";
 import { useLocale, useT } from "@/components/i18n-provider";
 import { formatDateTime } from "@/lib/format";
 import { errorText, hasMessage, type T } from "@/lib/i18n";
+import { RareStatus, type RareStatusTone } from "@/components/rare/rare-status";
 
 const PAGE_SIZE = 20;
 
@@ -40,10 +41,10 @@ function actionLabel(t: T, action: string) {
   return hasMessage(key) ? t(key) : action;
 }
 
-function actionStyle(action: string) {
-  if (action.endsWith(".delete") || action.endsWith(".revoke") || action === "session.logout") return "bg-danger-tint text-danger";
-  if (action.endsWith(".create") || action === "session.login") return "bg-success-tint text-success";
-  return "bg-canvas text-ink-soft";
+function actionTone(action: string): RareStatusTone {
+  if (action.endsWith(".delete") || action.endsWith(".revoke") || action === "session.logout") return "danger";
+  if (action.endsWith(".create") || action === "session.login") return "success";
+  return "neutral";
 }
 
 function describe(entry: AuditEntry) {
@@ -101,17 +102,23 @@ export default function AuditPage() {
           <h1 className="console-page-title">{t("audit.title")}</h1>
         </div>
         <div className="console-actions">
-          <select className="field-control w-auto" value={action} onChange={(event) => { setAction(event.target.value); setPage(0); }}>
+          <label className="sr-only" htmlFor="audit-action">{t("audit.filterLabel")}</label>
+          <select id="audit-action" className="field-control w-auto" value={action} onChange={(event) => { setAction(event.target.value); setPage(0); }}>
             <option value="">{t("audit.allActions")}</option>
             {ACTION_LABELS.map((value) => <option key={value} value={value}>{actionLabel(t, value)}</option>)}
           </select>
         </div>
       </div>
 
-      {error && <p className="console-alert" role="alert">{error}</p>}
+      {error && (
+        <div className="console-alert flex flex-wrap items-center justify-between gap-3" role="alert">
+          <span>{error}</span>
+          <button type="button" className="btn-secondary" onClick={load}>{t("common.retry")}</button>
+        </div>
+      )}
 
-      <div className="console-panel">
-        <div className="mobile-scroll">
+      <div className="console-panel" aria-busy={loading || undefined}>
+        <div className={`mobile-scroll${loading && entries.length ? " opacity-60 transition-opacity" : ""}`}>
           <table className="console-table min-w-[900px]">
             <thead>
               <tr>
@@ -122,12 +129,17 @@ export default function AuditPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--line)]">
+              {loading && !entries.length && Array.from({ length: PAGE_SIZE }, (_, index) => (
+                <tr key={`audit-skeleton-${index}`}>
+                  <td colSpan={4}><span className="console-skeleton w-2/3" /></td>
+                </tr>
+              ))}
               {entries.map((entry) => (
                 <tr key={entry.id}>
                   <td className="whitespace-nowrap tabular-nums text-[var(--muted)]">{formatDateTime(entry.created_at, locale)}</td>
                   <td className="font-medium">{entry.username || ""}</td>
                   <td>
-                    <span className={`rounded-full px-2.5 py-1 text-xs ${actionStyle(entry.action)}`}>{actionLabel(t, entry.action)}</span>
+                    <RareStatus tone={actionTone(entry.action)}>{actionLabel(t, entry.action)}</RareStatus>
                   </td>
                   <td className="max-w-[420px] text-[var(--muted)]">
                     <span className="block truncate">{describe(entry)}</span>

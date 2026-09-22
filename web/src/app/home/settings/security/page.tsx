@@ -112,7 +112,7 @@ export default function SecurityPage() {
     </SettingsSection>
 
     <SettingsSection title={t("settings.security.tokenList")}>
-      {tokens.length ? tokens.map(token => <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] py-3 first:pt-0 last:border-0 last:pb-0" key={token.id}><div className="min-w-0"><p className="font-medium">{token.name}</p><p className="text-sm text-[var(--muted)]">{token.token_prefix}••••</p><p className="mt-1 flex flex-wrap gap-1">{(token.scopes || []).map(scope => <span key={scope} className="rounded bg-canvas px-1.5 py-0.5 text-2xs text-ink-soft">{scope}</span>)}</p></div><DeleteButton label={t("settings.security.revoke")} confirmLabel={t("settings.security.revoke")} cancelLabel={t("common.cancel")} onConfirm={() => revoke(token.id)} /></div>) : <p className="console-empty">{t("settings.security.noTokens")}</p>}
+      {tokens.length ? tokens.map(token => <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] py-3 first:pt-0 last:border-0 last:pb-0" key={token.id}><div className="min-w-0"><p className="font-medium">{token.name}</p><p className="text-sm text-[var(--muted)]">{token.token_prefix}••••</p><p className="mt-1 flex flex-wrap gap-1">{(token.scopes || []).map(scope => <span key={scope} className="rounded bg-canvas px-1.5 py-0.5 text-2xs text-ink-soft">{scope}</span>)}</p></div><DeleteButton label={t("settings.security.revoke")} confirmLabel={t("settings.security.revoke")} cancelLabel={t("common.cancel")} errorLabel={t("common.actionFailed")} onConfirm={() => revoke(token.id)} /></div>) : <p className="console-empty">{t("settings.security.noTokens")}</p>}
     </SettingsSection>
   </SettingsPage>;
 }

@@ -8,7 +8,7 @@ import { CopyLinkButton } from "@/components/copy-link-button";
 import { QrDialog } from "@/components/qr-dialog";
 import { api, BulkAction, BulkLinkInput, ImportReport, LinkListRecord, LinkRecord, LinkSort, LinkStatusFilter, TagStat } from "@/lib/api-client";
 import { downloadCsvText } from "@/lib/csv";
-import { errorText, type MessageKey, type T } from "@/lib/i18n";
+import { enumLabel, errorText, type MessageKey, type T } from "@/lib/i18n";
 import { parseTags } from "@/lib/tags";
 import { DeleteButton } from "@/components/ui/rare/delete-button";
 import { GooeyNav } from "@/components/ui/rare/gooey-nav";
@@ -145,6 +145,9 @@ export default function LinksPage() {
       toast({ kind: "success", title: t("links.deleted") });
     } catch (e) {
       setError(errorText(t, e, "error.delete"));
+      // The row stays put on purpose: it is still there, and so is the delete
+      // control that failed. A retried click is the recovery path.
+      throw e;
     }
   }
 
@@ -278,19 +281,24 @@ export default function LinksPage() {
               if (file) importCsv(file);
             }}
           />
-          <button className="btn-secondary" disabled={busy} onClick={() => fileInput.current?.click()}>{t("links.import")}</button>
-          <button className="btn-secondary" disabled={busy} onClick={exportCsv}>{t("links.export")}</button>
+          <button type="button" className="btn-secondary" disabled={busy} onClick={() => fileInput.current?.click()}>{t("links.import")}</button>
+          <button type="button" className="btn-secondary" disabled={busy} onClick={exportCsv}>{t("links.export")}</button>
           <Link href="/home/links/new" className="btn-primary">{t("links.create")}</Link>
         </div>
       </div>
 
       <div className="console-toolbar">
-        <input
-          className="field-control min-w-[220px] flex-1"
-          placeholder={t("links.searchPlaceholder")}
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
+        <div className="flex min-w-[220px] flex-1 flex-col">
+          <label className="sr-only" htmlFor="link-search">{t("links.searchLabel")}</label>
+          <input
+            id="link-search"
+            className="field-control w-full"
+            type="search"
+            placeholder={t("links.searchPlaceholder")}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
         <GooeyNav
           size="sm"
           ariaLabel={t("links.table.status")}
@@ -299,17 +307,28 @@ export default function LinksPage() {
           onChange={(index) => { setStatus(STATUS_OPTIONS[index]?.value ?? "all"); setPage(0); }}
         />
         {tags.length > 0 && (
-          <select className="field-control w-auto" value={tag} onChange={(event) => { setTag(event.target.value); setPage(0); }}>
-            <option value="">{t("links.allTags")}</option>
-            {tags.map((item) => <option key={item.name} value={item.name}>{t("links.tagOption", { name: item.name, count: item.links })}</option>)}
-          </select>
+          <div className="flex flex-col">
+            <label className="sr-only" htmlFor="link-tag">{t("links.tagFilterLabel")}</label>
+            <select id="link-tag" className="field-control w-auto" value={tag} onChange={(event) => { setTag(event.target.value); setPage(0); }}>
+              <option value="">{t("links.allTags")}</option>
+              {tags.map((item) => <option key={item.name} value={item.name}>{t("links.tagOption", { name: item.name, count: item.links })}</option>)}
+            </select>
+          </div>
         )}
-        <select className="field-control w-auto" value={sort} onChange={(event) => { setSort(event.target.value as LinkSort); setPage(0); }}>
-          {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{t(option.labelKey)}</option>)}
-        </select>
+        <div className="flex flex-col">
+          <label className="sr-only" htmlFor="link-sort">{t("links.sortLabel")}</label>
+          <select id="link-sort" className="field-control w-auto" value={sort} onChange={(event) => { setSort(event.target.value as LinkSort); setPage(0); }}>
+            {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{t(option.labelKey)}</option>)}
+          </select>
+        </div>
       </div>
 
-      {error && <p className="console-alert" role="alert">{error}</p>}
+      {error && (
+        <div className="console-alert flex flex-wrap items-center justify-between gap-3" role="alert">
+          <span>{error}</span>
+          <button type="button" className="btn-secondary" onClick={load}>{t("common.retry")}</button>
+        </div>
+      )}
 
       {report && (
         <div className="console-panel space-y-2 p-4">
@@ -332,7 +351,9 @@ export default function LinksPage() {
       {selected.size > 0 && (
         <div className="console-toolbar">
           <span className="text-sm">{t("links.selected", { count: selected.size })}</span>
+          <label className="sr-only" htmlFor="link-bulk-action">{t("links.bulkActionLabel")}</label>
           <select
+            id="link-bulk-action"
             className="field-control w-auto"
             value={bulkAction}
             onChange={(event) => { setBulkAction(event.target.value as BulkAction); setBulkValue(""); }}
@@ -340,28 +361,29 @@ export default function LinksPage() {
             {BULK_ACTIONS.map((option) => <option key={option.value} value={option.value}>{t(option.labelKey)}</option>)}
           </select>
           {bulkNeedsValue === "tag" && (
-            <input className="field-control w-auto" placeholder={t("links.bulkTagPlaceholder")} value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} />
+            <input className="field-control w-auto" aria-label={t("links.bulkTagPlaceholder")} placeholder={t("links.bulkTagPlaceholder")} value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} />
           )}
           {bulkNeedsValue === "date" && (
-            <input type="date" className="field-control w-auto" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} />
+            <input type="date" className="field-control w-auto" aria-label={t("links.bulkDateLabel")} value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} />
           )}
           {bulkAction === "delete" ? (
             <DeleteButton
               label={t("common.delete")}
               confirmLabel={t("common.delete")}
               cancelLabel={t("common.cancel")}
+              errorLabel={t("common.actionFailed")}
               disabled={busy}
               onConfirm={runBulk}
             />
           ) : (
-            <button className="btn-primary" disabled={busy} onClick={runBulk}>{t("links.run")}</button>
+            <button type="button" className="btn-primary" disabled={busy} onClick={runBulk}>{t("links.run")}</button>
           )}
-          <button className="btn-secondary" disabled={busy} onClick={() => setSelected(new Set())}>{t("links.clearSelection")}</button>
+          <button type="button" className="btn-secondary" disabled={busy} onClick={() => setSelected(new Set())}>{t("links.clearSelection")}</button>
         </div>
       )}
 
-      <div className="console-panel">
-        <div className="mobile-scroll">
+      <div className="console-panel" aria-busy={loading || undefined}>
+        <div className={`mobile-scroll${loading && links.length ? " opacity-60 transition-opacity" : ""}`}>
           <table className="console-table min-w-[1020px]">
             <thead>
               <tr>
@@ -383,6 +405,11 @@ export default function LinksPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--line)]">
+              {loading && !links.length && Array.from({ length: PAGE_SIZE }, (_, index) => (
+                <tr key={`link-skeleton-${index}`}>
+                  <td colSpan={8}><span className="console-skeleton w-2/3" /></td>
+                </tr>
+              ))}
               {links.map((link) => (
                 <tr key={link.id}>
                   <td>
@@ -411,7 +438,7 @@ export default function LinksPage() {
                   <td className="text-right tabular-nums">{link.clicks ?? 0}</td>
                   <td>{link.redirect_code}</td>
                   <td>
-                    <RareStatus tone={statusTone(link.status)}>{link.status}</RareStatus>
+                    <RareStatus tone={statusTone(link.status)}>{enumLabel(t, "statusFilter", link.status)}</RareStatus>
                     {link.last_checked_at && (
                       <span className="mt-1 block text-xs text-[var(--muted)]">{checkLabel(t, link)}</span>
                     )}
@@ -419,11 +446,12 @@ export default function LinksPage() {
                   <td>
                     <div className="flex justify-end gap-2">
                       <Link href={`/home/links/${link.id}/edit`} className="btn-secondary">{t("common.edit")}</Link>
-                      <button className="btn-secondary" onClick={() => setQrLink(link)}>{t("links.qr")}</button>
+                      <button type="button" className="btn-secondary" onClick={() => setQrLink(link)}>{t("links.qr")}</button>
                       <DeleteButton
                         label={t("common.delete")}
                         confirmLabel={t("common.delete")}
                         cancelLabel={t("common.cancel")}
+                        errorLabel={t("common.actionFailed")}
                         onConfirm={() => remove(link.id)}
                       />
                     </div>

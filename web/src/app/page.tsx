@@ -46,7 +46,8 @@ export default async function HomePage() {
     <>
       <ScrollProgress />
       <SiteHeader t={t} registrationOpen={registrationOpen} />
-      <main>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-brand-fill focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-on-brand">{t("home.skipToMain")}</a>
+      <main id="main-content">
         <section className="relative overflow-hidden border-b border-[var(--line)] bg-canvas">
           <div className="absolute -right-40 top-20 hidden opacity-20 blur-3xl lg:block"><FluidOrb size={520} color="var(--brand)" /></div>
           <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-5 py-14 sm:py-16 lg:grid-cols-[0.88fr_1.12fr] lg:gap-14 lg:py-20">
@@ -54,7 +55,7 @@ export default async function HomePage() {
               <p className="inline-flex items-center rounded-full border border-[var(--line)] bg-surface px-3 py-1 text-2xs font-semibold tracking-wide text-[var(--muted)]">
                 {t("home.hero.badge")}
               </p>
-              <h1 className="mt-4 max-w-3xl text-5xl font-bold leading-[0.98] tracking-[-0.05em] text-balance sm:text-6xl lg:text-7xl">{t("home.hero.title")}</h1>
+              <h1 className="mt-4 max-w-3xl text-5xl font-bold leading-[0.98] tracking-[-0.05em] text-balance sm:text-6xl lg:text-6xl">{t("home.hero.title")}</h1>
               <p className="mt-4 max-w-[52ch] text-lg leading-relaxed text-pretty text-[var(--muted)]">{t("home.hero.subhead")}</p>
               <div className="mt-6 flex flex-wrap gap-3">
                 {registrationOpen && <Link className="btn-primary" href="/register">{t("home.hero.ctaPrimary")}</Link>}
@@ -76,7 +77,7 @@ export default async function HomePage() {
         <section id="features" className="border-b border-[var(--line)] bg-[var(--canvas)] py-12 lg:py-16">
           <div className="mx-auto w-full max-w-6xl px-5">
             <h2 className="text-2xl font-bold sm:text-3xl">{t("home.features.title")}</h2>
-            <div className="mt-8 grid gap-px overflow-hidden rounded-[14px] border border-[var(--line)] bg-[var(--line)] md:grid-cols-12">
+            <div className="mt-8 grid gap-px overflow-hidden rounded-[var(--radius-card)] border border-[var(--line)] bg-[var(--line)] md:grid-cols-12">
               {FEATURES.map((feature, index) => (
                 <article key={feature.title} className={`bg-surface p-5 sm:p-6 ${index % 3 === 1 ? "md:col-span-7" : "md:col-span-5"}`}>
                   <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-tint text-[var(--brand)]"><Icon name={feature.icon} size={20} /></span>
@@ -121,8 +122,8 @@ export default async function HomePage() {
           <div className="mx-auto w-full max-w-3xl px-5"><h2 className="text-2xl font-bold sm:text-3xl">{t("home.faq.title")}</h2><Faq t={t} /></div>
         </section>
 
-        <section className="bg-[var(--brand)] py-12 lg:py-16">
-          <div className="mx-auto w-full max-w-3xl px-5 text-center"><h2 className="text-2xl font-bold text-[#100b08] sm:text-3xl">{t("home.cta.title")}</h2><p className="mt-3 text-base text-[#100b08]/75">{t("home.cta.body")}</p><div className="mt-6 flex flex-wrap justify-center gap-3"><Link className="btn-secondary border-[#100b08]/25 bg-[#100b08] text-[var(--brand)] hover:border-[#100b08] hover:bg-[#100b08]/90" href={registrationOpen ? "/register" : "/login"}>{registrationOpen ? t("home.cta.button") : t("home.hero.ctaSecondary")}</Link></div></div>
+        <section className="bg-brand-fill py-12 lg:py-16">
+          <div className="mx-auto w-full max-w-3xl px-5 text-center"><h2 className="text-2xl font-bold text-balance text-on-brand sm:text-3xl">{t("home.cta.title")}</h2><p className="mt-3 text-base text-on-brand">{t("home.cta.body")}</p><div className="mt-6 flex flex-wrap justify-center gap-3"><Link className="btn-secondary bg-canvas text-brand-ink hover:text-brand-ink" href={registrationOpen ? "/register" : "/login"}>{registrationOpen ? t("home.cta.button") : t("home.hero.ctaSecondary")}</Link></div></div>
         </section>
       </main>
       <SiteFooter t={t} registrationOpen={registrationOpen} />

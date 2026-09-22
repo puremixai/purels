@@ -5,6 +5,8 @@ import { api, AccountRecord, RoleRecord } from "@/lib/api-client";
 import { useLocale, useT } from "@/components/i18n-provider";
 import { formatDateTime } from "@/lib/format";
 import { errorText, hasMessage, type T } from "@/lib/i18n";
+import { RareDialog } from "@/components/ui/rare/dialog";
+import { RareStatus } from "@/components/rare/rare-status";
 import { SettingsPage, SettingsSection } from "@/components/settings/settings-page";
 
 function roleLabel(t: T, name: string) {
@@ -21,6 +23,8 @@ export default function UsersPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
+  const [mfaTarget, setMfaTarget] = useState<AccountRecord | null>(null);
+  const [mfaError, setMfaError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,15 +65,20 @@ export default function UsersPage() {
   }
 
   // The only way back in after the encryption key is lost or changed, so it
-  // deliberately asks the target for nothing.
+  // deliberately asks the target for nothing — which is exactly why it asks the
+  // administrator instead. A click that takes someone's second factor away has
+  // to name whose, before it happens.
   async function resetMfa(id: string) {
     setBusy(id);
-    setError("");
+    setMfaError("");
     try {
       await api.users.resetMfa(id);
+      setMfaTarget(null);
       await load();
     } catch (e) {
-      setError(errorText(t, e, "error.reset"));
+      // The dialog stays open: the reason the reset failed is the reason the
+      // administrator is still standing here.
+      setMfaError(errorText(t, e, "error.reset"));
     } finally {
       setBusy("");
     }
@@ -82,7 +91,12 @@ export default function UsersPage() {
       description={t("settings.home.usersDescription")}
     >
 
-      {error && <p className="console-alert" role="alert">{error}</p>}
+      {error && (
+        <div className="console-alert flex flex-wrap items-center justify-between gap-3" role="alert">
+          <span>{error}</span>
+          <button type="button" className="btn-secondary" onClick={load}>{t("common.retry")}</button>
+        </div>
+      )}
 
       <SettingsSection title={t("users.directoryTitle")} description={t("users.directoryDescription")}>
         <div className="mobile-scroll">
@@ -115,9 +129,7 @@ export default function UsersPage() {
                     </td>
                     <td>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full px-2.5 py-1 text-xs ${account.auth_source === "oidc" ? "bg-brand-tint text-[var(--brand)]" : "bg-canvas text-ink-soft"}`}>
-                          {account.auth_source === "oidc" ? t("users.source.oidc") : t("users.source.password")}
-                        </span>
+                        <RareStatus tone="neutral">{account.auth_source === "oidc" ? t("users.source.oidc") : t("users.source.password")}</RareStatus>
                         {account.auth_source === "oidc" && account.auth_provider && (
                           <span className="text-xs text-[var(--muted)]">{account.auth_provider}</span>
                         )}
@@ -125,6 +137,7 @@ export default function UsersPage() {
                     </td>
                     <td>
                       <select
+                        aria-label={t("users.table.role")}
                         className="field-control w-auto"
                         value={account.role}
                         disabled={isSelf || disabled}
@@ -136,23 +149,31 @@ export default function UsersPage() {
                       </select>
                     </td>
                     <td>
-                      <span className={`rounded-full px-2.5 py-1 text-xs ${account.disabled ? "bg-danger-tint text-danger" : "bg-success-tint text-success"}`}>
+                      <RareStatus tone={account.disabled ? "danger" : "success"}>
                         {account.disabled ? t("users.status.disabled") : t("users.status.active")}
-                      </span>
+                      </RareStatus>
                     </td>
                     <td>
                       <div className="flex items-center gap-2">
-                        <span className={`rounded-full px-2.5 py-1 text-xs ${account.mfa_enabled ? "bg-success-tint text-success" : "bg-canvas text-ink-soft"}`}>
+                        <RareStatus tone={account.mfa_enabled ? "success" : "neutral"}>
                           {account.mfa_enabled ? t("users.mfa.enabled") : t("users.mfa.disabled")}
-                        </span>
+                        </RareStatus>
                         {account.mfa_enabled && (
-                          <button className="text-xs text-[var(--brand)] hover:underline" disabled={disabled} onClick={() => resetMfa(account.id)}>{t("users.resetMfa")}</button>
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-[var(--brand-ink)] hover:underline"
+                            disabled={disabled}
+                            onClick={() => { setMfaError(""); setMfaTarget(account); }}
+                          >
+                            {t("users.resetMfa")}
+                          </button>
                         )}
                       </div>
                     </td>
                     <td className="whitespace-nowrap tabular-nums text-[var(--muted)]">{formatDateTime(account.created_at, locale)}</td>
                     <td className="text-right">
                       <button
+                        type="button"
                         className="btn-secondary"
                         disabled={isSelf || disabled}
                         onClick={() => update(account.id, { disabled: !account.disabled })}
@@ -170,6 +191,22 @@ export default function UsersPage() {
           )}
         </div>
       </SettingsSection>
+
+      <RareDialog
+        open={Boolean(mfaTarget)}
+        title={t("users.resetMfaTitle")}
+        description={mfaTarget ? t("users.resetMfaSubject", { username: mfaTarget.username }) : undefined}
+        onClose={() => setMfaTarget(null)}
+        footer={<>
+          <button type="button" className="btn-secondary" disabled={Boolean(busy)} onClick={() => setMfaTarget(null)}>{t("common.cancel")}</button>
+          <button type="button" className="btn-danger" disabled={Boolean(busy)} onClick={() => mfaTarget && resetMfa(mfaTarget.id)}>
+            {busy ? t("common.saving") : t("users.resetMfaConfirm")}
+          </button>
+        </>}
+      >
+        <p className="text-sm text-[var(--muted)]">{t("users.resetMfaHint")}</p>
+        {mfaError && <p className="console-alert mt-3" role="alert">{mfaError}</p>}
+      </RareDialog>
     </SettingsPage>
   );
 }

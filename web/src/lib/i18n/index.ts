@@ -47,6 +47,18 @@ export type Params = Record<string, string | number>;
 export type T = (key: MessageKey, params?: Params) => string;
 
 /**
+ * Translates a value the API sends as an enum — a link status, a device, a role.
+ *
+ * Rows come out of the database, so an unrecognised value is rendered as the raw
+ * string rather than dropped: a label that went missing because a message was
+ * never added is a worse outcome than a label that reads in English.
+ */
+export function enumLabel(t: T, prefix: string, value: string) {
+  const key = `${prefix}.${value}`;
+  return hasMessage(key) ? t(key) : value;
+}
+
+/**
  * Builds the translate function for one dictionary.
  *
  * A `{one, other}` message is chosen by `count`. The comparison goes through
@@ -99,7 +111,9 @@ export function errorText(
     // Bound to a const first: hasMessage narrows a reference, not an expression,
     // so the key has to be named before the guard can narrow it.
     const key = `error.${error.code}`;
-    if (error.code && hasMessage(key)) return t(key);
+    // The status is interpolated into a few of these, and a message that renders
+    // "Request failed ({status})" is worse than the code alone.
+    if (error.code && hasMessage(key)) return t(key, { status: String(error.status) });
     if (error.message) return error.message;
     return t(fallback);
   }

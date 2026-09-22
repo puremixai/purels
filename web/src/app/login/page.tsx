@@ -112,19 +112,19 @@ export default function LoginPage() {
   return <main className="relative grid min-h-[100dvh] place-items-center overflow-hidden bg-[var(--canvas)] px-5 py-6">
     <div className="pointer-events-none absolute -right-32 top-1/2 -translate-y-1/2 opacity-20 blur-2xl"><FluidOrb size={480} color="var(--brand)" /></div>
     <section className="panel relative z-10 w-full max-w-md p-6 sm:p-7">
-      <div className="mb-6 flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--brand)] text-lg font-bold text-[#100b08]">P</div><div><h1 className="text-xl font-bold tracking-tight">Purels</h1><p className="text-sm text-[var(--muted)]">{t("login.subtitle")}</p></div></div>
+      <div className="mb-6 flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-2xl bg-brand-fill text-lg font-bold text-on-brand">P</div><div><h1 className="text-xl font-bold tracking-tight">Purels</h1><p className="text-sm text-[var(--muted)]">{t("login.subtitle")}</p></div></div>
       <h2 className="mb-4 text-lg font-semibold">{verifying ? t("login.mfaHeading") : t("login.heading")}</h2>
       {verifying
         ? <form onSubmit={verify} className="space-y-3">
             <label className="block"><span className="field-label">{t("login.code")}</span><OtpInput required autoFocus length={6} value={code} onChange={setCode} status={shownError ? "error" : "idle"} label={t("login.code")} /></label>
-            {shownError && <p className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{shownError}</p>}
+            {shownError && <p className="console-alert" role="alert">{shownError}</p>}
             <button className="btn-primary w-full" disabled={loading}>{loading ? t("login.verifying") : t("login.verify")}</button>
             <button type="button" className="w-full text-sm text-[var(--muted)] hover:text-ink-soft" onClick={restart}>{t("login.back")}</button>
           </form>
         : <form onSubmit={submit} className="space-y-3">
             <label className="block"><span className="field-label">{t("login.username")}</span><input required autoComplete="username" className="field-control" value={username} onChange={e => setUsername(e.target.value)} /></label>
             <label className="block"><span className="field-label">{t("login.password")}</span><input required type="password" autoComplete="current-password" className="field-control" value={password} onChange={e => setPassword(e.target.value)} /></label>
-            {shownError && <p className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{shownError}</p>}
+            {shownError && <p className="console-alert" role="alert">{shownError}</p>}
             <button className="btn-primary w-full" disabled={loading}>{loading ? t("login.submitting") : t("login.submit")}</button>
           </form>}
       {/* After the form, and never inside it: the browser suite drives this page

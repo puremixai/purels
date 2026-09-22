@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
 import { useState, type ReactNode } from "react";
+import { Icon } from "@/components/icon";
 import { cn } from "@/lib/utils";
 
 export type BounceSidebarItem =
@@ -13,6 +14,8 @@ export type BounceSidebarItem =
       label: string;
       group: true;
       icon?: ReactNode;
+      /** When set, the group heading is a link to this route. */
+      href?: string;
       sections: Array<{
         label: string;
         items: Array<{ label: string; href: string; icon?: ReactNode }>;
@@ -28,6 +31,8 @@ export type BounceSidebarProps = {
   onChange?: (index: number) => void;
   dotColor?: string;
   ariaLabel?: string;
+  expandLabel?: string;
+  collapseLabel?: string;
   className?: string;
 };
 
@@ -39,6 +44,8 @@ export function BounceSidebar({
   onChange,
   dotColor = "var(--ui-accent)",
   ariaLabel = "Primary navigation",
+  expandLabel = "Expand section",
+  collapseLabel = "Collapse section",
   className,
 }: BounceSidebarProps) {
   const [internalValue, setInternalValue] = useState(defaultValue);
@@ -83,20 +90,48 @@ export function BounceSidebar({
             const open = openGroups[index] ?? item.defaultOpen ?? childActive;
             const groupId = `rare-sidebar-group-${index}`;
 
-            return (
-              <li key={`${index}-${label}`} className="rare-sidebar-group">
-                <button
-                  type="button"
-                  className="rare-sidebar-item rare-sidebar-group-trigger"
+            const chevron = <Icon name="chevronDown" size={14} aria-hidden className="rare-sidebar-chevron" data-open={open} />;
+            const heading = item.href ? (
+              <div className="rare-sidebar-group-row">
+                <Link
+                  href={item.href}
+                  className="rare-sidebar-item rare-sidebar-group-link"
                   data-active={childActive}
                   data-group-active={childActive}
+                  aria-current={activeHref === item.href ? "page" : undefined}
+                  onClick={() => select(index)}
+                >
+                  <span className="relative z-10 inline-flex min-w-0 flex-1 items-center gap-3">{item.icon}{label}</span>
+                </Link>
+                <button
+                  type="button"
+                  className="rare-sidebar-group-disclosure"
                   aria-expanded={open}
                   aria-controls={groupId}
+                  aria-label={open ? collapseLabel : expandLabel}
                   onClick={() => toggleGroup(index, open)}
                 >
-                  <span className="relative z-10 inline-flex min-w-0 items-center gap-3">{item.icon}{label}</span>
-                  <span aria-hidden="true" className="rare-sidebar-chevron" data-open={open}>⌄</span>
+                  {chevron}
                 </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="rare-sidebar-item rare-sidebar-group-trigger"
+                data-active={childActive}
+                data-group-active={childActive}
+                aria-expanded={open}
+                aria-controls={groupId}
+                onClick={() => toggleGroup(index, open)}
+              >
+                <span className="relative z-10 inline-flex min-w-0 items-center gap-3">{item.icon}{label}</span>
+                {chevron}
+              </button>
+            );
+
+            return (
+              <li key={`${index}-${label}`} className="rare-sidebar-group">
+                {heading}
                 {open && (
                   <ul id={groupId} className="rare-sidebar-subnav">
                     {item.sections.map((section) => (
