@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>演示终点 · Purels</title>
+  <link rel="stylesheet" href="gallery.css">
+  <style>
+    body { min-height:100svh; display:grid; place-items:center; padding:30px; }
+    main { max-width:510px; }
+    .demo-label { color:#b7bba9; font-size:11px; letter-spacing:2px; margin:0 0 30px; }
+    h1 { font-size:36px; margin-bottom:20px; }
+    p { color:#b5b7ad; font-size:14px; line-height:1.9; }
+    .continue-link { margin-top:20px; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="demo-label">PURELS / INTERACTION PREVIEW</p>
+    <h1 id="heading">已完成跳转演示</h1>
+    <p id="message">这里是设计稿的本地演示终点。正式页面会在倒计时结束或点击“立即前往”后，进入短链接对应的目标地址。</p>
+    <a id="back" class="continue-link" href="?">返回画册预览 <span aria-hidden="true">↗</span></a>
+  </main>
+  <script>
+    const query = new URLSearchParams(location.search);
+    const english = query.get('lang') === 'en';
+    const back = new URLSearchParams({ review: '1' });
+    if (query.has('art')) back.set('art', query.get('art'));
+    if (english) {
+      document.documentElement.lang = 'en';
+      document.title = 'Demo destination · Purels';
+      document.getElementById('heading').textContent = 'You have arrived.';
+      document.getElementById('message').textContent = 'This is the local destination for the interactive design preview. The live page will continue to the short link’s actual destination.';
+      document.getElementById('back').textContent = 'Back to the gallery ↗';
+      back.set('lang', 'en');
+    }
+    document.getElementById('back').href = `./?${back}`;
+  </script>
+</body>
+</html>

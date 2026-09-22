@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="dark">
+  <title>途中画册 · Purels</title>
+  <link rel="stylesheet" href="gallery.css">
+  <script src="artworks.js" defer></script>
+  <script src="gallery.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <a class="brand" href="?review=1" aria-label="Purels 设计预览">purels<span aria-hidden="true">/</span></a>
+      <div class="masthead-title"><span class="masthead-divider" aria-hidden="true"></span><span data-i18n="album">途中画册</span></div>
+      <p class="masthead-note" data-i18n="tagline">在抵达之前，遇见一幅画。</p>
+    </header>
+
+    <main id="main" class="gallery" aria-labelledby="art-title" aria-busy="true">
+      <figure class="artwork" aria-labelledby="art-title" aria-describedby="art-description">
+        <div class="art-stage">
+          <div class="art-mat"><img id="art-image" alt="" decoding="async"></div>
+          <p id="image-fallback" class="image-fallback" hidden data-i18n="imageError">画作暂时未能载入，你仍可继续前往。</p>
+        </div>
+        <figcaption class="art-caption">
+          <span><span class="caption-mark" aria-hidden="true"></span><span data-i18n="reinterpretation">名画的像素演绎</span></span>
+          <span class="edition"><span id="edition-number">01</span><span class="edition-line" aria-hidden="true"></span><span id="edition-total">06</span></span>
+        </figcaption>
+      </figure>
+
+      <section class="art-info">
+        <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span><span data-i18n="encounter">此刻，与你相遇</span></p>
+        <h1 id="art-title">途中画册</h1>
+        <p class="artist-line"><span id="art-artist"></span><span class="metadata-dot" aria-hidden="true">·</span><span id="art-year"></span></p>
+        <p id="art-description" class="art-description"></p>
+        <dl class="art-details">
+          <div><dt data-i18n="medium">原作媒介</dt><dd id="art-medium"></dd></div>
+          <div><dt data-i18n="collection">原作馆藏</dt><dd id="art-collection"></dd></div>
+        </dl>
+        <p class="encounter-note"><span aria-hidden="true">↳</span><span data-i18n="oneAtATime">每次途经，偶遇一幅。</span></p>
+      </section>
+    </main>
+
+    <footer class="departure" aria-label="跳转信息">
+      <div class="departure-inner">
+        <div class="destination">
+          <span class="destination-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M10 13a5 5 0 0 0 7 .1l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7-.1l-3 3a5 5 0 0 0 7 7l1.7-1.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+          <div class="destination-copy">
+            <p class="destination-label"><span data-i18n="destination">即将前往</span><span class="short-code">purels / art</span></p>
+            <details class="destination-details">
+              <summary><span id="destination-domain">www.dpm.org.cn</span><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m5 6 3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr-only" data-i18n="fullAddress">查看完整目标地址</span></summary>
+              <div class="url-popover"><span data-i18n="fullAddress">完整目标地址</span><p id="destination-url">https://www.dpm.org.cn/collection/paint.html</p></div>
+            </details>
+          </div>
+        </div>
+        <div class="departure-controls">
+          <div class="countdown-state">
+            <span class="timer-ring" aria-hidden="true"><svg viewBox="0 0 32 32"><circle class="ring-track" cx="16" cy="16" r="13"/><circle id="ring-progress" cx="16" cy="16" r="13"/></svg><span id="timer-number">2</span></span>
+            <span id="timer-label">秒后自动跳转</span>
+          </div>
+          <button id="pause-button" class="pause-button" type="button" aria-pressed="false"><span id="pause-symbol" aria-hidden="true">Ⅱ</span><span id="pause-label">停留欣赏</span></button>
+          <a id="continue-link" class="continue-link" href="destination.html"><span data-i18n="continue">立即前往</span><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        </div>
+      </div>
+      <div class="progress-track" aria-hidden="true"><span id="progress-fill"></span></div>
+    </footer>
+    <div id="status-message" class="sr-only" role="status" aria-live="polite"></div>
+    <noscript><p class="noscript-note">此设计稿需启用 JavaScript 载入画册。<a href="destination.html">继续前往演示终点</a></p></noscript>
+  </div>
+
+  <aside id="review-tools" class="review-tools" aria-label="设计稿预览工具" hidden>
+    <span class="review-label">设计预览</span>
+    <button id="review-toggle" type="button" aria-expanded="false" aria-controls="review-panel">预览选项 <span aria-hidden="true">↗</span></button>
+    <div id="review-panel" class="review-panel" hidden>
+      <p>这是可交互的设计稿。预览默认暂停；到时会进入本地演示终点。</p>
+      <label for="review-art">查看作品</label><select id="review-art"></select>
+      <label for="review-seconds">模拟倒计时</label><select id="review-seconds"><option value="2">2 秒（当前默认）</option><option value="5">5 秒</option><option value="10">10 秒</option></select>
+      <button id="review-restart" type="button">重新演示倒计时</button>
+      <a id="review-language" href="?review=1&lang=en">English version ↗</a>
+    </div>
+  </aside>
+</body>
+</html>
