@@ -13,7 +13,7 @@ import (
 // The public page is served by the API, independently of the console. Only the
 // chosen SVG is rendered; the other works never travel with the response.
 //
-//go:embed gallery/*.html gallery/*.css gallery/*.js gallery/*.json gallery/art/*.svg
+//go:embed gallery/*.html gallery/*.css gallery/*.js gallery/*.json gallery/*.svg gallery/art/*.svg
 var galleryFiles embed.FS
 
 type galleryArtwork struct {
@@ -54,14 +54,16 @@ type galleryPageData struct {
 	Copy                                                          galleryCopy
 	Styles                                                        template.CSS
 	Script                                                        template.JS
+	Wordmark                                                      template.HTML
 }
 
 var (
 	galleryArtworks = loadGalleryArtworks()
 	galleryTemplate = template.Must(template.New("gallery").Parse(galleryAsset("page.html")))
 	// These casts apply only to checked-in assets, never a URL or user content.
-	galleryStyles = template.CSS(galleryAsset("gallery.css"))
-	galleryScript = template.JS(galleryAsset("redirect.js"))
+	galleryStyles   = template.CSS(galleryAsset("gallery.css"))
+	galleryScript   = template.JS(galleryAsset("redirect.js"))
+	galleryWordmark = template.HTML(galleryAsset("wordmark.svg"))
 )
 
 func galleryAsset(name string) string {
@@ -123,7 +125,7 @@ func renderGalleryPage(alias, destination, language string, interstitial bool, s
 		Index: fmt.Sprintf("%02d", index+1), Total: fmt.Sprintf("%02d", len(galleryArtworks)),
 		WaitLabel:    interstitialWaitLabel(language, seconds),
 		Interstitial: interstitial, Seconds: seconds, Ratio: float64(art.Width) / float64(art.Height),
-		Artwork: art, Copy: galleryLabels(language), Styles: galleryStyles, Script: galleryScript,
+		Artwork: art, Copy: galleryLabels(language), Styles: galleryStyles, Script: galleryScript, Wordmark: galleryWordmark,
 	}
 	var page bytes.Buffer
 	if err := galleryTemplate.Execute(&page, data); err != nil {

@@ -6,14 +6,13 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="dark">
   {{if .Interstitial}}<noscript><meta http-equiv="refresh" content="{{.Seconds}};url={{.Destination}}"></noscript>{{end}}
-  <title>{{.Copy.Album}} · Purels / {{.Alias}}</title>
+  <title>{{.Copy.Album}} / {{.Alias}}</title>
   <style>{{.Styles}}</style>
 </head>
 <body data-interstitial="{{.Interstitial}}" data-seconds="{{.Seconds}}" style="--art-ratio: {{.Ratio}}; --art-accent: {{.Artwork.Accent}}">
   <div class="page">
     <header class="masthead">
-      <div class="brand" aria-label="Purels">purels<span aria-hidden="true">/</span></div>
-      <div class="masthead-title"><span class="masthead-divider" aria-hidden="true"></span><span>{{.Copy.Album}}</span></div>
+      <p class="masthead-title">{{if eq .Language "zh-CN"}}{{.Wordmark}}{{else}}{{.Copy.Album}}{{end}}</p>
       <p class="masthead-note">{{.Copy.Tagline}}</p>
     </header>
     <main id="main" class="gallery" aria-labelledby="art-title">
@@ -43,7 +42,7 @@
         <div class="destination">
           <span class="destination-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M10 13a5 5 0 0 0 7 .1l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7-.1l-3 3a5 5 0 0 0 7 7l1.7-1.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
           <div class="destination-copy">
-            <p class="destination-label"><span>{{.Copy.Destination}}</span><span class="short-code" title="/{{.Alias}}">purels / {{.Alias}}</span></p>
+            <p class="destination-label"><span>{{.Copy.Destination}}</span><span class="short-code" title="/{{.Alias}}">/{{.Alias}}</span></p>
             <details class="destination-details">
               <summary><span id="destination-domain">{{.Domain}}</span><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m5 6 3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr-only">{{.Copy.FullAddress}}</span></summary>
               <div class="url-popover"><span>{{.Copy.FullAddress}}</span><p id="destination-url">{{.Destination}}</p></div>

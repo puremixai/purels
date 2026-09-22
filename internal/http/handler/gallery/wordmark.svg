@@ -1,0 +1,23 @@
+<svg class="masthead-wordmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 306 84" fill="none" role="img" aria-labelledby="gallery-wordmark-title">
+  <title id="gallery-wordmark-title">途中画册</title>
+  <g stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+    <g aria-hidden="true">
+      <!-- 途: a seal-inspired composition of 辵 and 余. -->
+      <path d="M14 8C13 13 10 17 5 20M15 24C14 29 10 34 5 37M15 41C15 46 12 51 7 55"/>
+      <path d="M15 50V60C15 69 26 76 42 76H69M6 76C12 72 15 67 15 60"/>
+      <path d="M25 27C34 23 42 16 46 8C50 16 57 22 67 27"/>
+      <path d="M31 29H61M26 36C26 42 34 44 46 44C58 44 66 42 66 36M46 21V65C46 69 43 71 39 70"/>
+      <path d="M35 48C35 55 31 61 25 65M57 48C57 55 60 61 66 65"/>
+      <!-- 中: a vertical axis through a rounded enclosure. -->
+      <path d="M113 8V76"/>
+      <path d="M99 25H127C133 25 136 28 136 34V49C136 55 133 58 127 58H99C93 58 90 55 90 49V34C90 28 93 25 99 25Z"/>
+      <!-- 畫: brush and hand above a bounded field. -->
+      <path d="M189 8V47M169 17H198C204 17 207 20 207 25V32H171M169 25H211M169 40H207"/>
+      <path d="M174 50H202C206 50 208 52 208 56V65C208 69 206 71 202 71H174C170 71 168 69 168 65V56C168 52 170 50 174 50Z"/>
+      <path d="M188 50V71M168 60H208M160 51V68C160 74 164 78 170 78H206C212 78 216 74 216 68V51"/>
+      <!-- 冊: bamboo slips bound by two horizontal cords. -->
+      <path d="M246 18C248 31 248 50 245 68M261 8C262 28 262 57 259 77M277 8C276 28 276 57 279 77M292 18C290 31 290 50 293 68"/>
+      <path d="M241 30H297M241 55H297"/>
+    </g>
+  </g>
+</svg>

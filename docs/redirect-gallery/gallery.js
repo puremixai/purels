@@ -27,7 +27,8 @@
     resumedStatus: "倒计时已继续。", leaving: "正在前往本地演示终点。"
   };
   document.documentElement.lang = english ? "en" : "zh-CN";
-  document.title = english ? "The passing gallery · Purels" : "途中画册 · Purels";
+  document.title = english ? "The passing gallery" : "途中画册";
+  if (english) document.querySelector(".masthead-title").textContent = copy.album;
   document.querySelectorAll("[data-i18n]").forEach((element) => {
     element.textContent = copy[element.dataset.i18n];
   });

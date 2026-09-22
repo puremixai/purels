@@ -8,12 +8,15 @@
 
 ## 设计
 
+- 页头使用“途中画册”小篆风格字标，四字为手绘 SVG 路径，不依赖设备字体；正式页面内嵌 `internal/http/handler/gallery/wordmark.svg`。英文保留文字标题。
 - 暖黑展墙、浅色装裱，作品占主要空间；横幅与竖幅均保持完整比例。
 - 作品旁显示标题、作者、年代、两句画面介绍和原作资料；注明这是名画的像素演绎。
 - 底部固定信息层级：最终目标域名、可展开的完整地址、倒计时、停留欣赏、立即前往。桌面是一条窄栏，手机用两行紧凑底栏。
 - 「停留欣赏」真正停止计时，「继续倒计时」从剩余时间继续；不会轮换作品。
 - 每次进入仅随机选一幅并请求该 SVG。六个 fine SVG 原样复制自用户提供的 viewer.html 配套目录。
 - `?review=1&lang=en` 查看英文；`?mode=preview` 演示短链接 `+` 预览模式，不自动离开。
+
+字标以圆转、匀细、纵长的笔形重新设计，参考传统篆字的部件结构，不是历史字帖的摹本。“画、册”使用“畫、冊”的传统构形；“途”按“辵 + 余”作篆意设计。字形参考教育部《异体字字典》的[中](https://dict.variants.moe.edu.tw/dictView.jsp?ID=159&la=1)、[畫](https://dict.variants.moe.edu.tw/dictView.jsp?ID=28496&la=1)、[冊](https://dict.variants.moe.edu.tw/dictView.jsp?educode=A00297)、[途](https://dict.variants.moe.edu.tw/dictView.jsp?ID=-45346)字条。
 
 ## 正式实现的行为
 
