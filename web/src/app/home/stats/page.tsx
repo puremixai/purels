@@ -205,7 +205,7 @@ export default function StatsPage() {
     <div className="console-page">
       <div className="console-page-header">
         <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")} / {t("stats.title")}</p>
+          <p className="console-breadcrumb">{t("shell.workspace")}</p>
           <h1 className="console-page-title">{t("stats.title")}</h1>
         </div>
         <GooeyNav

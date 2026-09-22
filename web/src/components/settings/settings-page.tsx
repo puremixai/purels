@@ -6,6 +6,7 @@ import { useT } from "@/components/i18n-provider";
 import { cn } from "@/lib/utils";
 
 type SettingsPageProps = {
+  root?: boolean;
   group?: string;
   title: string;
   description: string;
@@ -13,14 +14,14 @@ type SettingsPageProps = {
   children: ReactNode;
 };
 
-export function SettingsPage({ group, title, description, actions, children }: SettingsPageProps) {
+export function SettingsPage({ root = false, group, title, description, actions, children }: SettingsPageProps) {
   const t = useT();
 
   return (
     <div className="console-page settings-page">
       <div className="console-page-header">
         <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")} / {t("shell.settings")}{group ? ` / ${group}` : ""}</p>
+          <p className="console-breadcrumb">{t("shell.workspace")}{!root && <> / {t("shell.settings")}{group ? ` / ${group}` : ""}</>}</p>
           <h1 className="console-page-title">{title}</h1>
           <p className="console-page-description">{description}</p>
         </div>

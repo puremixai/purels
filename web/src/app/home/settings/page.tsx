@@ -106,7 +106,7 @@ export default function SettingsHomePage() {
   }
 
   return (
-    <SettingsPage title={t("settings.home.title")} description={t("settings.nav.description")}>
+    <SettingsPage root title={t("settings.home.title")} description={t("settings.nav.description")}>
       {loadError ? (
         <div className="console-alert" role="alert">
           <p>{errorText(t, loadError, "error.load")}</p>

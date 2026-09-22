@@ -111,7 +111,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-canvas">
+    <div className="admin-shell min-h-[100dvh] bg-canvas">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-brand-fill focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-on-brand">{t("shell.skipToMain")}</a>
       <aside
         className={`fixed inset-y-0 left-0 z-40 flex w-[232px] flex-col overflow-y-auto overscroll-contain border-r border-[var(--line)] bg-surface px-3 py-4 transition-transform md:translate-x-0 ${mobileNav ? "translate-x-0" : "-translate-x-full"}`}
@@ -139,10 +139,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </aside>
       {mobileNav && <button type="button" className="fixed inset-0 z-30 bg-[var(--scrim)] md:hidden" aria-label={t("shell.closeMenu")} onClick={closeMobileNav} />}
       <div className="md:pl-[232px]" inert={mobileNav ? true : undefined}>
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-[var(--line)] bg-surface/90 px-4 backdrop-blur md:px-6">
-          <button ref={menuButton} type="button" className="icon-button rounded-lg p-2 text-muted hover:bg-canvas md:hidden" onClick={() => setMobileNav(true)} aria-label={t("shell.openMenu")} aria-expanded={mobileNav}><Icon name="menu" size={20} /></button>
-          <div className="hidden text-sm text-muted md:block">{username ? t("shell.welcomeNamed", { username }) : t("shell.welcome")}</div>
-          <div className="ml-auto flex items-center gap-3"><div className="hidden text-right sm:block"><div className="text-xs font-semibold">{username || "Purels"}</div><div className="text-2xs text-faint">{roleLabel}</div></div><div className="grid h-9 w-9 place-items-center rounded-full bg-brand-tint text-xs font-bold text-brand-ink">{avatar}</div></div>
+        <header className="sticky top-0 z-20 flex h-14 items-center border-b border-[var(--line)] bg-surface/90 px-4 backdrop-blur md:hidden">
+          <button ref={menuButton} type="button" className="icon-button grid h-11 w-11 place-items-center rounded-lg text-muted hover:bg-canvas" onClick={() => setMobileNav(true)} aria-label={t("shell.openMenu")} aria-expanded={mobileNav}><Icon name="menu" size={20} /></button>
         </header>
         <main id="main-content" className="mx-auto max-w-[1440px] px-4 py-5 md:px-6 md:py-6">{children}</main>
       </div>

@@ -79,7 +79,7 @@ export default function Dashboard() {
   return <div className="console-page">
     <div className="console-page-header">
       <div className="console-page-heading">
-        <p className="console-breadcrumb">{t("shell.workspace")} / {t("nav.overview")}</p>
+        <p className="console-breadcrumb">{t("shell.workspace")}</p>
         <h1 className="console-page-title">{t("nav.overview")}</h1>
       </div>
       <div className="console-actions">

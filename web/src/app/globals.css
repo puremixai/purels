@@ -152,6 +152,11 @@
   color-scheme: light;
 }
 
+@media (min-width: 768px) {
+  /* Keep the root-level toast portal aligned with the headerless console. */
+  :root:has(.admin-shell) { --ui-shell-header: 0px; }
+}
+
 @layer base {
   html,
   body {
@@ -359,6 +364,14 @@
   .settings-search { display: grid; gap: 0.5rem; }
   .settings-search-results { padding: 1rem; }
   .settings-section [id] { scroll-margin-top: 6rem; }
+
+  @media (min-width: 768px) {
+    html:has(.admin-shell) {
+      scroll-padding-top: 1.5rem;
+    }
+
+    .admin-shell .settings-section [id] { scroll-margin-top: 0; }
+  }
   .settings-section:target, .settings-field:has(:target) { outline: 2px solid var(--brand-ink); outline-offset: 4px; }
   .rare-account-actions .rare-account-action { min-height: 44px; }
   @media (max-width: 767px) {
