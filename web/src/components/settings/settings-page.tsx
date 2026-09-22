@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+import { SettingsDraftGuard } from "./settings-draft-guard";
 import { useT } from "@/components/i18n-provider";
 import { cn } from "@/lib/utils";
 
@@ -25,12 +26,13 @@ export function SettingsPage({ group, title, description, actions, children }: S
         </div>
         {actions && <div className="console-actions">{actions}</div>}
       </div>
-      {children}
+      <SettingsDraftGuard>{children}</SettingsDraftGuard>
     </div>
   );
 }
 
 type SettingsSectionProps = {
+  id?: string;
   title: string;
   description?: string;
   status?: ReactNode;
@@ -39,9 +41,12 @@ type SettingsSectionProps = {
   children: ReactNode;
 };
 
-export function SettingsSection({ title, description, status, actions, className, children }: SettingsSectionProps) {
+export function SettingsSection({ id, title, description, status, actions, className, children }: SettingsSectionProps) {
+  useEffect(() => {
+    if (id && window.location.hash === `#${id}`) document.getElementById(id)?.scrollIntoView({ block: "start" });
+  }, [id]);
   return (
-    <section className={cn("console-panel settings-section", className)}>
+    <section id={id} className={cn("console-panel settings-section", className)}>
       <div className="settings-section-header">
         <div className="min-w-0">
           <div className="settings-section-title-row">

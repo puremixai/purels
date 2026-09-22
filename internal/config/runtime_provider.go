@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"time"
 
@@ -16,8 +17,14 @@ const runtimeRefreshInterval = 5 * time.Second
 // on the short polling interval, so a page change takes effect without a
 // container restart while the database remains the source of truth.
 type RuntimeProvider struct {
-	store   *postgres.Store
+	store   runtimeSettingsStore
 	current atomic.Pointer[domain.RuntimeSettings]
+}
+
+type runtimeSettingsStore interface {
+	GetRuntimeSettings(context.Context) (domain.RuntimeSettings, error)
+	UpdateRuntimeSettings(context.Context, domain.RuntimeSettingsInput) (domain.RuntimeSettings, error)
+	CompareAndSwapRuntimeSettings(context.Context, domain.RuntimeSettingsInput, int64) (domain.RuntimeSettings, error)
 }
 
 func NewRuntimeProvider(ctx context.Context, store *postgres.Store, defaults domain.RuntimeSettingsInput) (*RuntimeProvider, error) {
@@ -48,7 +55,7 @@ func (p *RuntimeProvider) Refresh(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	p.current.Store(&settings)
+	p.publish(settings)
 	return nil
 }
 
@@ -61,8 +68,58 @@ func (p *RuntimeProvider) Update(ctx context.Context, input domain.RuntimeSettin
 	if err != nil {
 		return domain.RuntimeSettings{}, err
 	}
-	p.current.Store(&settings)
+	p.publish(settings)
 	return cloneRuntimeSettings(settings), nil
+}
+
+// Patch starts from the database, not the process-local cache, then uses a
+// revision predicate in the update itself. A concurrent PUT or PATCH therefore
+// cannot silently be overwritten between this read and write.
+func (p *RuntimeProvider) Patch(ctx context.Context, patch domain.RuntimeSettingsPatch) (domain.RuntimeSettings, error) {
+	if _, err := patch.Apply(domain.RuntimeSettingsInput{}); err != nil {
+		return domain.RuntimeSettings{}, err
+	}
+	current, err := p.store.GetRuntimeSettings(ctx)
+	if err != nil {
+		return domain.RuntimeSettings{}, err
+	}
+	p.publish(current)
+	if current.Revision != patch.Revision {
+		return domain.RuntimeSettings{}, postgres.ErrConflict
+	}
+	input, err := patch.Apply(current.RuntimeSettingsInput)
+	if err != nil {
+		return domain.RuntimeSettings{}, err
+	}
+	normalized, err := NormalizeRuntimeSettings(input)
+	if err != nil {
+		return domain.RuntimeSettings{}, err
+	}
+	settings, err := p.store.CompareAndSwapRuntimeSettings(ctx, normalized, patch.Revision)
+	if err != nil {
+		if errors.Is(err, postgres.ErrConflict) {
+			// The caller is told to reload. Publish the winning revision now so
+			// an immediate GET need not wait for the periodic refresh.
+			_ = p.Refresh(ctx)
+		}
+		return domain.RuntimeSettings{}, err
+	}
+	p.publish(settings)
+	return cloneRuntimeSettings(settings), nil
+}
+
+// A slow refresh or response must not replace a newer successful write in this
+// process. Database revisions only increase, including through legacy PUT.
+func (p *RuntimeProvider) publish(settings domain.RuntimeSettings) {
+	for {
+		current := p.current.Load()
+		if current != nil && current.Revision >= settings.Revision {
+			return
+		}
+		if p.current.CompareAndSwap(current, &settings) {
+			return
+		}
+	}
 }
 
 func (p *RuntimeProvider) Start(ctx context.Context) {

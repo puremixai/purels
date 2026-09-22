@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { Icon } from "@/components/icon";
 import { LocaleSwitcher } from "@/components/locale-switcher";
@@ -14,6 +15,7 @@ type AccountMenuProps = {
   avatar: string;
   loggingOut: boolean;
   onLogout: () => void;
+  scopes?: readonly string[];
   className?: string;
 };
 
@@ -28,6 +30,7 @@ export function AccountMenu({
   avatar,
   loggingOut,
   onLogout,
+  scopes = [],
   className,
 }: AccountMenuProps) {
   const t = useT();
@@ -96,6 +99,21 @@ export function AccountMenu({
                 <span>{loggingOut ? t("shell.loggingOut") : t("shell.logout")}</span>
               </button>
             </div>
+
+            <div className="rare-account-divider" />
+
+            <nav className="rare-account-actions" aria-label={t("account.title")}>
+              <Link className="rare-account-action" href="/home/account/security" onClick={() => setOpen(false)}>
+                <Icon name="shield" size={17} />
+                <span>{t("account.security")}</span>
+              </Link>
+              {scopes.includes("tokens:manage") && (
+                <Link className="rare-account-action" href="/home/account/tokens" onClick={() => setOpen(false)}>
+                  <Icon name="key" size={17} />
+                  <span>{t("account.tokens")}</span>
+                </Link>
+              )}
+            </nav>
 
             <div className="rare-account-divider" />
 

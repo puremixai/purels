@@ -22,6 +22,15 @@ func (m *testRuntimeSettingsManager) Update(_ context.Context, input domain.Runt
 	return m.settings, nil
 }
 
+func (m *testRuntimeSettingsManager) Patch(_ context.Context, patch domain.RuntimeSettingsPatch) (domain.RuntimeSettings, error) {
+	input, err := patch.Apply(m.settings.RuntimeSettingsInput)
+	if err != nil {
+		return domain.RuntimeSettings{}, err
+	}
+	m.settings.RuntimeSettingsInput = input
+	return m.settings, nil
+}
+
 func TestHandlerRuntimeSettingsOverrideConfig(t *testing.T) {
 	h := &Handler{
 		Config: config.Config{

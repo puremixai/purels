@@ -7,6 +7,8 @@ import { useToast } from "@/components/toast-provider";
 import { errorText, type MessageKey, type T } from "@/lib/i18n";
 import { buildOIDCCallbackURL } from "@/lib/oidc-callback";
 import { RareStatus } from "@/components/rare/rare-status";
+import { SettingsAccess } from "@/components/settings/settings-access";
+import { SettingsTabs } from "@/components/settings/settings-tabs";
 import { SettingsPage, SettingsSection } from "@/components/settings/settings-page";
 
 const DEFAULT_SCOPES = "openid profile email";
@@ -195,10 +197,11 @@ export default function OIDCSettingsPage() {
 
   return (
     <SettingsPage
-      group={t("nav.group.access")}
+      group={t("settings.registration.title")}
       title={t("settings.oidc.title")}
       description={t("settings.oidc.description")}
     >
+      <SettingsAccess>{scopes => <SettingsTabs group="registration" scopes={scopes} />}</SettingsAccess>
 
       {error && <p className="console-alert" role="alert">{error}</p>}
       {notice && <p className="console-notice" role="status">{notice}</p>}

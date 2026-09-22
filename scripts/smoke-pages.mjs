@@ -36,11 +36,20 @@ const PAGES = [
   { name: "stats", path: "/admin/stats", expect: ["Statistics", "Clicks in range", "Unique visitors", "Clicks over time", "Top links", "Referrers", "Devices", "Link detail", "Recent clicks"] },
   { name: "audit", path: "/admin/audit", expect: ["Audit log", "Actor", "Action"] },
   { name: "users", path: "/admin/users", expect: ["User management", "Username", "Role"] },
-  { name: "roles", path: "/admin/settings/roles", expect: ["Role permissions", "Manage users", "Manage role permissions", "Manage every link"] },
-  { name: "oidc", path: "/admin/settings/oidc", expect: ["Sign-in methods", "Add a sign-in method", "Issuer", "Client ID", "Scopes"] },
-  { name: "analytics", path: "/admin/settings/analytics", expect: ["Tracking settings", "GA4 measurement ID", "GTM container ID", "Matomo URL", "Matomo site ID"] },
-  { name: "captcha", path: "/admin/settings/captcha", expect: ["Registration protection", "Cloudflare Turnstile", "Site key", "Expected hostname", "Expected action"] },
-  { name: "security", path: "/admin/settings/security", expect: ["Two-factor authentication", "API tokens", "Create a token"] },
+  { name: "settings", path: "/home/settings", expect: ["Settings", "Find a setting", "Registration & sign-in", "Users & permissions", "Traffic protection", "Analytics & integrations"] },
+  { name: "link-settings", path: "/home/settings/links", expect: ["Link settings", "Creation and domains", "Code generation", "Link limit per user", "Available short domains"] },
+  { name: "redirect-settings", path: "/home/settings/links/redirects", expect: ["Redirects and destinations", "Forward query parameters", "Fallback URL", "Destination host denylist"] },
+  { name: "maintenance-settings", path: "/home/settings/links/maintenance", expect: ["Checks and cleanup", "Enable destination health checks", "Check interval", "Retention after expiry"] },
+  { name: "registration-settings", path: "/home/settings/registration", expect: ["Registration and sign-in", "Allow local account registration", "Cloudflare Turnstile", "Site key"] },
+  { name: "traffic-settings", path: "/home/settings/traffic", expect: ["Traffic protection", "Enable rate limiting", "Authentication requests", "API and redirects"] },
+  { name: "roles", path: "/home/settings/roles", expect: ["Roles & permissions", "Manage users", "Manage role permissions", "Manage every link"] },
+  { name: "oidc", path: "/home/settings/oidc", expect: ["Sign-in methods", "Add a sign-in method", "Issuer", "Client ID", "Scopes"] },
+  { name: "analytics", path: "/home/settings/analytics", expect: ["Statistics and integrations", "Short-link reporting", "External tracking for the console", "GA4 measurement ID", "GTM container ID", "Matomo URL", "Matomo site ID"] },
+  // Compatibility routes must still reach their reorganized settings pages.
+  { name: "captcha", path: "/home/settings/captcha", expect: ["Registration and sign-in", "Cloudflare Turnstile", "Site key", "Expected hostname", "Expected action"] },
+  { name: "runtime-legacy", path: "/home/settings/runtime", expect: ["Link settings", "Creation and domains", "Code generation"] },
+  { name: "security", path: "/home/settings/security", expect: ["My account", "Account security", "Two-factor authentication"] },
+  { name: "tokens", path: "/home/account/tokens", expect: ["My account", "API tokens", "Create a token", "Token name"] },
 ];
 
 // Matched without their trailing punctuation: the same sentence is worded per
@@ -933,32 +942,44 @@ async function main() {
 
   // ---------- phase 6: create + revoke an API token ----------
   const tokenName = `smoke-token-${STAMP}`;
-  await go("/admin/settings/security");
+  await go("/home/account/tokens");
   await pace();
-  await fill('input[placeholder="Token name"]', tokenName);
+  await fill("main form input[required]", tokenName);
   await clickText("button", "Create");
   await sleep(2000);
   const secretShown = (await text()).includes("Save the token now");
   record("create token", secretShown, secretShown ? "secret displayed" : `secret banner missing (path=${await path()})`);
+  if (secretShown) await clickText("button", "I have saved this token");
 
   // The token list is fetched client-side after readyState completes, so poll for
   // the row rather than evaluating the instant navigation finishes.
-  await go("/admin/settings/security");
+  await go("/home/account/tokens");
   let revoked = "row not found";
   for (let waited = 0; waited < 8000; waited += 200) {
     revoked = await evaluate(`(() => {
-      const rows = [...document.querySelectorAll("div")].filter(d => d.textContent.includes(${JSON.stringify(tokenName)}) && d.querySelector("button"));
-      const target = rows[rows.length - 1];
-      if (!target) return "row not found";
-      target.querySelector("button").click();
+      const label = [...document.querySelectorAll("main p")].find(p => p.textContent.trim() === ${JSON.stringify(tokenName)});
+      const target = label?.parentElement?.parentElement;
+      const trigger = target?.querySelector(".rare-delete-trigger");
+      if (!trigger) return "row not found";
+      trigger.click();
       return "clicked";
     })()`);
     if (revoked === "clicked") break;
     await sleep(200);
   }
+  if (revoked === "clicked") {
+    await waitForSelector(".rare-delete-confirm-button");
+    revoked = await evaluate(`(() => {
+      const label = [...document.querySelectorAll("main p")].find(p => p.textContent.trim() === ${JSON.stringify(tokenName)});
+      const confirmation = label?.parentElement?.parentElement?.querySelector(".rare-delete-confirm-button");
+      if (!confirmation) return "confirmation not found";
+      confirmation.click();
+      return "confirmed";
+    })()`);
+  }
   await sleep(2000);
   const afterRevoke = await text();
-  record("revoke token", revoked === "clicked" && !afterRevoke.includes(tokenName), `${revoked}, gone=${!afterRevoke.includes(tokenName)}`);
+  record("revoke token", revoked === "confirmed" && !afterRevoke.includes(tokenName), `${revoked}, gone=${!afterRevoke.includes(tokenName)}`);
 
   // ---------- phase 7: stats dashboard interactions ----------
   //

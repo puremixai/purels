@@ -95,6 +95,20 @@ func (s *Store) GetRuntimeSettings(ctx context.Context) (domain.RuntimeSettings,
 // UpdateRuntimeSettings replaces the whole validated singleton and increments
 // revision so API and worker snapshots can cheaply detect a change.
 func (s *Store) UpdateRuntimeSettings(ctx context.Context, input domain.RuntimeSettingsInput) (domain.RuntimeSettings, error) {
+	return s.updateRuntimeSettings(ctx, input, 0)
+}
+
+// CompareAndSwapRuntimeSettings commits a merged snapshot only while its base
+// revision still exists. PostgreSQL evaluates the predicate under its row lock,
+// so even writers in other API processes cannot lose a concurrent update.
+func (s *Store) CompareAndSwapRuntimeSettings(ctx context.Context, input domain.RuntimeSettingsInput, revision int64) (domain.RuntimeSettings, error) {
+	if revision <= 0 {
+		return domain.RuntimeSettings{}, ErrConflict
+	}
+	return s.updateRuntimeSettings(ctx, input, revision)
+}
+
+func (s *Store) updateRuntimeSettings(ctx context.Context, input domain.RuntimeSettingsInput, revision int64) (domain.RuntimeSettings, error) {
 	settings, err := scanRuntimeSettings(s.Pool.QueryRow(ctx, `
 		UPDATE runtime_settings SET
 			alias_mode=$1, unique_urls=$2, registration_enabled=$3, count_bots=$4,
@@ -104,7 +118,7 @@ func (s *Store) UpdateRuntimeSettings(ctx context.Context, input domain.RuntimeS
 			rate_limit_enabled=$14, rate_limit_login=$15, rate_limit_api=$16,
 			rate_limit_redirect=$17, rate_limit_register=$18, rate_limit_2fa=$19,
 			rate_limit_oidc=$20, revision=revision+1, updated_at=now()
-		WHERE id=1
+		WHERE id=1 AND ($21::bigint=0 OR revision=$21)
 		RETURNING `+runtimeSettingsColumns,
 		input.AliasMode,
 		input.UniqueURLs,
@@ -126,8 +140,12 @@ func (s *Store) UpdateRuntimeSettings(ctx context.Context, input domain.RuntimeS
 		input.RateLimitRegister,
 		input.RateLimit2FA,
 		input.RateLimitOIDC,
+		revision,
 	))
 	if errors.Is(err, pgx.ErrNoRows) {
+		if revision > 0 {
+			return settings, ErrConflict
+		}
 		return settings, ErrNotFound
 	}
 	return settings, normalizeDBError(err)

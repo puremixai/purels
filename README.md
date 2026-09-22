@@ -137,13 +137,25 @@ client secrets and cannot be changed without invalidating them. The first API
 or worker boot after migration seeds the mutable policy row from the matching
 environment values; after that, the database row is authoritative.
 
-The administrator can edit the following runtime settings from
-`/admin/settings/runtime` with the `settings:manage` scope: alias generation,
+The administrator can find site settings at `/home/settings`, grouped into
+links, registration and sign-in, users and permissions, traffic protection,
+and statistics and integrations. Personal two-factor authentication and API
+tokens live under `/home/account`. Existing settings URLs remain compatible.
+
+The following site policies require the `settings:manage` scope: alias generation,
 duplicate URL handling, registration, bot counting, query forwarding, fallback
 URL, expiry pruning, per-user link quota, destination denylist, extra short
 domains, destination health checks and all per-IP rate-limit buckets. Changes
 are picked up by the API immediately and by the worker on its short poll; the
 admin role receives this scope in migration `000018`.
+
+The console saves only changed fields using `PATCH /api/v1/settings/runtime`
+with `{ "revision": 1, "changes": { "count_bots": true } }`. Obtain the revision
+from GET first. An atomic revision check returns `409 conflict` for a stale
+edit; omitted fields retain their values. Legacy PUT remains a full replacement.
+Registration verification, OIDC, roles, users and external tracking retain their
+own permissions and independent save operations. External tracking scripts run
+in the console only; bot counting controls the built-in short-link reports.
 
 The compose file under `deploy/` carries the same variables with development
 values. The ones that matter most:
@@ -215,7 +227,7 @@ session holds the scopes of its role.
 | Tracking | `GET /analytics` | — (any authenticated caller: every console page needs it) |
 | Tracking | `PUT /analytics` | `analytics:manage` |
 | CAPTCHA | `GET/PATCH /captcha` | `captcha:manage` |
-| Runtime settings | `GET/PUT /settings/runtime` | `settings:manage` |
+| Runtime settings | `GET/PUT/PATCH /settings/runtime` | `settings:manage` |
 | Tokens | `GET/POST /auth/tokens`, `DELETE /auth/tokens/{id}` | `tokens:manage` |
 
 Outside `/api/v1`:

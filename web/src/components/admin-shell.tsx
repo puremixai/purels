@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type AdminUser } from "@/lib/api-client";
 import { hasMessage } from "@/lib/i18n";
-import { getVisibleNavigation } from "./admin-navigation";
+import { getVisibleNavigation, isNavItemActive } from "./admin-navigation";
 import { Icon } from "./icon";
 import { useT } from "./i18n-provider";
 import { AccountMenu } from "./rare/account-menu";
@@ -125,9 +125,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
           <button ref={closeButton} type="button" className="icon-button ml-auto rounded p-1 text-muted md:hidden" onClick={closeMobileNav} aria-label={t("shell.closeMenu")}><Icon name="close" size={17} /></button>
         </div>
-        <BounceSidebar items={sidebarItems} activeHref={pathname} dotColor="var(--brand-ink)" ariaLabel={t("shell.console")} expandLabel={t("shell.expandSection")} collapseLabel={t("shell.collapseSection")} className="min-h-0 px-1" />
+        <BounceSidebar items={sidebarItems} activeHref={pathname} matchesHref={isNavItemActive} dotColor="var(--brand-ink)" ariaLabel={t("shell.console")} expandLabel={t("shell.expandSection")} collapseLabel={t("shell.collapseSection")} className="min-h-0 px-1" />
         <div className="mt-auto shrink-0 border-t border-[var(--line)] pt-3">
           <AccountMenu
+            scopes={scopes}
             username={username}
             secondaryLabel={roleLabel || t("shell.account")}
             avatar={avatar}

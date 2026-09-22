@@ -6,6 +6,8 @@ import { useT } from "@/components/i18n-provider";
 import { useToast } from "@/components/toast-provider";
 import { errorText, hasMessage, type MessageKey, type T } from "@/lib/i18n";
 import { RareStatus } from "@/components/rare/rare-status";
+import { SettingsAccess } from "@/components/settings/settings-access";
+import { SettingsTabs } from "@/components/settings/settings-tabs";
 import { SettingsPage, SettingsSection } from "@/components/settings/settings-page";
 
 type Draft = { scopes: string[]; unrestricted: boolean };
@@ -117,6 +119,7 @@ export default function RolesPage() {
       title={t("settings.roles.title")}
       description={t("settings.roles.description")}
     >
+      <SettingsAccess>{scopes => <SettingsTabs group="access" scopes={scopes} />}</SettingsAccess>
 
       {error && <p className="console-alert" role="alert">{error}</p>}
       {notice && <p className="console-notice" role="status">{notice}</p>}

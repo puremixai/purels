@@ -153,6 +153,7 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 		// changed without restarting either process.
 		api.With(httpmw.RequireScope(domain.ScopeSettingsManage)).Get("/settings/runtime", h.GetRuntimeSettings)
 		api.With(httpmw.RequireScope(domain.ScopeSettingsManage)).Put("/settings/runtime", h.UpdateRuntimeSettings)
+		api.With(httpmw.RequireScope(domain.ScopeSettingsManage)).Patch("/settings/runtime", h.PatchRuntimeSettings)
 
 		// Token management is intentionally not reachable with an API token.
 		api.With(httpmw.RequireScope(domain.ScopeTokensManage)).Get("/auth/tokens", h.ListTokens)

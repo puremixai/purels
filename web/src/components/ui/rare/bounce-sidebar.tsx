@@ -28,6 +28,7 @@ export type BounceSidebarProps = {
   value?: number;
   defaultValue?: number;
   activeHref?: string;
+  matchesHref?: (pathname: string, href: string) => boolean;
   onChange?: (index: number) => void;
   dotColor?: string;
   ariaLabel?: string;
@@ -41,6 +42,7 @@ export function BounceSidebar({
   value,
   defaultValue = 0,
   activeHref,
+  matchesHref,
   onChange,
   dotColor = "var(--ui-accent)",
   ariaLabel = "Primary navigation",
@@ -59,6 +61,7 @@ export function BounceSidebar({
   }
 
   function isActiveHref(href: string) {
+    if (matchesHref && activeHref) return matchesHref(activeHref, href);
     return href === "/home"
       ? activeHref === href
       : Boolean(activeHref && (activeHref === href || activeHref.startsWith(`${href}/`)));
@@ -136,7 +139,7 @@ export function BounceSidebar({
                   <ul id={groupId} className="rare-sidebar-subnav">
                     {item.sections.map((section) => (
                       <li key={section.label} className="rare-sidebar-subsection">
-                        <div className="rare-sidebar-subheading">{section.label}</div>
+                        {section.label && <div className="rare-sidebar-subheading">{section.label}</div>}
                         <ul className="rare-sidebar-subsection-items">
                           {section.items.map((child) => {
                             const active = isActiveHref(child.href);

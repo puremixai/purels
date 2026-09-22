@@ -1,7 +1,11 @@
 package domain
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"time"
 )
 
@@ -29,6 +33,45 @@ type RuntimeSettingsInput struct {
 	RateLimitRegister          int      `json:"rate_limit_register"`
 	RateLimit2FA               int      `json:"rate_limit_2fa"`
 	RateLimitOIDC              int      `json:"rate_limit_oidc"`
+}
+
+// RuntimeSettingsPatch updates only the supplied fields of an observed revision.
+// Raw values preserve the distinction between omitted fields and false, zero,
+// empty strings or empty lists without adding a second settings vocabulary.
+type RuntimeSettingsPatch struct {
+	Revision int64                      `json:"revision"`
+	Changes  map[string]json.RawMessage `json:"changes"`
+}
+
+var ErrInvalidRuntimePatch = errors.New("invalid runtime settings patch")
+
+func (p RuntimeSettingsPatch) Apply(input RuntimeSettingsInput) (RuntimeSettingsInput, error) {
+	if p.Revision <= 0 || len(p.Changes) == 0 {
+		return RuntimeSettingsInput{}, fmt.Errorf("%w: revision and non-empty changes are required", ErrInvalidRuntimePatch)
+	}
+	for field, value := range p.Changes {
+		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return RuntimeSettingsInput{}, fmt.Errorf("%w: %s must not be null", ErrInvalidRuntimePatch, field)
+		}
+	}
+	data, err := json.Marshal(p.Changes)
+	if err != nil {
+		return RuntimeSettingsInput{}, fmt.Errorf("%w: %v", ErrInvalidRuntimePatch, err)
+	}
+	// JSON decoding may reuse a slice's backing array. Keep the base snapshot
+	// immutable even when a patch replaces only the beginning of a list.
+	if input.ShortDomains != nil {
+		input.ShortDomains = append([]string{}, input.ShortDomains...)
+	}
+	if input.DestinationDenylist != nil {
+		input.DestinationDenylist = append([]string{}, input.DestinationDenylist...)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&input); err != nil {
+		return RuntimeSettingsInput{}, fmt.Errorf("%w: %v", ErrInvalidRuntimePatch, err)
+	}
+	return input, nil
 }
 
 // RuntimeSettings is the validated, persisted snapshot shared by the API and
@@ -59,4 +102,5 @@ type RuntimeSettingsReader interface {
 type RuntimeSettingsManager interface {
 	RuntimeSettingsReader
 	Update(context.Context, RuntimeSettingsInput) (RuntimeSettings, error)
+	Patch(context.Context, RuntimeSettingsPatch) (RuntimeSettings, error)
 }

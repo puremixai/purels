@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
-    "test:navigation": "node --experimental-strip-types --test src/components/admin-navigation.test.mjs"
+    "test:navigation": "node --experimental-strip-types --test src/components/admin-navigation.test.mjs",
+    "test:settings": "node --experimental-strip-types --test src/components/admin-navigation.test.mjs src/lib/runtime-settings-form.test.mjs"
   },
   "dependencies": {
     "geist": "1.7.2",

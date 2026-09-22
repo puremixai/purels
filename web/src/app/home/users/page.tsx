@@ -7,6 +7,8 @@ import { formatDateTime } from "@/lib/format";
 import { errorText, hasMessage, type T } from "@/lib/i18n";
 import { RareDialog } from "@/components/ui/rare/dialog";
 import { RareStatus } from "@/components/rare/rare-status";
+import { SettingsAccess } from "@/components/settings/settings-access";
+import { SettingsTabs } from "@/components/settings/settings-tabs";
 import { SettingsPage, SettingsSection } from "@/components/settings/settings-page";
 
 function roleLabel(t: T, name: string) {
@@ -90,6 +92,7 @@ export default function UsersPage() {
       title={t("users.title")}
       description={t("settings.home.usersDescription")}
     >
+      <SettingsAccess>{scopes => <SettingsTabs group="access" scopes={scopes} />}</SettingsAccess>
 
       {error && (
         <div className="console-alert flex flex-wrap items-center justify-between gap-3" role="alert">

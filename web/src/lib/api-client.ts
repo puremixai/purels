@@ -795,6 +795,13 @@ export const api = {
     },
   },
   runtimeSettings: {
+    async patch(revision: number, changes: Partial<RuntimeSettingsInput>) {
+      const payload = await request<{ settings: RuntimeSettings }>("/api/v1/settings/runtime", {
+        method: "PATCH",
+        body: { revision, changes },
+      });
+      return unwrapKey<RuntimeSettings>(payload, "settings");
+    },
     async get() {
       const payload = await request<{ settings: RuntimeSettings } | RuntimeSettings>("/api/v1/settings/runtime");
       return unwrapKey<RuntimeSettings>(payload, "settings");
