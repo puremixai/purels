@@ -1,5 +1,7 @@
 "use client";
 
+import { ConsoleBreadcrumb } from "@/components/rare/console-breadcrumb";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, ClickPage, DateRange, LinkRecord, LinkStats, StatsOverview } from "@/lib/api-client";
 import { useLocale, useT } from "@/components/i18n-provider";
@@ -205,8 +207,7 @@ export default function StatsPage() {
     <div className="console-page">
       <div className="console-page-header">
         <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")}</p>
-          <h1 className="console-page-title">{t("stats.title")}</h1>
+          <ConsoleBreadcrumb title={t("stats.title")} />
         </div>
         <GooeyNav
           size="sm"

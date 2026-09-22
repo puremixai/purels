@@ -1,5 +1,7 @@
 "use client";
 
+import { ConsoleBreadcrumb } from "@/components/rare/console-breadcrumb";
+
 import { useCallback, useEffect, useState } from "react";
 import { api, AuditEntry } from "@/lib/api-client";
 import { useLocale, useT } from "@/components/i18n-provider";
@@ -98,8 +100,7 @@ export default function AuditPage() {
     <div className="console-page">
       <div className="console-page-header">
         <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")}</p>
-          <h1 className="console-page-title">{t("audit.title")}</h1>
+          <ConsoleBreadcrumb title={t("audit.title")} />
         </div>
         <div className="console-actions">
           <label className="sr-only" htmlFor="audit-action">{t("audit.filterLabel")}</label>

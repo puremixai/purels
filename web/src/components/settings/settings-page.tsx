@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { SettingsDraftGuard } from "./settings-draft-guard";
 import { useT } from "@/components/i18n-provider";
+import { ConsoleBreadcrumb } from "@/components/rare/console-breadcrumb";
 import { cn } from "@/lib/utils";
 
 type SettingsPageProps = {
@@ -16,13 +17,19 @@ type SettingsPageProps = {
 
 export function SettingsPage({ root = false, group, title, description, actions, children }: SettingsPageProps) {
   const t = useT();
+  const parents = root ? [] : [
+    { label: t("shell.settings"), href: "/home/settings" },
+    ...(group ? [{
+      label: group,
+      href: group === t("settings.registration.title") ? "/home/settings/registration" : undefined,
+    }] : []),
+  ];
 
   return (
     <div className="console-page settings-page">
       <div className="console-page-header">
         <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")}{!root && <> / {t("shell.settings")}{group ? ` / ${group}` : ""}</>}</p>
-          <h1 className="console-page-title">{title}</h1>
+          <ConsoleBreadcrumb parents={parents} title={title} />
           <p className="console-page-description">{description}</p>
         </div>
         {actions && <div className="console-actions">{actions}</div>}

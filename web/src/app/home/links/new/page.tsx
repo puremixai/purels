@@ -1,5 +1,7 @@
 "use client";
 
+import { ConsoleBreadcrumb } from "@/components/rare/console-breadcrumb";
+
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -85,8 +87,7 @@ export default function NewLinkPage() {
     <div className="console-page mx-auto max-w-3xl">
       <div className="console-page-header">
         <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")} / {t("links.title")}</p>
-          <h1 className="console-page-title">{created ? t("links.created.title") : t("links.form.submit")}</h1>
+          <ConsoleBreadcrumb title={created ? t("links.created.title") : t("links.form.submit")} parents={[{ label: t("links.title"), href: "/home/links" }]} />
         </div>
       </div>
       {created ? (

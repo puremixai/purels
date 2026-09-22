@@ -242,6 +242,7 @@ export const en = {
 
   "shell.console": "Admin console",
   "shell.workspace": "Workspace",
+  "shell.breadcrumb": "Breadcrumb",
   "shell.account": "Purels account",
   "shell.accountMenu": "Account menu",
   "shell.settings": "Settings",

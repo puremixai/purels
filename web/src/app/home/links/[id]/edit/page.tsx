@@ -1,5 +1,7 @@
 "use client";
 
+import { ConsoleBreadcrumb } from "@/components/rare/console-breadcrumb";
+
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useLocale, useT } from "@/components/i18n-provider";
@@ -134,8 +136,7 @@ export default function EditLinkPage() {
     <div className="console-page mx-auto max-w-3xl">
       <div className="console-page-header">
         <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")} / {t("links.title")}</p>
-          <h1 className="console-page-title">{t("links.edit.title")}</h1>
+          <ConsoleBreadcrumb title={t("links.edit.title")} parents={[{ label: t("links.title"), href: "/home/links" }]} />
         </div>
       </div>
 

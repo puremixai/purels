@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useT } from "@/components/i18n-provider";
+import { ConsoleBreadcrumb } from "@/components/rare/console-breadcrumb";
 
 type AccountPageProps = {
   title: string;
@@ -16,8 +17,7 @@ export function AccountPage({ title, description, children }: AccountPageProps) 
     <div className="console-page settings-page">
       <div className="console-page-header">
         <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")} / {t("account.title")}</p>
-          <h1 className="console-page-title">{title}</h1>
+          <ConsoleBreadcrumb parents={[{ label: t("account.title") }]} title={title} />
           <p className="console-page-description">{description}</p>
         </div>
       </div>

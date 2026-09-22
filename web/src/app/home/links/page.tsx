@@ -1,5 +1,7 @@
 "use client";
 
+import { ConsoleBreadcrumb } from "@/components/rare/console-breadcrumb";
+
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useT } from "@/components/i18n-provider";
@@ -267,8 +269,7 @@ export default function LinksPage() {
     <div className="console-page">
       <div className="console-page-header">
         <div className="console-page-heading">
-          <p className="console-breadcrumb">{t("shell.workspace")}</p>
-          <h1 className="console-page-title">{t("links.title")}</h1>
+          <ConsoleBreadcrumb title={t("links.title")} />
         </div>
         <div className="console-actions">
           <input

@@ -220,6 +220,7 @@ export const zhCN: Dictionary = {
 
   "shell.console": "管理后台",
   "shell.workspace": "工作台",
+  "shell.breadcrumb": "页面导航",
   "shell.account": "Purels 账户",
   "shell.accountMenu": "账户菜单",
   "shell.settings": "设置",

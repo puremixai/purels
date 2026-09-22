@@ -254,7 +254,7 @@
 
   .console-page-header {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
     gap: 1rem;
     min-height: 2.5rem;
@@ -269,17 +269,18 @@
 
   .console-breadcrumb {
     color: var(--muted);
-    font-size: var(--text-2xs);
-    line-height: 1.3;
+    font-size: var(--text-sm);
+    line-height: 1.5;
   }
 
-  .console-page-title {
-    color: var(--ink);
-    font-size: clamp(1.45rem, 1.1vw + 1rem, 1.85rem);
-    font-weight: 700;
-    letter-spacing: -0.035em;
-    line-height: 1.12;
-  }
+  .console-breadcrumb ol { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; }
+  .console-breadcrumb li { display: inline-flex; min-width: 0; align-items: center; gap: 0.5rem; }
+  .console-breadcrumb a { display: inline-flex; min-height: 2.5rem; align-items: center; }
+  .console-breadcrumb a:hover { color: var(--ink); }
+  .console-breadcrumb a:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; border-radius: var(--radius-control); }
+  .console-breadcrumb h1 { color: var(--ink); font: inherit; font-weight: 500; overflow-wrap: anywhere; }
+  .console-breadcrumb-separator { color: var(--faint); }
+  @media (max-width: 767px) { .console-breadcrumb a { min-height: 44px; } }
 
   .console-page-description {
     max-width: 65ch;
