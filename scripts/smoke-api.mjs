@@ -417,9 +417,31 @@ async function main() {
   );
   record("the preview page shows the destination", previewHTML.includes("https://example.org/rule-default"), `${previewHTML.length} bytes`);
   record(
+    "the preview gallery keeps navigation manual",
+    previewHTML.includes('data-interstitial="false"') &&
+      !previewHTML.includes('http-equiv="refresh"') &&
+      previewHTML.includes('id="art-title"') && previewHTML.includes('id="continue-link"'),
+    "single artwork with a manual destination action",
+  );
+  record(
     "the preview page stays out of search results",
     preview.headers.get("x-robots-tag") === "noindex, nofollow" && preview.headers.get("cache-control") === "no-store",
     `${preview.headers.get("x-robots-tag")} / ${preview.headers.get("cache-control")}`,
+  );
+  const previewHead = await call(`/${ruleAlias}+`, { method: "HEAD" });
+  record(
+    "a preview HEAD keeps the headers and omits the gallery",
+    previewHead.status === 200 && (await previewHead.text()).length === 0 &&
+      previewHead.headers.get("cache-control") === "no-store" &&
+      previewHead.headers.get("x-robots-tag") === "noindex, nofollow",
+    `status=${previewHead.status}`,
+  );
+  const rulePreview = await call(`/${ruleAlias}+?utm_source=preview&x=1`, { headers: { "User-Agent": RULE_UA } });
+  const rulePreviewHTML = await rulePreview.text();
+  record(
+    "the preview shows the matched rule with the visitor query",
+    rulePreviewHTML.includes("https://example.org/rule-ua?utm_source=preview&amp;x=1"),
+    "rule destination and forwarded query are preserved",
   );
   await call(`/${ruleAlias}+`);
   await call(`/${ruleAlias}+`);
@@ -846,8 +868,16 @@ async function main() {
     "the page shows the destination and how long it will hold",
     heldBody.includes("https://example.org/hold") &&
       heldBody.includes('content="2;url=https://example.org/hold"') &&
+      heldBody.includes('data-interstitial="true"') && heldBody.includes('data-seconds="2"') &&
       heldBody.includes("Redirecting in 2 seconds"),
     heldBody.includes("https://example.org/hold") ? "destination present" : "destination missing",
+  );
+  record(
+    "the gallery allows pausing without an active meta refresh",
+    heldBody.includes('id="pause-button"') && heldBody.includes('id="art-description"') &&
+      /<noscript>\s*<meta http-equiv="refresh"/.test(heldBody) &&
+      !heldBody.replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/g, "").includes('http-equiv="refresh"'),
+    "pause control with a no-JavaScript refresh fallback",
   );
   record(
     "the page keeps search engines out",
@@ -901,7 +931,8 @@ async function main() {
   const customBody = await customPage.text();
   record(
     "the new delay reaches the page",
-    customBody.includes('content="5;url=https://example.org/hold"') && customBody.includes("Redirecting in 5 seconds"),
+    customBody.includes('content="5;url=https://example.org/hold"') && customBody.includes('data-seconds="5"') &&
+      customBody.includes("Redirecting in 5 seconds"),
     `refresh=${customBody.includes('content="5;url=')} label=${customBody.includes("Redirecting in 5 seconds")}`,
   );
 

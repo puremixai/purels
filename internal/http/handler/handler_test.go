@@ -106,20 +106,15 @@ func TestShortCode(t *testing.T) {
 }
 
 func TestPreviewPageEscapes(t *testing.T) {
-	// Both the heading and the button's href are built by hand, so an alias or a
-	// destination carrying markup must come out escaped rather than live.
-	page := previewPage(`ab"c<script>`, `https://example.com/?q=<script>alert(1)</script>"`, langEnglish)
-	if strings.Contains(page, "<script>") {
-		t.Fatal("the preview page must not emit an unescaped value")
-	}
-	if !strings.Contains(page, "&lt;script&gt;") {
-		t.Fatal("expected the destination to be escaped rather than dropped")
-	}
+	alias := `ab"c</script><svg onload="alert('alias')">`
+	destination := `https://example.com/?q=</script><svg onload="alert('destination')">&next="quoted"#target`
+	page := previewPage(alias, destination, langEnglish)
+	assertGalleryEscapes(t, page, alias, destination)
 	if !strings.Contains(page, "noindex") {
 		t.Fatal("expected the preview page to keep search engines out")
 	}
-	if !strings.Contains(page, `class="purels-page"`) || !strings.Contains(page, `class="purels-destination"`) {
-		t.Fatal("expected the preview page to use the redesigned layout")
+	if !strings.Contains(page, `id="art-title"`) || !strings.Contains(page, `id="continue-link"`) {
+		t.Fatal("expected the preview page to show the artwork and destination action")
 	}
 }
 
@@ -130,7 +125,7 @@ func TestPreviewPageFollowsTheRequestedLanguage(t *testing.T) {
 	if !strings.Contains(chinese, `<html lang="zh-CN">`) {
 		t.Fatal("expected a Chinese request to get the Chinese lang attribute")
 	}
-	if !strings.Contains(chinese, ">继续</a>") {
+	if !strings.Contains(galleryElementContent(t, chinese, "a", "continue-link"), "立即前往") {
 		t.Fatal("expected a Chinese request to get the Chinese button")
 	}
 
@@ -138,39 +133,33 @@ func TestPreviewPageFollowsTheRequestedLanguage(t *testing.T) {
 	if !strings.Contains(english, `<html lang="en">`) {
 		t.Fatal("expected an English request to get the English lang attribute")
 	}
-	if !strings.Contains(english, ">Continue</a>") {
+	if !strings.Contains(galleryElementContent(t, english, "a", "continue-link"), "Continue now") {
 		t.Fatal("expected an English request to get the English button")
 	}
 }
 
 func TestInterstitialPageEscapes(t *testing.T) {
-	// The destination is interpolated twice — once as visible text and once as
-	// the meta refresh target — so markup in it must come out escaped in both.
-	page := interstitialPage(`ab"c<script>`, `https://example.com/?q=<script>alert(1)</script>"`, 2, langEnglish)
-	if strings.Contains(page, "<script>") {
-		t.Fatal("the interstitial page must not emit an unescaped value")
-	}
-	if !strings.Contains(page, "&lt;script&gt;") {
-		t.Fatal("expected the destination to be escaped rather than dropped")
-	}
+	alias := `ab"c</script><svg onload="alert('alias')">`
+	destination := `https://example.com/?q=</script><svg onload="alert('destination')">&next="quoted"#target`
+	page := interstitialPage(alias, destination, 2, langEnglish)
+	assertGalleryEscapes(t, page, alias, destination)
 	if !strings.Contains(page, "noindex") {
 		t.Fatal("expected the interstitial page to keep search engines out")
 	}
 }
 
 func TestInterstitialPageCarriesTheDelay(t *testing.T) {
-	// The meta refresh is the whole mechanism: without the right number of
-	// seconds and the destination in its content attribute, the page never
-	// moves the visitor on.
+	// JavaScript uses the configured delay, while visitors without JavaScript
+	// retain the same delay through the noscript meta refresh.
 	page := interstitialPage("abc", "https://example.com/landing", 7, langEnglish)
-	if !strings.Contains(page, `<meta http-equiv="refresh" content="7;url=https://example.com/landing">`) {
-		t.Fatalf("expected a 7 second refresh to the destination, got %q", page)
+	if !strings.Contains(page, `data-seconds="7"`) {
+		t.Fatal("expected the timer to receive the configured seven second delay")
 	}
-	// The delay also has to reach the visitor as text, not only as an attribute.
-	if !strings.Contains(page, "Redirecting in 7 seconds") {
+	assertGalleryRefresh(t, page, 7, "https://example.com/landing")
+	if !strings.Contains(page, `aria-label="Redirecting in 7 seconds"`) {
 		t.Fatal("expected the page to say how long it will hold")
 	}
-	if !strings.Contains(page, `class="purels-progress"`) {
+	if !strings.Contains(page, `id="progress-fill"`) {
 		t.Fatal("expected the interstitial page to show a countdown progress track")
 	}
 }
@@ -183,7 +172,7 @@ func TestInterstitialPageFollowsTheRequestedLanguage(t *testing.T) {
 	if !strings.Contains(chinese, "2 秒后自动跳转") {
 		t.Fatal("expected a Chinese request to get the Chinese wait label")
 	}
-	if !strings.Contains(chinese, ">继续</a>") {
+	if !strings.Contains(galleryElementContent(t, chinese, "a", "continue-link"), "立即前往") {
 		t.Fatal("expected a Chinese request to get the Chinese button")
 	}
 
