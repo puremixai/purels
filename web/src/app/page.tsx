@@ -13,6 +13,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { tFor } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
 import { registrationEnabled } from "@/lib/public-config.server";
+import { hasSession } from "@/lib/session.server";
 
 /**
  * The one page here that is meant to be read without signing in, and the only
@@ -40,12 +41,15 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function HomePage() {
   const t = tFor(await getLocale());
-  const registrationOpen = await registrationEnabled();
+  // Both reads are server-side for the same reason: the header has to be right
+  // in the document the visitor — or the crawler — is served, not corrected
+  // afterwards in the browser.
+  const [registrationOpen, signedIn] = await Promise.all([registrationEnabled(), hasSession()]);
 
   return (
     <>
       <ScrollProgress />
-      <SiteHeader t={t} registrationOpen={registrationOpen} />
+      <SiteHeader t={t} registrationOpen={registrationOpen} signedIn={signedIn} />
       <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-brand-fill focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-on-brand">{t("home.skipToMain")}</a>
       <main id="main-content">
         <section className="relative overflow-hidden border-b border-[var(--line)] bg-canvas">
@@ -57,10 +61,15 @@ export default async function HomePage() {
               </p>
               <h1 className="mt-4 max-w-3xl text-5xl font-bold leading-[0.98] tracking-[-0.05em] text-balance sm:text-6xl lg:text-6xl">{t("home.hero.title")}</h1>
               <p className="mt-4 max-w-[52ch] text-lg leading-relaxed text-pretty text-[var(--muted)]">{t("home.hero.subhead")}</p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                {registrationOpen && <Link className="btn-primary" href="/register">{t("home.hero.ctaPrimary")}</Link>}
-                <Link className={registrationOpen ? "btn-secondary" : "btn-primary"} href="/login">{t("home.hero.ctaSecondary")}</Link>
-              </div>
+              {/* Sign-up is the only action here. The console entry point is
+                  the header's, which is the one place that knows whether the
+                  visitor already holds a session — a second Sign in button in
+                  the hero would be a second answer to the same question. */}
+              {registrationOpen && (
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <Link className="btn-primary" href="/register">{t("home.hero.ctaPrimary")}</Link>
+                </div>
+              )}
               <div className="mt-8 grid max-w-xl grid-cols-3 border-t border-[var(--line)] pt-4 text-2xs text-[var(--muted)]">
                 <div><AnimatedCounter value={100} suffix="%" className="block text-lg font-semibold text-[var(--ink)]" />self-hosted</div>
                 <div><AnimatedCounter value={10} className="block text-lg font-semibold text-[var(--ink)]" />permission scopes</div>

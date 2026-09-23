@@ -11,11 +11,16 @@ import { SECTIONS } from "./sections";
  * which is why the anchors are plain `<a>` rather than `next/link` — a fragment
  * has nothing to prefetch and nothing for the client router to do.
  *
- * The right-hand side always keeps the filled action as Sign in. Registration
- * is an optional secondary link, so the console entry point never changes
- * route when sign-up is enabled or disabled.
+ * The filled action is the one entry point to the console, and it reflects the
+ * visitor: a session turns it into Console (straight to /home), no session turns
+ * it into Sign in. It sits on the right with the other actions rather than in
+ * the section nav, which is about the page itself and reads the same whether or
+ * not anybody is signed in.
+ *
+ * Registration stays an optional secondary link, so the console entry point
+ * never changes route when sign-up is enabled or disabled.
  */
-export function SiteHeader({ t, registrationOpen }: { t: T; registrationOpen: boolean }) {
+export function SiteHeader({ t, registrationOpen, signedIn }: { t: T; registrationOpen: boolean; signedIn: boolean }) {
   return (
     <header className="sticky top-0 z-20 border-b border-[var(--line)] bg-surface/90 backdrop-blur-sm">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-4 px-5 sm:gap-6">
@@ -31,20 +36,17 @@ export function SiteHeader({ t, registrationOpen }: { t: T; registrationOpen: bo
               {t(section.key)}
             </a>
           ))}
-          <Link className="hover:text-[var(--ink)]" href="/home">
-            {t("home.nav.console")}
-          </Link>
         </nav>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <ThemeToggle />
           <LocaleSwitcher className="field-control field-control-inline text-sm" />
-          {registrationOpen && (
+          {!signedIn && registrationOpen && (
             <Link className="hidden text-sm text-[var(--muted)] hover:text-[var(--ink)] sm:block" href="/register">
               {t("home.nav.getStarted")}
             </Link>
           )}
-          <Link className="btn-primary" href="/login">
-            {t("home.nav.signIn")}
+          <Link className="btn-primary" href={signedIn ? "/home" : "/login"}>
+            {t(signedIn ? "home.nav.console" : "home.nav.signIn")}
           </Link>
         </div>
       </div>
