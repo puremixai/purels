@@ -1,7 +1,11 @@
 # Purels
 
+[简体中文](README.zh-CN.md) | English
+
 A self-hosted URL shortener with an operations console: short links, click
 analytics, an audit trail, role-based access control and multi-user accounts.
+Each link can show a bilingual artwork gallery before taking visitors to its
+destination.
 
 [![CI](https://github.com/puremixai/purels/actions/workflows/ci.yml/badge.svg)](https://github.com/puremixai/purels/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -50,17 +54,21 @@ decisions that shape it:
   Base36 (`ALIAS_MODE`)
 - Aliases preserve their casing and are matched case-sensitively: `AbC` and
   `abc` are different short codes
-- Optional reuse of an existing code for a destination that was shortened before
-  (`UNIQUE_URLS`), so re-shortening the same page does not mint a second alias
+- When generating an alias, optional reuse of the same account's existing
+  link to the destination (`UNIQUE_URLS`). Supplying an alias creates a new link
 - Multiple short domains (`SHORT_DOMAINS`), with a configurable default
 - Titles, tags and expiry dates
-- 301 or 302 redirects, chosen per link
+- A per-link destination page with a 0–60 second delay (2 seconds by default).
+  It shows one artwork, the destination, and controls to pause or continue;
+  setting the delay to `0` gives a direct 301 or 302 redirect
 - Destination allow/deny checking, with a configurable denylist
-- A `/{alias}+` preview page that shows the destination before following it
+- A `/{alias}+` preview page that shows the artwork and destination without a
+  countdown or a recorded click; the visitor chooses when to continue
 - QR codes, rendered on demand
 - User-agent divert rules: send matching visitors to a different destination
   without changing the short link
-- CSV import and export, where the export column set *is* the import contract
+- CSV import and export, including `interstitial_seconds`; the export column
+  set *is* the import contract
 - Bulk operations over a selected set: disable, enable, delete, tag, untag and
   set an expiry
 
@@ -88,37 +96,45 @@ decisions that shape it:
 
 ### Operations
 
-- An audit trail covering 21 actions, with the actor, the address it came from
-  and the changed values
+- An audit trail with the actor, action, target, change metadata and a hash of
+  the source address when IP hashing is enabled
 - Per-IP rate limiting on login, registration, the API, redirects, the
   second-factor endpoint and OIDC
 - `/healthz`, `/readyz` and Prometheus `/metrics`
-- A background worker that aggregates clicks, prunes expired links and probes
-  destinations for reachability
+- A background worker that aggregates clicks and can optionally prune expired
+  links or probe destinations for reachability
 - Optional injection of a GA4, Google Tag Manager or Matomo tag into the console,
   configurable in the console itself
 - An English and Simplified Chinese console. The language follows an explicit
   choice, then `Accept-Language`, then English
+- A `/home` console with a dashboard, breadcrumb navigation, searchable and
+  grouped site settings, and personal security and token pages
 
 ## Quick start
 
-Requires Docker with Compose.
+Requires Docker with Compose. Run these commands from the repository root:
 
 ```sh
 git clone https://github.com/puremixai/purels.git
 cd purels
-make compose-up
+docker compose -f deploy/compose.yaml up -d --build
 ```
 
-Then open <http://localhost> and sign in as `admin` with the password
-`change-me-now`.
+Once `http://localhost/readyz` reports `{"status":"ready"}`, open
+<http://localhost>, then sign in at <http://localhost/login> as `admin` with
+the password `change-me-now`. The public home page is at `/` and the signed-in
+console is at `/home`. Create a link at `/home/links/new`, then open
+`http://localhost/<alias>` to see its destination page or append `+` to preview
+it without recording a click.
 
 > The bundled stack is a **development** stack. It ships a known default
 > password, plain-HTTP cookies and no TLS. Read [Deploying](#deploying) before
 > putting it anywhere reachable.
 
 The stack brings up PostgreSQL, Redis, the migrations, the API, the worker, the
-console and a Caddy gateway. Nothing else is required.
+console and a Caddy gateway. The example values are set in
+[`deploy/compose.yaml`](deploy/compose.yaml); copying `.env.example` to `.env`
+does not change this stack.
 
 To stop it and keep the data:
 
@@ -130,17 +146,21 @@ To remove the volumes as well, add `-v`.
 
 ## Configuration
 
-Infrastructure and secret settings remain environment variables, documented in
-[`.env.example`](.env.example) — including the ones that are easy to get wrong,
-such as `SECRET_ENCRYPTION_KEY`, which encrypts stored TOTP secrets and OIDC
-client secrets and cannot be changed without invalidating them. The first API
-or worker boot after migration seeds the mutable policy row from the matching
-environment values; after that, the database row is authoritative.
+Infrastructure and secret settings remain environment variables. Use
+[`.env.example`](.env.example) as a reference when running the processes
+yourself; Compose specifies its own development values in
+[`deploy/compose.yaml`](deploy/compose.yaml). `SECRET_ENCRYPTION_KEY` encrypts
+stored TOTP secrets and OIDC client secrets and cannot be changed without
+invalidating them. After migration `000018`, the first API or worker boot seeds
+the mutable policy row from environment values; after that, the database row
+is authoritative.
 
 The administrator can find site settings at `/home/settings`, grouped into
 links, registration and sign-in, users and permissions, traffic protection,
-and statistics and integrations. Personal two-factor authentication and API
-tokens live under `/home/account`. Existing settings URLs remain compatible.
+and statistics and integrations. The settings landing page also searches fields
+within the scopes the current account holds. Personal two-factor authentication
+and API tokens live under `/home/account`. Existing settings URLs remain
+compatible.
 
 The following site policies require the `settings:manage` scope: alias generation,
 duplicate URL handling, registration, bot counting, query forwarding, fallback
@@ -157,26 +177,27 @@ Registration verification, OIDC, roles, users and external tracking retain their
 own permissions and independent save operations. External tracking scripts run
 in the console only; bot counting controls the built-in short-link reports.
 
-The compose file under `deploy/` carries the same variables with development
-values. The ones that matter most:
+The Compose file under `deploy/` sets development values for some variables;
+the processes use their built-in defaults for the rest. The ones that matter
+most:
 
-| Variable | Default | Meaning |
+| Variable | Development value | Meaning |
 | --- | --- | --- |
-| `PUBLIC_URL` | `http://localhost` | Base used to render short links and the OIDC redirect |
-| `DATABASE_URL` | — | PostgreSQL connection string |
-| `REDIS_URL` | — | Redis connection string |
+| `PUBLIC_URL` | `http://localhost` in Compose | Short-link base; default OIDC callback origin unless `OIDC_REDIRECT_BASE` is set |
+| `DATABASE_URL` | Compose PostgreSQL service | PostgreSQL connection string |
+| `REDIS_URL` | Compose Redis service | Redis connection string |
 | `BOOTSTRAP_USERNAME` / `BOOTSTRAP_PASSWORD` | `admin` / `change-me-now` | The first account, created on boot if the table is empty |
 | `COOKIE_SECURE` | `false` | Set to `true` whenever the console is served over HTTPS |
 | `SECRET_ENCRYPTION_KEY` | empty | Required before TOTP enrolment or an OIDC client secret can be stored |
 | `ALIAS_MODE` | `random` | `random` keeps codes unguessable; `sequential` makes them enumerable |
-| `UNIQUE_URLS` | `true` | Reuse the existing code when a destination is shortened again |
+| `UNIQUE_URLS` | `true` | For a generated alias, reuse the same account's existing link to the destination |
 | `REGISTRATION_ENABLED` | `true` | `false` closes public sign-up without touching existing accounts |
 | `IP_HASH_MODE` | `pseudonymised` | `none` stores no address-derived value at all |
-| `STATS_TZ` | `UTC` | Where a statistics "day" starts. Must match between the API and the worker |
+| `STATS_TZ` | `UTC` | IANA zone where a statistics "day" starts. Must match between the API and the worker |
 | `RATE_LIMIT_*` | see `.env.example` | Per-IP, per-minute, per bucket |
 
 The values above that are listed as runtime settings are bootstrap defaults
-only after `000018`; changing them in `.env` later does not overwrite an
+only after `000018`; changing environment values later does not overwrite an
 operator's database edit. Keep `PUBLIC_URL`, database/Redis URLs, CORS origins,
 cookie/session settings, IP hash mode/key, encryption keys, OIDC bootstrap
 settings and other infrastructure/security material in the environment.
@@ -184,20 +205,23 @@ settings and other infrastructure/security material in the environment.
 ## Deploying
 
 The `deploy/compose.yaml` stack is intended for local use. It is not a
-production configuration, and the differences are not cosmetic:
+production configuration:
 
 - `BOOTSTRAP_PASSWORD` is a published default
 - `COOKIE_SECURE=false` sends the session cookie over plain HTTP
 - `SECRET_ENCRYPTION_KEY` is empty, so no secret can be stored
 - The gateway runs with `auto_https off`, so there is no TLS
 - `ADMIN_ORIGIN` allows `http://localhost` origins only
+- PostgreSQL, Redis and the web process publish ports `5432`, `6379` and
+  `3000` on the host; the API publishes `8080` on loopback
 
-A real deployment needs all of those addressed, a TLS-terminating proxy in front,
-and the API port left unpublished — it is bound to loopback in the bundled stack
-on purpose. Behind Cloudflare, the API uses the `CF-Connecting-IP` header and
-otherwise falls back to the proxy-appended `X-Forwarded-For`; a caller who can
-reach the API directly can name their own address. The reasoning is recorded in
-`internal/http/middleware/clientip.go`.
+A real deployment needs separate credentials, a persistent encryption key,
+secure cookies, a TLS-terminating proxy and restricted backend ports. Do not
+expose the database, Redis or API to untrusted clients. Behind Cloudflare, the
+API uses the `CF-Connecting-IP` header and otherwise falls back to the
+proxy-appended `X-Forwarded-For`; a caller who can reach the API directly can
+name their own address. The reasoning is recorded in
+[`internal/http/middleware/clientip.go`](internal/http/middleware/clientip.go).
 
 Back up PostgreSQL. That is where links, accounts, sessions and the audit trail
 live; Redis holds only a redirect cache and rate-limit counters and can be
@@ -205,15 +229,18 @@ flushed.
 
 ## HTTP API
 
-All endpoints are under `/api/v1`. Authentication is a session cookie (with the
-`X-CSRF-Token` header on writes) or a bearer token. Every route below is checked
-against the caller's scopes; a token holds the scopes it was minted with, and a
-session holds the scopes of its role.
+The management API uses `/api/v1`. Login, registration, second-factor
+verification, OIDC sign-in, CSRF lookup and public CAPTCHA configuration are
+pre-login routes. The other routes require a session cookie or bearer token.
+Cookie-authenticated writes require `X-CSRF-Token`. Routes that need a scope
+name it below. A token holds the scopes it was minted with, while a session
+holds the scopes of its role.
 
 | Group | Endpoints | Scope |
 | --- | --- | --- |
 | Auth | `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`, `GET /auth/csrf` | — |
 | Registration | `POST /auth/register` | — |
+| Public CAPTCHA config | `GET /auth/captcha` | — |
 | Two-factor | `POST /auth/2fa/verify`, `GET /auth/2fa`, `POST /auth/2fa/{enroll,confirm,disable}` | — |
 | OIDC | `GET /auth/oidc/providers`, `GET /auth/oidc/{slug}/{start,callback}` | — |
 | Links | `GET/POST /links`, `GET/PATCH/DELETE /links/{id}` | `links:read`, `links:write` |
@@ -234,8 +261,8 @@ Outside `/api/v1`:
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /{alias}` | The redirect. Rate-limited separately and more generously |
-| `GET /{alias}+` | The preview page, localized from `Accept-Language` |
+| `GET/HEAD /{alias}` | The redirect or configured artwork delay page; the visit is recorded on `GET` |
+| `GET/HEAD /{alias}+` | An artwork and destination preview with no automatic navigation or click count, localized from `Accept-Language` |
 | `GET /healthz`, `GET /readyz`, `GET /metrics` | Liveness, readiness, Prometheus |
 
 There is no generated OpenAPI document. The API surface is described here and
@@ -246,7 +273,7 @@ route is declared along with the scope it requires.
 
 ```
              ┌──────────┐
-  browser ──▶│  Caddy   │──▶ /admin, /login, /register, /_next  ──▶ web (Next.js)
+  browser ──▶│  Caddy   │──▶ /, /home/*, /login, /register, /_next/* ─▶ web (Next.js)
              │  :80     │──▶ /api/*, /healthz, /readyz, /metrics ─▶ api (Go)
              └──────────┘──▶ everything else (a short code) ─────▶ api (Go)
 ```
@@ -254,9 +281,9 @@ route is declared along with the scope it requires.
 | Component | What it is |
 | --- | --- |
 | `cmd/purels-api` | The HTTP API, the redirect handler and the preview page |
-| `cmd/purels-worker` | Click aggregation, expiry pruning, destination health checks |
+| `cmd/purels-worker` | Click aggregation, optional expiry pruning and destination health checks |
 | `web/` | The Next.js console. Calls the API same-origin through a proxy |
-| `migrations/` | 13 golang-migrate migrations, applied by a one-shot container |
+| `migrations/` | Versioned golang-migrate migrations, applied by a one-shot container |
 | `deploy/` | The Compose stack and the Caddyfile |
 
 The API and the worker are the same image with different entrypoints, so they
@@ -289,30 +316,38 @@ depends on `store` and `domain`, and `domain` depends on nothing.
 
 ## Development
 
-Requires Go 1.27, Node 24 or newer (the console image builds on
-`node:24-alpine`), and a reachable PostgreSQL and Redis. For the latter two, the
-quickest route is to start just those from the bundled stack:
+Requires Go 1.27, Node 24 and Docker with Compose. Start PostgreSQL and Redis,
+then apply the migrations before starting the API:
 
 ```sh
 docker compose -f deploy/compose.yaml up -d postgres redis
+docker compose -f deploy/compose.yaml run --rm migrate
+go run ./cmd/purels-api
 ```
 
-Then:
+In a second terminal, start the console at <http://localhost:3000>:
 
 ```sh
-make dev                 # run the API against .env / the environment
-cd web && npm install && npm run dev
+cd web
+npm ci
+npm run dev
 ```
+
+The Go processes read the current process environment and do **not** load
+`.env` automatically. Without overrides, the API connects to PostgreSQL and
+Redis on the local ports published by Compose. Set variables in your shell
+before running `go run` when you need different values. `make dev` is a shortcut
+for `go run ./cmd/purels-api` on systems with Make and a POSIX shell.
 
 Useful targets:
 
 | Command | Does |
 | --- | --- |
-| `make dev` | Run the API |
+| `make dev` | Run the API with the current shell environment |
 | `make build` | Build both binaries |
 | `make fmt` | `gofmt -w` over the Go tree |
 | `make test` | `go test ./...` |
-| `make migrate-up` | Apply migrations to `$DATABASE_URL` |
+| `make migrate-up` | Apply migrations to `$DATABASE_URL`; requires the `migrate` CLI |
 | `make compose-up` | Bring up the whole stack |
 | `make smoke-*` | Run one smoke suite — see [Testing](#testing) |
 
@@ -322,11 +357,10 @@ Console checks:
 cd web && npm run typecheck && npm run build
 ```
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs all of this on every
-push to `main` and every pull request: the Go and console jobs in parallel, then
-the smoke suites against a stack built from the same Compose file you run
-locally. The integration job is the slow one and the one that matters — it is
-what makes the table above a promise rather than a suggestion.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) checks Go formatting,
+build, vet and tests; runs the console typecheck and build; then runs the smoke
+suites against a Compose stack. The `make` targets are optional local shortcuts;
+the Compose and `go run` commands above also work in PowerShell.
 
 ### Conventions worth knowing
 
@@ -342,17 +376,16 @@ what makes the table above a promise rather than a suggestion.
 
 ## Testing
 
-Two layers, both run by hand.
+Unit and browser checks are run locally and in CI as described below.
 
-**Go unit tests** — 108 test functions across the domain, security, service,
-store and HTTP layers:
+**Go unit tests** cover the domain, security, service, store and HTTP layers:
 
 ```sh
-make test
+go test ./...
 ```
 
-**Smoke suites** — Node scripts with no dependencies, driving a *running* stack
-over HTTP, plus one browser suite. They are the integration gate:
+**Smoke suites** are dependency-free Node scripts that drive a *running* stack
+over HTTP, plus one browser suite. They are the CI integration gate:
 
 | Suite | Covers |
 | --- | --- |
@@ -365,9 +398,10 @@ over HTTP, plus one browser suite. They are the integration gate:
 | `make smoke-captcha` | Registration protection, mostly the refusal cases |
 | `make smoke-pages` | Every console page in a real browser, plus the language switcher |
 
-`make smoke-all` runs them in sequence. **They share the API's per-IP rate-limit
-bucket**, so they are spaced apart and must not be run in parallel — running two
-at once makes them fail each other's limits rather than test anything.
+`make smoke-all` runs them in sequence with a 65-second gap between suites.
+It requires Make and a POSIX shell. **The suites share the API's per-IP rate-limit
+bucket**, so do not run them in parallel. You can also run one suite directly,
+for example `node scripts/smoke-api.mjs`.
 
 The browser suite needs a headless Chrome with the DevTools protocol enabled:
 
@@ -383,6 +417,19 @@ Some suites have a deterministic branch that needs a stack configured for it —
 Without one, the suite still runs: it asserts that the feature is refused rather
 than skipping.
 
+The artwork pages have focused checks outside the CI smoke sequence:
+
+```sh
+node --test scripts/redirect-gallery.test.mjs
+node scripts/redirect-gallery.e2e.mjs
+```
+
+The second command needs Playwright installed; set `PLAYWRIGHT_MODULE` if it is
+outside `node_modules`. See the [gallery notes](docs/redirect-gallery/README.md).
+The console also has
+`npm run test:navigation` and `npm run test:settings` in `web/` for navigation
+and settings behavior.
+
 ## Security
 
 What the project does:
@@ -394,10 +441,12 @@ What the project does:
 - Sessions are server-side and cookie-borne; writes require a CSRF token.
 - API tokens are stored hashed and carry an explicit scope list. The default set
   excludes token minting, the audit trail and every administration scope.
-- The audit trail records the actor, the action, the target and the address it
-  came from.
-- Destinations are validated and can be denied by host, so the shortener cannot
-  be pointed at internal addresses.
+- The audit trail records the actor, action, target and change metadata. The
+  source IP is hashed according to `IP_HASH_MODE`; it is not returned by the
+  audit API.
+- Destination URLs reject literal private, loopback and link-local addresses,
+  and operators can deny additional hosts. Destination health checks resolve
+  the host again before connecting and refuse private addresses.
 - Unique visitors are counted from a hash of the address, never the address, and
   the mode that stores nothing is available.
 - Rate limits cover login, registration, the API, redirects, the second factor
