@@ -71,9 +71,9 @@ export default async function HomePage() {
                 </div>
               )}
               <div className="mt-8 grid max-w-xl grid-cols-3 border-t border-[var(--line)] pt-4 text-2xs text-[var(--muted)]">
-                <div><AnimatedCounter value={100} suffix="%" className="block text-lg font-semibold text-[var(--ink)]" />self-hosted</div>
-                <div><AnimatedCounter value={10} className="block text-lg font-semibold text-[var(--ink)]" />permission scopes</div>
-                <div><AnimatedCounter value={0} className="block text-lg font-semibold text-[var(--ink)]" />vendor lock-in</div>
+                <div><AnimatedCounter value={1} className="block text-lg font-semibold text-[var(--ink)]" />{t("home.hero.stat.deploy")}</div>
+                <div><AnimatedCounter value={11} className="block text-lg font-semibold text-[var(--ink)]" />{t("home.hero.stat.scopes")}</div>
+                <div><AnimatedCounter value={3} className="block text-lg font-semibold text-[var(--ink)]" />{t("home.hero.stat.modes")}</div>
               </div>
             </div>
             <div className="relative min-h-[360px] lg:min-h-[440px]">
@@ -157,7 +157,7 @@ const FEATURES = [
   { icon: "chart", title: "home.feature.stats.title", body: "home.feature.stats.body" },
   { icon: "pulse", title: "home.feature.rules.title", body: "home.feature.rules.body" },
   { icon: "key", title: "home.feature.access.title", body: "home.feature.access.body" },
-  { icon: "shield", title: "home.feature.safety.title", body: "home.feature.safety.body" },
+  { icon: "grid", title: "home.feature.gallery.title", body: "home.feature.gallery.body" },
   { icon: "lock", title: "home.feature.privacy.title", body: "home.feature.privacy.body" },
 ] as const satisfies readonly { icon: IconName; title: MessageKey; body: MessageKey }[];
 
@@ -167,4 +167,4 @@ const STEPS = [
   { title: "home.how.share.title", body: "home.how.share.body" },
   { title: "home.how.measure.title", body: "home.how.measure.body" },
 ] as const satisfies readonly { title: MessageKey; body: MessageKey }[];
-const POINTS = ["home.selfHost.point.stack", "home.selfHost.point.start", "home.selfHost.point.data", "home.selfHost.point.quota"] as const;
+const POINTS = ["home.selfHost.point.install", "home.selfHost.point.data", "home.selfHost.point.privacy", "home.selfHost.point.quota"] as const;

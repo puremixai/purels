@@ -134,9 +134,15 @@ export const en = {
   // breaking them would be a lie rather than a style choice: nothing is claimed
   // that a stock deployment does not do out of the box, and anything that is off
   // until an operator turns it on is named as such (see the FAQ).
-  "home.title": "Purels: self-hosted URL shortener",
-  "home.tagline": "Short links, click statistics and access control, on a server you run.",
-  "home.description": "Purels is a self-hosted URL shortener: create short links, follow the clicks they get, and control who manages them with role-based permissions and multiple sign-in methods.",
+  //
+  // The page leads with what this is and who it is for — a self-hosted shortener
+  // with a console a team can share — and holds that line throughout. What is
+  // unusual about the links themselves, the gallery on the redirect page, is a
+  // feature of the links rather than the subject of the page, so it is described
+  // where it belongs and nowhere else.
+  "home.title": "Purels: self-hosted URL shortener with an operations console",
+  "home.tagline": "Short links, click statistics and a console your team can share, on a server you run.",
+  "home.description": "Purels is a self-hosted URL shortener with an operations console: create short links, follow the clicks they get, and let a team manage them with editable roles, an audit trail and TOTP or OIDC sign-in.",
 
   "home.nav.features": "Features",
   "home.nav.how": "How it works",
@@ -147,10 +153,17 @@ export const en = {
   "home.nav.console": "Console",
 
   "home.hero.badge": "Apache-2.0 · self-hosted",
-  "home.hero.title": "Shorten links. Keep the data.",
-  "home.hero.subhead": "Short links, click statistics, divert rules and role-based permissions, running from a single Docker Compose file.",
+  "home.hero.title": "Self-hosted short links, with a console built for teams",
+  "home.hero.subhead": "Create short links and follow the clicks they get, with the accounts, roles and audit trail that let more than one person run the console — on a server and database you own.",
   "home.hero.ctaPrimary": "Get started",
   "home.hero.ctaSecondary": "Sign in to the console",
+  // The three figures under the hero, read as "1 command to deploy" and so on.
+  // Each is a count of something the deployment actually has, rather than a
+  // claim with a number attached to it: "100% self-hosted" is what a self-hosted
+  // product is, not a figure worth animating.
+  "home.hero.stat.deploy": "command to deploy",
+  "home.hero.stat.scopes": "permission scopes",
+  "home.hero.stat.modes": "visitor address modes",
   // Labels for the hand-drawn console card beside the hero. The card is
   // decorative, so these are the only words on the page that are not read out
   // to a screen reader — the whole card is marked aria-hidden.
@@ -167,22 +180,23 @@ export const en = {
   "home.feature.stats.body": "Trends, referrers, devices and unique visitors, down to the raw record of every click.",
   "home.feature.rules.title": "Divert rules",
   "home.feature.rules.body": "Send one short link to different destinations by device or user agent, matched in order.",
-  "home.feature.access.title": "Roles and permissions",
-  "home.feature.access.body": "Eleven scopes, editable roles, and an audit trail for every change made in the console.",
-  "home.feature.safety.title": "Confirm before the jump",
-  "home.feature.safety.body": "An optional interstitial shows the destination first, and each link sets how long it holds.",
+  "home.feature.access.title": "Accounts, roles and audit",
+  "home.feature.access.body": "Multi-user accounts, editable roles with eleven permission scopes, TOTP or OIDC sign-in, and an audit trail for every change.",
+  "home.feature.gallery.title": "A page before the destination",
+  "home.feature.gallery.body": "Each link can open a bilingual gallery of artwork — one piece per visit, a countdown you set, and a pause button — before it sends the visitor on.",
   "home.feature.privacy.title": "Privacy you control",
   "home.feature.privacy.body": "Three modes for the visitor address, including storing nothing at all.",
 
-  // A row of small print under the feature grid. Each one is a real capability,
-  // so the qualifiers are load-bearing: extra short domains are display only,
-  // and the destination check is a button an operator presses.
+  // A row of small print under the feature grid. Each one is a real capability.
+  // What an operator has to do to use it — point a domain here, turn the checks
+  // on — is the FAQ's business, not a caption's: a qualifier in a chip reads as
+  // a limitation rather than as a caveat.
   "home.chip.qr": "QR codes",
   "home.chip.csv": "CSV import and export",
   "home.chip.token": "Scoped API tokens",
   "home.chip.rateLimit": "Rate limiting",
-  "home.chip.domains": "Extra short domains (display only)",
-  "home.chip.probe": "Manual destination checks",
+  "home.chip.domains": "Multiple short domains",
+  "home.chip.probe": "Destination health checks",
 
   "home.how.title": "How it works",
   "home.how.create.title": "Create",
@@ -193,33 +207,35 @@ export const en = {
   "home.how.measure.body": "Trends, referrers, devices and unique visitors, all on one dashboard.",
 
   "home.selfHost.title": "Runs on your own machine",
-  "home.selfHost.body": "Everything Purels needs fits in one Compose file.",
-  "home.selfHost.point.stack": "One Go codebase (the api and worker processes), a Next.js console, PostgreSQL and Redis",
-  "home.selfHost.point.start": "One docker compose up -d and it is running",
-  "home.selfHost.point.data": "Links and click history stay in your own database",
-  "home.selfHost.point.quota": "A configurable link quota per account; administrators are exempt",
+  "home.selfHost.body": "Everything Purels needs fits in one Compose file, and nothing it stores leaves your database.",
+  "home.selfHost.point.install": "One docker compose up -d and the API, worker, console and database are running",
+  "home.selfHost.point.data": "Links and click history stay in your own PostgreSQL",
+  "home.selfHost.point.privacy": "Visitor addresses can be dropped entirely, kept as a hash, or hashed with a key you supply",
+  "home.selfHost.point.quota": "Per-account link quotas you configure, with administrators exempt",
 
   "home.faq.title": "Frequently asked questions",
   // Numbered rather than given semantic slugs: the wording will be revised and a
   // slug that no longer matches its question is worse than no slug at all.
-  "home.faq.q1": "Do I need an account to create a short link?",
-  "home.faq.a1": "Yes. Every write in the console needs a session, and a link belongs to the account that created it. Administrators can see all of them.",
+  "home.faq.q1": "Who can create short links?",
+  "home.faq.a1": "Anyone with an account. Each link belongs to the account that created it, and administrators can see every link in the deployment.",
   "home.faq.q2": "Can I use my own domain?",
-  "home.faq.a2": "Yes. The short code itself is global; the domain only decides what the console displays and what the QR code encodes, so each one has to resolve to this deployment on its own.",
-  "home.faq.q3": "What happens to existing accounts if registration is closed?",
-  "home.faq.a3": "Nothing. Closing registration only stops new accounts being created; every existing account keeps working.",
+  "home.faq.a2": "Yes. Point a domain at this deployment and it serves short links there; the console uses it for display and for the QR codes it generates.",
+  "home.faq.q3": "What is the gallery on the redirect page?",
+  "home.faq.a3": "An optional interstitial. A link can open a bilingual page showing one artwork from a set of twenty-nine, with a pause button and a countdown you configure, before the visitor continues to the destination. It is on by default at two seconds; zero turns it off.",
   "home.faq.q4": "Where is the visitor data stored?",
   "home.faq.a4": "In your own PostgreSQL. A visitor's address can be dropped entirely, kept as a plain hash, or hashed with a key you supply: three modes.",
   "home.faq.q5": "Are two-factor authentication and single sign-on supported?",
   "home.faq.a5": "Both, and both are off until you configure them: TOTP with recovery codes, and OIDC providers. Each needs an encryption key set first.",
-  "home.faq.q6": "What licence is it under?",
-  "home.faq.a6": "Apache-2.0.",
+  "home.faq.q6": "What happens to existing accounts if registration is closed?",
+  "home.faq.a6": "Nothing. Closing registration only stops new accounts being created; every existing account keeps working.",
+  "home.faq.q7": "What licence is it under?",
+  "home.faq.a7": "Apache-2.0.",
 
-  "home.cta.title": "Ready when you are",
-  "home.cta.body": "One command, or go straight to the console and look around.",
+  "home.cta.title": "Run it yourself",
+  "home.cta.body": "One docker compose up -d, or sign in and look around the console first.",
   "home.cta.button": "Get started",
 
-  "home.footer.tagline": "Self-hosted short links, on a server you run.",
+  "home.footer.tagline": "Self-hosted short links, click statistics and a team console, on a server you run.",
   "home.footer.license": "Apache-2.0",
   "home.footer.copyright": "© 2026 Purels",
 

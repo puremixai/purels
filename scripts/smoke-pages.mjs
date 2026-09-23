@@ -28,7 +28,7 @@ const PAGES = [
   // The landing page. The strings are the section headings rather than the
   // header's anchors, because the anchors are hidden below the md breakpoint and
   // innerText does not see a display:none element.
-  { name: "home", path: "/", expect: ["Purels", "Shorten links. Keep the data.", "Core features", "Link management", "Click statistics", "How it works", "Runs on your own machine", "Frequently asked questions", "Ready when you are", "Get started", "Sign in"] },
+  { name: "home", path: "/", expect: ["Purels", "Self-hosted short links, with a console built for teams", "Core features", "Link management", "Click statistics", "How it works", "Runs on your own machine", "Frequently asked questions", "Run it yourself", "Get started", "Sign in"] },
   { name: "register", path: "/register", expect: ["Register", "Username"] },
   { name: "dashboard", path: "/admin", expect: ["Overview", "Total links", "Recent links"] },
   { name: "links", path: "/admin/links", expect: ["Link management", "Destination", "Clicks", "Previous"] },
@@ -1237,7 +1237,7 @@ async function main() {
   // header and footer both show "Purels", and neither of them is a heading.
   record(
     "the homepage is a document, not a redirect",
-    home.h1Count === 1 && home.h1 === "Shorten links. Keep the data." && home.signIn && !home.title.includes("Admin"),
+    home.h1Count === 1 && home.h1 === "Self-hosted short links, with a console built for teams" && home.signIn && !home.title.includes("Admin"),
     `h1=${JSON.stringify(home.h1)} count=${home.h1Count} title=${JSON.stringify(home.title)} signIn=${home.signIn}`,
   );
 
@@ -1276,11 +1276,11 @@ async function main() {
     const first = document.querySelector("details");
     if (!first) return null;
     first.open = true;
-    return first.innerText.includes("Yes. Every write in the console needs a session");
+    return first.innerText.includes("Anyone with an account");
   })()`);
   record(
-    "the FAQ is six native details elements",
-    home.details === 6 && faqFirstAnswer === true,
+    "the FAQ is seven native details elements",
+    home.details === 7 && faqFirstAnswer === true,
     `details=${home.details} firstAnswer=${faqFirstAnswer}`,
   );
 
