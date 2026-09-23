@@ -26,7 +26,7 @@ export function SettingsPage({ root = false, group, title, description, actions,
   ];
 
   return (
-    <div className="console-page settings-page">
+    <div className="console-page">
       <div className="console-page-header">
         <div className="console-page-heading">
           <ConsoleBreadcrumb parents={parents} title={title} />

@@ -332,10 +332,6 @@
     font-weight: 700;
   }
 
-  .settings-page {
-    max-width: 70rem;
-  }
-
   .settings-tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; border-bottom: 1px solid var(--line); }
   .settings-tab { display: inline-flex; align-items: center; min-height: 44px; padding: 0.625rem 1rem; color: var(--muted); border-bottom: 2px solid transparent; font-size: var(--text-sm); }
   .settings-tab:hover { color: var(--ink); }
