@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"encoding/xml"
 	"html"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -144,8 +146,8 @@ func TestGalleryInterstitialCarriesConfiguredDelays(t *testing.T) {
 }
 
 func TestGalleryRendersOneCompleteArtworkInEachLanguage(t *testing.T) {
-	if len(galleryArtworks) != 6 {
-		t.Fatalf("expected the six supplied fine SVG artworks, got %d", len(galleryArtworks))
+	if len(galleryArtworks) == 0 {
+		t.Fatal("the gallery must contain at least one artwork")
 	}
 	seen := make(map[string]bool)
 	for index, art := range galleryArtworks {
@@ -167,13 +169,13 @@ func TestGalleryRendersOneCompleteArtworkInEachLanguage(t *testing.T) {
 				if art.SVG == "" || !strings.Contains(figure, string(art.SVG)) {
 					t.Fatal("the selected fine artwork must be embedded without relying on another request")
 				}
-				title, artist, description, medium, collection, alt := art.Title, art.Artist, art.Description, art.Medium, art.Collection, art.Alt
+				title, artist, year, description, medium, collection, alt := art.Title, art.Artist, art.Year, art.Description, art.Medium, art.Collection, art.Alt
 				if language == langEnglish {
-					title, artist, description, medium, collection, alt = art.EnglishTitle, art.EnglishArtist, art.EnglishDescription, art.EnglishMedium, art.EnglishCollection, art.EnglishAlt
+					title, artist, year, description, medium, collection, alt = art.EnglishTitle, art.EnglishArtist, art.EnglishYear, art.EnglishDescription, art.EnglishMedium, art.EnglishCollection, art.EnglishAlt
 				}
 				for _, field := range []struct{ tag, id, want string }{
 					{"h1", "art-title", title}, {"span", "art-artist", artist}, {"p", "art-description", description},
-					{"dd", "art-medium", medium}, {"dd", "art-collection", collection},
+					{"span", "art-year", year}, {"dd", "art-medium", medium}, {"dd", "art-collection", collection},
 				} {
 					if field.want == "" || strings.TrimSpace(html.UnescapeString(galleryElementContent(t, page, field.tag, field.id))) != field.want {
 						t.Fatalf("selected artwork has missing or mismatched %s metadata", field.id)
@@ -187,6 +189,87 @@ func TestGalleryRendersOneCompleteArtworkInEachLanguage(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestGalleryCatalogueMatchesEmbeddedFineAssets(t *testing.T) {
+	entries, err := galleryFiles.ReadDir("gallery/art")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := make(map[string]bool)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), "__fine.svg") {
+			t.Fatalf("gallery art should contain only fine SVG assets, got %q", entry.Name())
+		}
+		files["art/"+entry.Name()] = true
+	}
+	if len(files) == 0 || len(files) != len(galleryArtworks) {
+		t.Fatalf("catalogue has %d artworks but embeds %d fine SVG assets", len(galleryArtworks), len(files))
+	}
+	for _, art := range galleryArtworks {
+		if !files[art.File] {
+			t.Fatalf("artwork %q references a missing or duplicate fine SVG %q", art.Slug, art.File)
+		}
+		delete(files, art.File)
+		t.Run(art.Slug, func(t *testing.T) {
+			decoder := xml.NewDecoder(strings.NewReader(string(art.SVG)))
+			svgCount, shapeCount := 0, 0
+			for {
+				token, err := decoder.Token()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					t.Fatalf("fine artwork is not well-formed SVG: %v", err)
+				}
+				element, ok := token.(xml.StartElement)
+				if !ok {
+					continue
+				}
+				if element.Name.Space != "http://www.w3.org/2000/svg" {
+					t.Fatalf("unexpected foreign element %q in inline artwork", element.Name.Local)
+				}
+				// Fine assets contain vector paths or rectangles, never executable
+				// markup or elements that could request an external image or font.
+				switch element.Name.Local {
+				case "svg":
+					svgCount++
+				case "g":
+				case "path", "rect":
+					shapeCount++
+				default:
+					t.Fatalf("unexpected element %q in fine vector artwork", element.Name.Local)
+				}
+				attributes := make(map[string]string)
+				for _, attribute := range element.Attr {
+					name := strings.ToLower(attribute.Name.Local)
+					if strings.HasPrefix(name, "on") || name == "href" || name == "src" || name == "style" || strings.Contains(strings.ToLower(attribute.Value), "url(") {
+						t.Fatalf("attribute %q would make the artwork executable or externally dependent", attribute.Name.Local)
+					}
+					attributes[attribute.Name.Local] = attribute.Value
+				}
+				if element.Name.Local == "svg" {
+					viewBox := strings.Fields(attributes["viewBox"])
+					if len(viewBox) != 4 {
+						t.Fatalf("expected a four-number viewBox, got %q", attributes["viewBox"])
+					}
+					for index, want := range []float64{0, 0, float64(art.Width), float64(art.Height)} {
+						if value, err := strconv.ParseFloat(viewBox[index], 64); err != nil || value != want {
+							t.Fatalf("SVG viewBox %q disagrees with catalogue dimensions %d×%d", attributes["viewBox"], art.Width, art.Height)
+						}
+					}
+					for name, want := range map[string]int{"width": art.Width, "height": art.Height} {
+						if value, err := strconv.Atoi(attributes[name]); err != nil || value != want {
+							t.Fatalf("SVG %s %q disagrees with catalogue value %d", name, attributes[name], want)
+						}
+					}
+				}
+			}
+			if svgCount != 1 || shapeCount == 0 {
+				t.Fatalf("expected one nonempty vector artwork, got %d SVG roots and %d shapes", svgCount, shapeCount)
+			}
+		})
 	}
 }
 

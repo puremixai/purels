@@ -11,6 +11,20 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const artworks = JSON.parse(await readFile(resolve(root, "internal/http/handler/gallery/artworks.json"), "utf8"));
+assert.ok(Array.isArray(artworks) && artworks.length > 0, "the production gallery catalogue is not empty");
+assert.equal(new Set(artworks.map(art => art.slug)).size, artworks.length, "artwork slugs are unique");
+const screenshotArtworks = new Set();
+const orientations = new Set();
+for (const art of artworks) {
+  assert.match(art.slug, /^[a-z0-9]+(?:-[a-z0-9]+)*$/, "artwork slug is safe for a fixture filename");
+  assert.ok(art.width > 0 && art.height > 0, "artwork dimensions are positive");
+  const orientation = art.width === art.height ? "square" : art.width > art.height ? "landscape" : "portrait";
+  if (!orientations.has(orientation)) {
+    orientations.add(orientation);
+    screenshotArtworks.add(art.slug);
+  }
+}
 const output = resolve(root, "coverage/redirect-gallery-browser");
 const fixtures = resolve(root, "coverage/redirect-gallery-fixtures");
 await mkdir(output, { recursive: true });
@@ -22,7 +36,7 @@ const server = createServer(async (request, response) => {
   response.setHeader("Cache-Control", "no-store");
   response.setHeader("Content-Type", "text/html; charset=utf-8");
   if (path === "/arrived") return response.end("<h1>Arrived</h1>");
-  if (!/^\/[a-z-]+\.html$/.test(path)) { response.writeHead(404); return response.end(); }
+  if (!/^\/[a-z0-9-]+\.html$/.test(path)) { response.writeHead(404); return response.end(); }
   try { response.end(await readFile(resolve(fixtures, basename(path)))); }
   catch { response.writeHead(404); response.end(); }
 });
@@ -36,7 +50,8 @@ page.on("pageerror", error => errors.push(error.message));
 let checks = 0;
 function check(value, message) { assert.ok(value, message); checks++; }
 try {
-  for (const slug of ["along-the-river", "a-thousand-miles", "mona-lisa", "girl-pearl-earring", "starry-night", "great-wave"]) {
+  for (const art of artworks) {
+    const { slug } = art;
     for (const [width, height, language] of [[1440, 900, "zh"], [390, 844, "zh"], [320, 844, "en"]]) {
       await page.setViewportSize({ width, height });
       const assets = [];
@@ -48,7 +63,12 @@ try {
       check(await page.locator("#continue-link").getAttribute("href") === destination, "manual destination preserves query and fragment");
       check(await page.locator("#pause-button").isHidden(), "preview has no pause action");
       check(assets.length === 0, "gallery is self-contained");
-      await page.screenshot({ path: resolve(output, `${slug}-${language}-${width}.png`), animations: "disabled" });
+      check(await page.locator("#art-title").textContent() === (language === "zh" ? art.title : art.englishTitle), "the selected artwork has its localized title");
+      // Every artwork is checked at all three widths; screenshots only capture
+      // one landscape, portrait and square so the review output stays useful.
+      if (screenshotArtworks.has(slug)) {
+        await page.screenshot({ path: resolve(output, `${slug}-${language}-${width}.png`), animations: "disabled" });
+      }
       page.off("request", record);
     }
   }
@@ -82,7 +102,7 @@ try {
 
   const noJS = await browser.newContext({ javaScriptEnabled: false });
   const fallback = await noJS.newPage();
-  await fallback.goto(`${origin}/great-wave-zh.html`);
+  await fallback.goto(`${origin}/${artworks[0].slug}-zh.html`);
   check(await fallback.locator("figure .art-mat > svg").count() === 1, "art is visible without JavaScript");
   await fallback.waitForTimeout(2200);
   check(!fallback.url().includes("/arrived"), "no-JavaScript preview never redirects");
@@ -92,7 +112,7 @@ try {
   check(fallback.url() === destination, "noscript auto-navigation preserves query and fragment");
   await noJS.close();
   check(errors.length === 0, `no JavaScript errors: ${errors.join(", ")}`);
-  console.log(`PASS ${checks} production gallery browser checks. Screenshots: ${output}`);
+  console.log(`PASS ${checks} production gallery browser checks across ${artworks.length} artworks. Screenshots: ${output}`);
 } finally {
   await browser.close();
   await new Promise(done => server.close(done));

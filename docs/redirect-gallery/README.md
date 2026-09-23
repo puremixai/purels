@@ -13,7 +13,7 @@
 - 作品旁显示标题、作者、年代、两句画面介绍和原作资料；注明这是名画的像素演绎。
 - 底部固定信息层级：最终目标域名、可展开的完整地址、倒计时、停留欣赏、立即前往。桌面是一条窄栏，手机用两行紧凑底栏。
 - 「停留欣赏」真正停止计时，「继续倒计时」从剩余时间继续；不会轮换作品。
-- 每次进入仅随机选一幅并请求该 SVG。六个 fine SVG 原样复制自用户提供的 viewer.html 配套目录。
+- 每次进入仅随机选一幅并请求该 SVG。29 个 fine SVG 原样复制自用户提供的 viewer.html 配套目录。
 - `?review=1&lang=en` 查看英文；`?mode=preview` 演示短链接 `+` 预览模式，不自动离开。
 
 字标以圆转、匀细、纵长的笔形重新设计，参考传统篆字的部件结构，不是历史字帖的摹本。“画、册”使用“畫、冊”的传统构形；“途”按“辵 + 余”作篆意设计。字形参考教育部《异体字字典》的[中](https://dict.variants.moe.edu.tw/dictView.jsp?ID=159&la=1)、[畫](https://dict.variants.moe.edu.tw/dictView.jsp?ID=28496&la=1)、[冊](https://dict.variants.moe.edu.tw/dictView.jsp?educode=A00297)、[途](https://dict.variants.moe.edu.tw/dictView.jsp?ID=-45346)字条。
@@ -31,6 +31,6 @@
 
 ## 验证
 
-浏览器交互检查 47 项通过：2 秒自动跳转、暂停后停留、从剩余时间恢复、立即前往、无倒计时预览、每次仅加载一张 SVG，以及六幅作品在桌面 1440px、手机 390px、英文 320px 的布局。额外验证完整地址展开与 Escape 关闭、手机滚动到底后正文不被底栏遮住。英文最窄预览工具曾与页头重叠，已调整字距并复验。
+浏览器检查覆盖 2 秒自动跳转、暂停后停留、从剩余时间恢复、立即前往、无倒计时预览、每次仅加载一张 SVG，以及 29 幅作品的中英文与桌面、手机布局。另检查完整地址展开与 Escape 关闭、手机滚动到底后正文不被底栏遮住。
 
-正式实现另已通过：`go test ./...`、`node --test scripts/redirect-gallery.test.mjs`（12 项）以及 `node scripts/redirect-gallery.e2e.mjs`（103 项）。浏览器检查导出并服务实际 Go 模板，覆盖六幅双语画作、宽窄屏、真实导航、暂停后无导航、无 JavaScript 回退、完整 URL 的滚动展示。浏览器脚本通过 `PLAYWRIGHT_MODULE` 指向已安装的 Playwright，截图保存在忽略的 `coverage/redirect-gallery-browser/`。
+正式实现可运行：`go test ./...`、`node --test scripts/redirect-gallery.test.mjs` 和 `node scripts/redirect-gallery.e2e.mjs`。浏览器检查导出并服务实际 Go 模板，覆盖全部双语画作、宽窄屏、真实导航、暂停后无导航、无 JavaScript 回退、完整 URL 的滚动展示。浏览器脚本通过 `PLAYWRIGHT_MODULE` 指向已安装的 Playwright，截图保存在忽略的 `coverage/redirect-gallery-browser/`。
