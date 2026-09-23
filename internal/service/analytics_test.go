@@ -4,16 +4,18 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/purels/purels/internal/domain"
 )
 
 // analyticsInjectionPayloads are the strings that must never survive validation.
 //
 // Each one is a way to escape either the JavaScript string literal the value is
 // embedded in or the <script> element that literal sits inside. The values are
-// interpolated into a snippet that runs on every console page, so a payload that
-// got through would be stored XSS against the highest-privilege accounts in the
-// deployment — this is the one test in the package that is a security boundary
-// rather than a description of behaviour.
+// interpolated into a snippet that runs on every page the deployment serves, so
+// a payload that got through would be stored XSS against visitors and the
+// highest-privilege accounts alike — this is the one test in the package that
+// is a security boundary rather than a description of behaviour.
 var analyticsInjectionPayloads = []string{
 	`G-1"><script>alert(1)</script>`,
 	`G-1'</script>`,
@@ -62,6 +64,12 @@ func TestAnalyticsValidationRefusesScriptInjection(t *testing.T) {
 			if got, err := normalizeGTMContainerID(payload); err == nil {
 				t.Fatalf("the GTM field accepted %q and produced %q", payload, got)
 			}
+			if got, err := normalizeGoogleTagID(payload); err == nil {
+				t.Fatalf("the Google tag field accepted %q and produced %q", payload, got)
+			}
+			if got, err := normalizeClarityProjectID(payload); err == nil {
+				t.Fatalf("the Clarity field accepted %q and produced %q", payload, got)
+			}
 			if got, err := normalizeMatomoSiteID(payload); err == nil {
 				t.Fatalf("the Matomo site id accepted %q and produced %q", payload, got)
 			}
@@ -105,7 +113,8 @@ func TestMatomoURLRefusesATagAnywhere(t *testing.T) {
 // patterns — which is exactly the change a payload list would not catch.
 func TestAcceptedAnalyticsValuesAreSafeToInterpolate(t *testing.T) {
 	inputs := append([]string{
-		"G-ABCDE12345", "GTM-ABC1234", "https://matomo.example/", "http://127.0.0.1:9/",
+		"G-ABCDE12345", "GTM-ABC1234", "GT-ABC1234", "ymutupw1dp",
+		"https://matomo.example/", "http://127.0.0.1:9/",
 		"https://matomo.example/sub/path", "https://matomo.example/a~b!c$d(e)f*g+h,i;j=k:l@m%n",
 		"12345",
 	}, analyticsInjectionPayloads...)
@@ -116,6 +125,12 @@ func TestAcceptedAnalyticsValuesAreSafeToInterpolate(t *testing.T) {
 		}
 		if got, err := normalizeGTMContainerID(input); err == nil {
 			assertNoBreakout(t, "the GTM field", got)
+		}
+		if got, err := normalizeGoogleTagID(input); err == nil {
+			assertNoBreakout(t, "the Google tag field", got)
+		}
+		if got, err := normalizeClarityProjectID(input); err == nil {
+			assertNoBreakout(t, "the Clarity field", got)
 		}
 		if got, err := normalizeMatomoSiteID(input); err == nil {
 			assertNoBreakout(t, "the Matomo site id", got)
@@ -154,7 +169,7 @@ func TestNormalizeGA4MeasurementID(t *testing.T) {
 			}
 		})
 	}
-	for _, rejected := range []string{"ABCDE12345", "UA-12345-1", "G-ABC", "G-" + strings.Repeat("A", 21), "G-ABCD-1234", "GTM-ABCD123"} {
+	for _, rejected := range []string{"ABCDE12345", "UA-12345-1", "G-ABC", "G-" + strings.Repeat("A", 21), "G-ABCD-1234", "GTM-ABCD123", "GT-ABCD123"} {
 		if got, err := normalizeGA4MeasurementID(rejected); err == nil {
 			t.Fatalf("expected %q to be rejected, got %q", rejected, got)
 		}
@@ -183,10 +198,121 @@ func TestNormalizeGTMContainerID(t *testing.T) {
 			}
 		})
 	}
-	for _, rejected := range []string{"GTM-ABC", "GTM-" + strings.Repeat("A", 13), "G-ABC1234", "GTMABC1234", "GTM-ABC-123"} {
+	for _, rejected := range []string{"GTM-ABC", "GTM-" + strings.Repeat("A", 13), "G-ABC1234", "GTMABC1234", "GTM-ABC-123", "GT-ABC1234"} {
 		if got, err := normalizeGTMContainerID(rejected); err == nil {
 			t.Fatalf("expected %q to be rejected, got %q", rejected, got)
 		}
+	}
+}
+
+// The Google tag is a separate field from the GTM container precisely because
+// the two ids load through different scripts, so each must refuse the other's
+// shape. GT-MK52GBMX is the id this distinction was written for.
+func TestNormalizeGoogleTagID(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"the id this field exists for", "GT-MK52GBMX", "GT-MK52GBMX"},
+		{"lower case is folded up", "gt-mk52gbmx", "GT-MK52GBMX"},
+		{"surrounding whitespace", "  GT-MK52GBMX\t", "GT-MK52GBMX"},
+		{"the shortest legal id", "GT-ABCD", "GT-ABCD"},
+		{"the longest legal id", "GT-" + strings.Repeat("9", 20), "GT-" + strings.Repeat("9", 20)},
+		{"empty turns it off", "", ""},
+		{"whitespace alone turns it off", "   ", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := normalizeGoogleTagID(tc.input)
+			if err != nil {
+				t.Fatalf("expected %q to be accepted, got %v", tc.input, err)
+			}
+			if got != tc.want {
+				t.Fatalf("expected %q, got %q", tc.want, got)
+			}
+		})
+	}
+	// A container id is not a Google tag id: injecting it into gtag.js would
+	// ask Google for a tag that does not exist, and the console would look
+	// configured while reporting nothing.
+	for _, rejected := range []string{"GTM-MK52GBMX", "GT-ABC", "GT-" + strings.Repeat("A", 21), "GT-AB-CD", "GTMK52GBMX", "G-ABCDE12345"} {
+		if got, err := normalizeGoogleTagID(rejected); err == nil {
+			t.Fatalf("expected %q to be rejected, got %q", rejected, got)
+		}
+	}
+}
+
+func TestNormalizeClarityProjectID(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"the canonical shape", "ymutupw1dp", "ymutupw1dp"},
+		{"upper case is folded down", "YMUTUPW1DP", "ymutupw1dp"},
+		{"surrounding whitespace", " ymutupw1dp ", "ymutupw1dp"},
+		{"the shortest legal id", "abc123", "abc123"},
+		{"the longest legal id", strings.Repeat("a", 20), strings.Repeat("a", 20)},
+		{"empty turns it off", "", ""},
+		{"whitespace alone turns it off", "   ", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := normalizeClarityProjectID(tc.input)
+			if err != nil {
+				t.Fatalf("expected %q to be accepted, got %v", tc.input, err)
+			}
+			if got != tc.want {
+				t.Fatalf("expected %q, got %q", tc.want, got)
+			}
+		})
+	}
+	// The id is a path segment in the tag URL, so anything that could change the
+	// path is refused rather than folded.
+	for _, rejected := range []string{"ymutu", strings.Repeat("a", 21), "ymutup-w1dp", "ymutup_w1dp", "ymutup/w1dp", "ymutup w1dp", "ymutup.w1dp"} {
+		if got, err := normalizeClarityProjectID(rejected); err == nil {
+			t.Fatalf("expected %q to be rejected, got %q", rejected, got)
+		}
+	}
+}
+
+// The render boundary calls this on whatever the database holds, so it has to
+// accept a value the write path produced and refuse anything else.
+func TestValidateAnalyticsSettings(t *testing.T) {
+	// The shape Update would have stored, so the check is exercised against the
+	// real form rather than against strings that happen to agree.
+	stored := domain.AnalyticsSettings{
+		GA4MeasurementID: "G-ABCDE12345",
+		GTMContainerID:   "GTM-ABC1234",
+		GoogleTagID:      "GT-MK52GBMX",
+		MatomoURL:        "https://matomo.example",
+		MatomoSiteID:     "7",
+		ClarityProjectID: "ymutupw1dp",
+	}
+	if err := ValidateAnalyticsSettings(stored); err != nil {
+		t.Fatalf("expected a stored configuration to validate, got %v", err)
+	}
+	if err := ValidateAnalyticsSettings(domain.AnalyticsSettings{}); err != nil {
+		t.Fatalf("expected an empty configuration to validate, got %v", err)
+	}
+
+	// Each of these is what a hand-edited row or an older build could leave
+	// behind. None may reach a page.
+	for name, broken := range map[string]domain.AnalyticsSettings{
+		"a lower-case GA4 id":                {GA4MeasurementID: "g-abcde12345"},
+		"a Google tag in the GTM column":     {GTMContainerID: "GT-MK52GBMX"},
+		"a script tag in the Clarity column": {ClarityProjectID: "ymutup</script>"},
+		"an upper-case Clarity id":           {ClarityProjectID: "YMUTUPW1DP"},
+		"a Matomo URL without a site id":     {MatomoURL: "https://matomo.example"},
+		"a Matomo site id without a URL":     {MatomoSiteID: "7"},
+		"a trailing slash on the Matomo URL": {MatomoURL: "https://matomo.example/", MatomoSiteID: "7"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := ValidateAnalyticsSettings(broken); !errors.Is(err, ErrAnalyticsInvalid) {
+				t.Fatalf("expected ErrAnalyticsInvalid, got %v", err)
+			}
+		})
 	}
 }
 

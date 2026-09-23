@@ -61,7 +61,8 @@ type Handler struct {
 	Roles    *service.RoleService
 	MFA      *service.TwoFactorService
 	OIDC     *service.OIDCService
-	// Analytics holds the tracking ids the console injects into its own pages.
+	// Analytics holds the tracking ids every page injects, and the cached
+	// snapshot the API's own pages read on the redirect path.
 	Analytics *service.AnalyticsService
 	Captcha   *service.CaptchaService
 	Probe     *service.HealthChecker
@@ -345,7 +346,7 @@ func (h *Handler) interstitial(w http.ResponseWriter, r *http.Request, alias, de
 	if r.Method == http.MethodHead {
 		return
 	}
-	_, _ = io.WriteString(w, interstitialPage(alias, destination, seconds, preferredLang(r.Header.Get("Accept-Language"))))
+	_, _ = io.WriteString(w, interstitialPage(alias, destination, seconds, preferredLang(r.Header.Get("Accept-Language")), h.trackerTags()))
 }
 
 // preview renders the page a trailing "+" asks for: where this link would send
@@ -375,7 +376,7 @@ func (h *Handler) preview(w http.ResponseWriter, r *http.Request, alias string) 
 	if r.Method == http.MethodHead {
 		return
 	}
-	_, _ = io.WriteString(w, previewPage(link.Alias, destination, preferredLang(r.Header.Get("Accept-Language"))))
+	_, _ = io.WriteString(w, previewPage(link.Alias, destination, preferredLang(r.Header.Get("Accept-Language")), h.trackerTags()))
 }
 
 // notFound answers a short code that does not resolve. A configured fallback

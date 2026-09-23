@@ -135,7 +135,7 @@ const settingsSearchEntries: readonly SettingsSearchEntry[] = [
   trafficSearch("rate_limit_api", "settings.runtime.rateApi"),
   trafficSearch("rate_limit_redirect", "settings.runtime.rateRedirect"),
   { href: "/home/settings/analytics#count_bots", labelKey: "settings.runtime.countBots", categoryKey: "settings.nav.analytics", scope: "settings:manage", keywords: "count_bots" },
-  ...(["ga4", "gtm", "matomoUrl", "matomoSiteId"] as const).map((field): SettingsSearchEntry => ({
+  ...(["ga4", "gtm", "googleTag", "matomoUrl", "matomoSiteId", "clarity"] as const).map((field): SettingsSearchEntry => ({
     href: "/home/settings/analytics#integrations", labelKey: `settings.analytics.${field}`, categoryKey: "settings.nav.analytics", scope: "analytics:manage",
   })),
 ];

@@ -1118,21 +1118,28 @@ async function main() {
     return response.status;`);
   record("the sign-in provider is removed again", providerRemoved === 204, `status=${providerRemoved}`);
 
-  // ---------- phase 7c: tracking reaches the console and nothing else ----------
+  // ---------- phase 7c: tracking reaches every page ----------
   //
-  // The assertion that matters here is the boundary, not the snippet: the
-  // console must carry the injected script and the login page must not. Matomo
-  // is the provider used because its base URL is ours to choose — pointing it at
-  // a port nothing listens on keeps the run from contacting Google or any real
+  // The assertion that matters here is the scope, not the snippet: the console
+  // and the public pages must both carry the injected script. Matomo is the
+  // provider used because its base URL is ours to choose — pointing it at a
+  // port nothing listens on keeps the run from contacting Google or any real
   // tracker. The load failure that produces is the one console error this phase
   // tolerates, and it is matched by URL below.
   const TRACKER_HOST = "127.0.0.1:45999";
+  // The console's server render reads the tracking ids through a short-lived
+  // cache, so a page fetched immediately after a save can still be the previous
+  // configuration. Waiting the window out is what makes the assertions below
+  // deterministic rather than a race. It is deliberately a little longer than
+  // the cache in lib/analytics-config.server.ts.
+  const PUBLIC_CONFIG_CACHE_MS = 6000;
+
   await pace();
   const analyticsSaved = await apiCall(`const response = await fetch("/api/v1/analytics", {
       method: "PUT",
       credentials: "include",
       headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
-      body: JSON.stringify({ ga4_measurement_id: "", gtm_container_id: "", matomo_url: "http://${TRACKER_HOST}/", matomo_site_id: "1" }),
+      body: JSON.stringify({ ga4_measurement_id: "", gtm_container_id: "", google_tag_id: "", matomo_url: "http://${TRACKER_HOST}/", matomo_site_id: "1", clarity_project_id: "" }),
     });
     return response.status;`);
   record("tracking ids can be configured", analyticsSaved === 200, `status=${analyticsSaved}`);
@@ -1163,10 +1170,21 @@ async function main() {
 
   // A full load rather than a client-side transition: next/script appends its
   // element to the document body and never removes it, so a /login reached by
-  // clicking a link would still be carrying what the console injected.
+  // clicking a link would still be carrying whatever the previous page injected.
+  await sleep(PUBLIC_CONFIG_CACHE_MS);
   await go("/login", 1500);
-  const leaked = await evaluate(`document.querySelector('script[id^="purels-analytics-"]') !== null`);
-  record("the login page carries no tracker", leaked === false, `present=${leaked}`);
+  const onLogin = await waitForSelector('script[id^="purels-analytics-"]');
+  record("the login page carries the tracker too", onLogin === true, `present=${onLogin}`);
+
+  // The API's own pages are served by Go, which reads the same configuration
+  // from its own snapshot. The preview needs no delay configured, so it is the
+  // one that can be checked without building a second link.
+  const previewHtml = await fetch(`${BASE}/${alias}+`).then((r) => r.text()).catch(() => "");
+  record(
+    "the API's own preview page carries the tracker",
+    previewHtml.includes('id="purels-analytics-matomo"') && previewHtml.includes(TRACKER_HOST),
+    `${previewHtml.length} bytes, present=${previewHtml.includes('id="purels-analytics-matomo"')}`,
+  );
 
   const signedInBeforeAnalyticsClear = await signIn();
   record(
@@ -1179,11 +1197,12 @@ async function main() {
       method: "PUT",
       credentials: "include",
       headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
-      body: JSON.stringify({ ga4_measurement_id: "", gtm_container_id: "", matomo_url: "", matomo_site_id: "" }),
+      body: JSON.stringify({ ga4_measurement_id: "", gtm_container_id: "", google_tag_id: "", matomo_url: "", matomo_site_id: "", clarity_project_id: "" }),
     });
     return response.status;`);
   record("tracking ids can be cleared", analyticsCleared === 200, `status=${analyticsCleared}`);
 
+  await sleep(PUBLIC_CONFIG_CACHE_MS);
   await go("/admin", 2000);
   const afterClear = await evaluate(`document.querySelector('script[id^="purels-analytics-"]') !== null`);
   record("an empty configuration injects nothing", afterClear === false, `present=${afterClear}`);

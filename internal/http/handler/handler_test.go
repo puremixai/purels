@@ -108,7 +108,7 @@ func TestShortCode(t *testing.T) {
 func TestPreviewPageEscapes(t *testing.T) {
 	alias := `ab"c</script><svg onload="alert('alias')">`
 	destination := `https://example.com/?q=</script><svg onload="alert('destination')">&next="quoted"#target`
-	page := previewPage(alias, destination, langEnglish)
+	page := previewPage(alias, destination, langEnglish, "")
 	assertGalleryEscapes(t, page, alias, destination)
 	if !strings.Contains(page, "noindex") {
 		t.Fatal("expected the preview page to keep search engines out")
@@ -121,7 +121,7 @@ func TestPreviewPageEscapes(t *testing.T) {
 func TestPreviewPageFollowsTheRequestedLanguage(t *testing.T) {
 	// The page is the one document the API renders, so it carries its own copy
 	// and its own lang attribute rather than the console's.
-	chinese := previewPage("abc", "https://example.com", preferredLang("zh-CN,zh;q=0.9,en;q=0.8"))
+	chinese := previewPage("abc", "https://example.com", preferredLang("zh-CN,zh;q=0.9,en;q=0.8"), "")
 	if !strings.Contains(chinese, `<html lang="zh-CN">`) {
 		t.Fatal("expected a Chinese request to get the Chinese lang attribute")
 	}
@@ -129,7 +129,7 @@ func TestPreviewPageFollowsTheRequestedLanguage(t *testing.T) {
 		t.Fatal("expected a Chinese request to get the Chinese button")
 	}
 
-	english := previewPage("abc", "https://example.com", preferredLang("en-US,en;q=0.9"))
+	english := previewPage("abc", "https://example.com", preferredLang("en-US,en;q=0.9"), "")
 	if !strings.Contains(english, `<html lang="en">`) {
 		t.Fatal("expected an English request to get the English lang attribute")
 	}
@@ -141,7 +141,7 @@ func TestPreviewPageFollowsTheRequestedLanguage(t *testing.T) {
 func TestInterstitialPageEscapes(t *testing.T) {
 	alias := `ab"c</script><svg onload="alert('alias')">`
 	destination := `https://example.com/?q=</script><svg onload="alert('destination')">&next="quoted"#target`
-	page := interstitialPage(alias, destination, 2, langEnglish)
+	page := interstitialPage(alias, destination, 2, langEnglish, "")
 	assertGalleryEscapes(t, page, alias, destination)
 	if !strings.Contains(page, "noindex") {
 		t.Fatal("expected the interstitial page to keep search engines out")
@@ -151,7 +151,7 @@ func TestInterstitialPageEscapes(t *testing.T) {
 func TestInterstitialPageCarriesTheDelay(t *testing.T) {
 	// JavaScript uses the configured delay, while visitors without JavaScript
 	// retain the same delay through the noscript meta refresh.
-	page := interstitialPage("abc", "https://example.com/landing", 7, langEnglish)
+	page := interstitialPage("abc", "https://example.com/landing", 7, langEnglish, "")
 	if !strings.Contains(page, `data-seconds="7"`) {
 		t.Fatal("expected the timer to receive the configured seven second delay")
 	}
@@ -165,7 +165,7 @@ func TestInterstitialPageCarriesTheDelay(t *testing.T) {
 }
 
 func TestInterstitialPageFollowsTheRequestedLanguage(t *testing.T) {
-	chinese := interstitialPage("abc", "https://example.com", 2, preferredLang("zh-CN,zh;q=0.9,en;q=0.8"))
+	chinese := interstitialPage("abc", "https://example.com", 2, preferredLang("zh-CN,zh;q=0.9,en;q=0.8"), "")
 	if !strings.Contains(chinese, `<html lang="zh-CN">`) {
 		t.Fatal("expected a Chinese request to get the Chinese lang attribute")
 	}
@@ -176,7 +176,7 @@ func TestInterstitialPageFollowsTheRequestedLanguage(t *testing.T) {
 		t.Fatal("expected a Chinese request to get the Chinese button")
 	}
 
-	english := interstitialPage("abc", "https://example.com", 2, preferredLang("en-US,en;q=0.9"))
+	english := interstitialPage("abc", "https://example.com", 2, preferredLang("en-US,en;q=0.9"), "")
 	if !strings.Contains(english, `<html lang="en">`) {
 		t.Fatal("expected an English request to get the English lang attribute")
 	}

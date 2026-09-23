@@ -229,27 +229,31 @@ export type AppConfig = {
 };
 
 /**
- * The tracking ids the console injects into its own pages. An empty field means
+ * The tracking ids the deployment injects into its pages. An empty field means
  * that provider is off.
  *
  * The console does not trust these values: lib/analytics-config.ts validates
  * every one of them before it builds the script, because a value that got
- * through would run as code in every administrator's browser.
+ * through would run as code in every visitor's browser.
  */
 export type AnalyticsSettings = {
   ga4_measurement_id: string;
   gtm_container_id: string;
+  google_tag_id: string;
   matomo_url: string;
   matomo_site_id: string;
+  clarity_project_id: string;
   updated_at: string;
 };
 
-/** The four editable fields, which is the whole of what a save replaces. */
+/** The editable fields, which is the whole of what a save replaces. */
 export type AnalyticsInput = {
   ga4_measurement_id: string;
   gtm_container_id: string;
+  google_tag_id: string;
   matomo_url: string;
   matomo_site_id: string;
+  clarity_project_id: string;
 };
 
 /** Administrative registration CAPTCHA configuration. The secret is write-only. */
@@ -777,11 +781,13 @@ export const api = {
     },
   },
   /**
-   * The tracking ids the console injects into its own pages.
+   * The tracking ids every page injects.
    *
-   * The read is open to every signed-in account, because the console fetches it
-   * on every admin page for all of them; only the write needs a capability. A
-   * save replaces all four fields, so an empty one turns that provider off.
+   * The read is open to every signed-in account, because the settings form is
+   * what consumes it; only the write needs a capability. Anonymous pages read
+   * the same values through the API's public route, which is what
+   * lib/analytics-config.server.ts calls. A save replaces every field, so an
+   * empty one turns that provider off.
    */
   analytics: {
     async get() {

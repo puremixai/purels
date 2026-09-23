@@ -9,11 +9,9 @@ import (
 
 // GetAnalyticsSettings returns the tracking ids the console injects.
 //
-// This route is deliberately not gated by a scope. The console fetches it on
-// every admin page for every signed-in account, because the script it decides
-// to inject has to reach all of them; gating the read behind analytics:manage
-// would silently switch tracking off for everyone else. The values are not
-// secrets in any case — a measurement id is visible in any page's source.
+// This route is deliberately not gated by a scope. The settings form is what
+// reads it, and the values are not secrets in any case — a measurement id is
+// visible in any page's source.
 func (h *Handler) GetAnalyticsSettings(w http.ResponseWriter, r *http.Request) {
 	settings, err := h.Analytics.Get(r.Context())
 	if err != nil {
@@ -21,6 +19,22 @@ func (h *Handler) GetAnalyticsSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	JSON(w, 200, map[string]any{"analytics": settings})
+}
+
+// PublicAnalytics returns the same values to a caller who has no session.
+//
+// The landing page, sign-in and registration are rendered before anybody signs
+// in, and they carry the same trackers the console does — so the console's
+// server render has to read this before it has a cookie to send. The values are
+// not secrets; they are in the page source of every visitor either way.
+//
+// It answers from the process's cached snapshot rather than the database, so
+// the one unauthenticated read in this file costs no query. The console caches
+// the answer, which is why sharing the OIDC rate-limit bucket with the other
+// anonymous reads is not a concern.
+func (h *Handler) PublicAnalytics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	JSON(w, 200, h.Analytics.Current())
 }
 
 // UpdateAnalyticsSettings replaces the tracking configuration. Requires the
@@ -40,9 +54,11 @@ func (h *Handler) UpdateAnalyticsSettings(w http.ResponseWriter, r *http.Request
 		return
 	}
 	h.Audit.Record(r.Context(), service.ActionAnalyticsUpdate, "analytics", "", map[string]any{
-		"ga4":    settings.GA4MeasurementID,
-		"gtm":    settings.GTMContainerID,
-		"matomo": settings.MatomoURL,
+		"ga4":        settings.GA4MeasurementID,
+		"gtm":        settings.GTMContainerID,
+		"google_tag": settings.GoogleTagID,
+		"matomo":     settings.MatomoURL,
+		"clarity":    settings.ClarityProjectID,
 	})
 	JSON(w, 200, map[string]any{"analytics": settings})
 }

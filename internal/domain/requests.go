@@ -149,8 +149,10 @@ type OIDCProviderInput struct {
 type AnalyticsSettingsInput struct {
 	GA4MeasurementID string `json:"ga4_measurement_id"`
 	GTMContainerID   string `json:"gtm_container_id"`
+	GoogleTagID      string `json:"google_tag_id"`
 	MatomoURL        string `json:"matomo_url"`
 	MatomoSiteID     string `json:"matomo_site_id"`
+	ClarityProjectID string `json:"clarity_project_id"`
 }
 
 // CaptchaSettingsInput uses pointers so an omitted field means "leave it

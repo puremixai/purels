@@ -16,7 +16,8 @@ import (
 // collapsing them at the database boundary keeps a nullable type out of the
 // service and out of the JSON the console reads.
 const analyticsSettingsColumns = `COALESCE(ga4_measurement_id,''), COALESCE(gtm_container_id,''),
-	COALESCE(matomo_url,''), COALESCE(matomo_site_id,''), updated_at`
+	COALESCE(google_tag_id,''), COALESCE(matomo_url,''), COALESCE(matomo_site_id,''),
+	COALESCE(clarity_project_id,''), updated_at`
 
 // GetAnalyticsSettings reads the singleton row.
 //
@@ -28,7 +29,8 @@ func (s *Store) GetAnalyticsSettings(ctx context.Context) (domain.AnalyticsSetti
 	var settings domain.AnalyticsSettings
 	err := s.Pool.QueryRow(ctx, `SELECT `+analyticsSettingsColumns+` FROM analytics_settings WHERE id=1`).Scan(
 		&settings.GA4MeasurementID, &settings.GTMContainerID,
-		&settings.MatomoURL, &settings.MatomoSiteID, &settings.UpdatedAt,
+		&settings.GoogleTagID, &settings.MatomoURL, &settings.MatomoSiteID,
+		&settings.ClarityProjectID, &settings.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return settings, ErrNotFound
@@ -36,16 +38,17 @@ func (s *Store) GetAnalyticsSettings(ctx context.Context) (domain.AnalyticsSetti
 	return settings, err
 }
 
-// UpdateAnalyticsSettings replaces all four values. An empty string is stored as
+// UpdateAnalyticsSettings replaces every value. An empty string is stored as
 // NULL, which is what turns that provider off.
 func (s *Store) UpdateAnalyticsSettings(ctx context.Context, settings domain.AnalyticsSettings) (domain.AnalyticsSettings, error) {
 	result, err := s.Pool.Exec(ctx, `
 		UPDATE analytics_settings SET
-			ga4_measurement_id=$1, gtm_container_id=$2,
-			matomo_url=$3, matomo_site_id=$4, updated_at=now()
+			ga4_measurement_id=$1, gtm_container_id=$2, google_tag_id=$3,
+			matomo_url=$4, matomo_site_id=$5, clarity_project_id=$6, updated_at=now()
 		WHERE id=1`,
 		nullableText(settings.GA4MeasurementID), nullableText(settings.GTMContainerID),
-		nullableText(settings.MatomoURL), nullableText(settings.MatomoSiteID))
+		nullableText(settings.GoogleTagID), nullableText(settings.MatomoURL),
+		nullableText(settings.MatomoSiteID), nullableText(settings.ClarityProjectID))
 	if err != nil {
 		return settings, normalizeDBError(err)
 	}

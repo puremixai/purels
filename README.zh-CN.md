@@ -31,7 +31,7 @@ Purels 是可自行部署的短链接服务，提供链接管理、点击统计�
 
 - 审计记录、登录和接口等入口的按 IP 限流、`/healthz`、`/readyz`、Prometheus `/metrics`。
 - Worker 汇总点击；启用对应设置后，还可清理过期链接并定期检查目标地址的可达性。
-- 可选的 GA4、Google Tag Manager、Matomo 埋点只注入控制台页面。
+- 可选的 GA4、Google Tag Manager、Google 代码、Matomo、Microsoft Clarity 埋点，注入本部署提供的**所有页面**：落地页、登录与注册、控制台，以及 API 自己渲染的中转页和预览页。
 
 ## 快速启动
 
@@ -78,6 +78,8 @@ docker compose -f deploy/compose.yaml down
 
 内置双因素认证的开关在 `000019` 迁移中并入运行时设置：该列以可空方式添加，首次启动时用 `TOTP_ENABLED` 填充一次，因此升级不会把已经在用的双因素认证悄悄关掉；此后由控制台写入具体值。
 
+外部埋点 ID 存在独立的一行，在 `/home/settings/analytics` 配置。GTM 容器（`GTM-…`）与 Google 代码（`GT-…`）是两个独立字段，因为二者加载路径不同（分别走 `gtm.js` 与 `gtag.js`）：填错字段照样能保存，但永远不会上报。这些值会注入本部署提供的所有页面，因此控制台的服务端渲染在任何人登录之前就要读取它们，走免鉴权的 `GET /api/v1/analytics/public`；API 自己渲染的中转页与预览页则读进程内快照，不在跳转路径上查库。`000020` 迁移为这两类新增了对应的列。
+
 控制台入口是 `/home`；站点设置在 `/home/settings`，按链接、注册与登录、用户与权限、流量防护、统计与集成分组，并可在当前账号有权访问的设置中搜索。个人双因素认证及 API 令牌在 `/home/account`。旧版设置路径仍有兼容跳转，`/admin` 也会跳转到 `/home`。
 
 运行时设置的编辑接口是 `PATCH /api/v1/settings/runtime`。先用 `GET` 取得当前 `revision`，再只提交改动字段：
@@ -107,7 +109,7 @@ API 在 Cloudflare 后读取 `CF-Connecting-IP`，否则使用代理追加的 `X
 | 统计 | `/stats/{summary,top,overview}`、`/links/{id}/{stats,clicks}` | `stats:read` |
 | 审计 | `/audit` | `audit:read` |
 | 用户与角色 | `/users`、`/users/{id}`、`/roles`、`/roles/{name}` | `users:manage` / `roles:manage` |
-| 登录提供方、埋点和注册验证 | `/oidc/providers`、`/analytics`、`/captcha` | 各自的管理权限；`GET /analytics` 对已登录用户开放 |
+| 登录提供方、埋点和注册验证 | `/oidc/providers`、`/analytics`、`/captcha` | 各自的管理权限；`GET /analytics` 对已登录用户开放，`GET /analytics/public` 完全公开（控制台服务端渲染在登录前就要读它） |
 | 运行时设置 | `GET/PUT/PATCH /settings/runtime` | `settings:manage` |
 | API 令牌 | `/auth/tokens` | `tokens:manage` |
 
@@ -127,7 +129,7 @@ API 在 Cloudflare 后读取 `CF-Connecting-IP`，否则使用代理追加的 `X
 | `cmd/purels-worker` | 点击汇总、可选的过期清理与目标健康检查 |
 | `internal/` | 配置、领域模型、服务、数据库、缓存、HTTP 与 worker 实现 |
 | `web/` | Next.js 控制台 |
-| `migrations/` | **19 组** golang-migrate 数据库迁移，由 Compose 中的一次性容器执行 |
+| `migrations/` | **20 组** golang-migrate 数据库迁移，由 Compose 中的一次性容器执行 |
 | `deploy/` | Compose 与 Caddy 配置 |
 | `scripts/` | HTTP 与浏览器冒烟测试 |
 
@@ -185,7 +187,7 @@ go test ./...
 | `make smoke-lifecycle` | 链接创建、编辑、到期和删除 |
 | `make smoke-totp` | 双因素认证 |
 | `make smoke-oidc` | OIDC 配置与登录 |
-| `make smoke-analytics` | 外部埋点配置 |
+| `make smoke-analytics` | 外部埋点配置、匿名读取接口，以及绝不允许被存储的内容 |
 | `make smoke-captcha` | 注册验证 |
 | `make smoke-pages` | 控制台页面及主要浏览器操作 |
 

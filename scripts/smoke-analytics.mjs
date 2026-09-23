@@ -1,16 +1,17 @@
-// Analytics settings: the tracking ids the console injects into its own pages.
+// Analytics settings: the tracking ids every page injects.
 //
 //   node scripts/smoke-analytics.mjs
 //
 // Talks straight to the Go API (default :8080) and signs in as the bootstrap
-// administrator. Most of what it checks is validation, because these four
-// values are interpolated into an inline <script> that runs on every console
-// page: a value that got through would be stored XSS against the
-// highest-privilege accounts in the deployment, so the refusal cases matter more
-// than the happy path.
+// administrator. Most of what it checks is validation, because these values are
+// interpolated into an inline <script> that runs on every page the deployment
+// serves: a value that got through would be stored XSS against visitors and the
+// highest-privilege accounts alike, so the refusal cases matter more than the
+// happy path.
 //
 // What is injected, and where, is smoke-pages.mjs's business — it is the suite
-// with a browser. This one only proves what the API accepts and stores.
+// with a browser. This one only proves what the API accepts and stores, and
+// that the anonymous read the console's server render depends on works.
 //
 // The settings are a single row, so the run restores it to empty rather than
 // deleting it, and removes the audit entries it wrote.
@@ -25,7 +26,18 @@ const BASE = (process.env.API_BASE || "http://localhost:8080").replace(/\/$/, ""
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "change-me-now";
 
-const EMPTY = { ga4_measurement_id: "", gtm_container_id: "", matomo_url: "", matomo_site_id: "" };
+const EMPTY = {
+  ga4_measurement_id: "",
+  gtm_container_id: "",
+  google_tag_id: "",
+  matomo_url: "",
+  matomo_site_id: "",
+  clarity_project_id: "",
+};
+
+// The fields a save replaces, which is also what "nothing is configured" and
+// "everything was cleared" have to cover.
+const FIELDS = Object.keys(EMPTY);
 
 const results = [];
 
@@ -115,7 +127,7 @@ async function main() {
   const settings = initial.analytics || {};
   record(
     "an unconfigured deployment reads back as empty",
-    settings.ga4_measurement_id === "" && settings.gtm_container_id === "" && settings.matomo_url === "" && settings.matomo_site_id === "",
+    FIELDS.every((key) => settings[key] === ""),
     JSON.stringify(settings),
   );
 
@@ -134,11 +146,36 @@ async function main() {
     `status=${gtm.response.status} value=${gtm.payload.analytics?.gtm_container_id}`,
   );
 
+  // The id this field exists for. It is a Google tag, not a container: the two
+  // load through different scripts, which is why they are separate columns.
+  const googleTag = await save(admin, { ...EMPTY, google_tag_id: "gt-mk52gbmx" });
+  record(
+    "a Google tag id is stored, upper-cased",
+    googleTag.response.status === 200 && googleTag.payload.analytics?.google_tag_id === "GT-MK52GBMX",
+    `status=${googleTag.response.status} value=${googleTag.payload.analytics?.google_tag_id}`,
+  );
+
+  // A container id in the Google tag column would inject a gtag.js load for
+  // something that does not exist, so it is refused rather than folded.
+  const containerInGoogleTag = await save(admin, { ...EMPTY, google_tag_id: "GTM-ABC1234" });
+  record(
+    "a GTM container id is refused by the Google tag field",
+    containerInGoogleTag.response.status === 400,
+    `status=${containerInGoogleTag.response.status}`,
+  );
+
   const matomo = await save(admin, { ...EMPTY, matomo_url: "https://matomo.example.com///", matomo_site_id: "7" });
   record(
     "a Matomo base URL is stored without its trailing slashes",
     matomo.response.status === 200 && matomo.payload.analytics?.matomo_url === "https://matomo.example.com" && matomo.payload.analytics?.matomo_site_id === "7",
     `status=${matomo.response.status} url=${matomo.payload.analytics?.matomo_url}`,
+  );
+
+  const clarity = await save(admin, { ...EMPTY, clarity_project_id: "YMUTUPW1DP" });
+  record(
+    "a Clarity project id is stored, lower-cased",
+    clarity.response.status === 200 && clarity.payload.analytics?.clarity_project_id === "ymutupw1dp",
+    `status=${clarity.response.status} value=${clarity.payload.analytics?.clarity_project_id}`,
   );
 
   // ---------- what must never be stored ----------
@@ -156,6 +193,11 @@ async function main() {
     { field: "ga4_measurement_id", value: `G-1'</script>` },
     { field: "gtm_container_id", value: `GTM-1</script>` },
     { field: "gtm_container_id", value: `GTM-1\n<script>alert(1)</script>` },
+    { field: "google_tag_id", value: `GT-1</script><img src=x>` },
+    { field: "google_tag_id", value: `GT-1";alert(1);//` },
+    { field: "clarity_project_id", value: `ymutup</script>` },
+    { field: "clarity_project_id", value: `ymutup'+(alert(1))+&apos;` },
+    { field: "clarity_project_id", value: `ymutup/w1dp` },
     { field: "matomo_site_id", value: `1"><script>alert(1)</script>` },
     { field: "matomo_url", value: `javascript:alert(1)` },
     { field: "matomo_url", value: `http://matomo.example/"><script>alert(1)</script>` },
@@ -176,9 +218,7 @@ async function main() {
 
   // The refused writes must not have stored anything along the way.
   const afterInjections = await json(await call(admin, "/api/v1/analytics"));
-  const survivors = ["ga4_measurement_id", "gtm_container_id", "matomo_url", "matomo_site_id"].filter(
-    (key) => (afterInjections.analytics || {})[key] !== "",
-  );
+  const survivors = FIELDS.filter((key) => (afterInjections.analytics || {})[key] !== "");
   record("no refused value reached the database", survivors.length === 0, survivors.join(",") || "all empty");
 
   // A payload parked in the site id while there is no URL is dropped rather than
@@ -202,26 +242,46 @@ async function main() {
     `status=${siteWithoutURL.response.status} site=${siteWithoutURL.payload.analytics?.matomo_site_id}`,
   );
 
-  // ---------- all three at once, then back to empty ----------
+  // ---------- all five at once, then back to empty ----------
   const everything = await save(admin, {
     ga4_measurement_id: "G-ABCDE12345",
     gtm_container_id: "GTM-ABC1234",
+    google_tag_id: "GT-MK52GBMX",
     matomo_url: "https://matomo.example.com",
     matomo_site_id: "7",
+    clarity_project_id: "ymutupw1dp",
   });
   const reread = await json(await call(admin, "/api/v1/analytics"));
   record(
-    "all three providers can be configured together",
+    "all five providers can be configured together",
     everything.response.status === 200 &&
       reread.analytics?.ga4_measurement_id === "G-ABCDE12345" &&
       reread.analytics?.gtm_container_id === "GTM-ABC1234" &&
+      reread.analytics?.google_tag_id === "GT-MK52GBMX" &&
       reread.analytics?.matomo_url === "https://matomo.example.com" &&
-      reread.analytics?.matomo_site_id === "7",
+      reread.analytics?.matomo_site_id === "7" &&
+      reread.analytics?.clarity_project_id === "ymutupw1dp",
     JSON.stringify(reread.analytics || {}),
   );
 
+  // The console's own server render reads the ids before anybody has signed in
+  // — that is what makes the landing page, sign-in and registration carry the
+  // trackers — so this has to answer without a session, and without a wrapper
+  // the parser would read past.
+  const anonymous = newSession();
+  const publicRead = await call(anonymous, "/api/v1/analytics/public");
+  const publicPayload = await json(publicRead);
+  record(
+    "the tracking ids are readable without a session",
+    publicRead.status === 200 &&
+      publicPayload.google_tag_id === "GT-MK52GBMX" &&
+      publicPayload.clarity_project_id === "ymutupw1dp" &&
+      publicPayload.analytics === undefined,
+    `status=${publicRead.status} ${JSON.stringify(publicPayload)}`,
+  );
+
   // A save is a change worth attributing: the values run as script in every
-  // administrator's browser.
+  // visitor's browser.
   const trail = await json(await call(admin, "/api/v1/audit?action=analytics.update&limit=5"));
   record(
     "the change is recorded in the audit trail",
@@ -232,9 +292,8 @@ async function main() {
   const cleared = await save(admin, EMPTY);
   const afterClear = await json(await call(admin, "/api/v1/analytics"));
   record(
-    "clearing every field turns all three off",
-    cleared.response.status === 200 &&
-      ["ga4_measurement_id", "gtm_container_id", "matomo_url", "matomo_site_id"].every((key) => afterClear.analytics?.[key] === ""),
+    "clearing every field turns all five off",
+    cleared.response.status === 200 && FIELDS.every((key) => afterClear.analytics?.[key] === ""),
     JSON.stringify(afterClear.analytics || {}),
   );
 }
@@ -248,7 +307,7 @@ main()
     // go. The row must not be deleted — the console's first read assumes it is
     // there.
     const restored = psql(
-      `UPDATE analytics_settings SET ga4_measurement_id=NULL, gtm_container_id=NULL, matomo_url=NULL, matomo_site_id=NULL WHERE id=1;
+      `UPDATE analytics_settings SET ga4_measurement_id=NULL, gtm_container_id=NULL, google_tag_id=NULL, matomo_url=NULL, matomo_site_id=NULL, clarity_project_id=NULL WHERE id=1;
        DELETE FROM audit_logs WHERE action = 'analytics.update';`,
     );
     record("the settings row is restored to empty", restored !== null, restored === null ? "psql unavailable — clear it by hand" : "restored");

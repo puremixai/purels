@@ -55,6 +55,10 @@ type galleryPageData struct {
 	Styles                                                        template.CSS
 	Script                                                        template.JS
 	Wordmark                                                      template.HTML
+	// Trackers is already-validated markup built by trackerTags. It is
+	// template.HTML for the same reason Styles and Wordmark are: the value is
+	// produced here from checked input, not taken from a request.
+	Trackers template.HTML
 }
 
 var (
@@ -92,20 +96,22 @@ func loadGalleryArtworks() []galleryArtwork {
 	return artworks
 }
 
-func previewPage(alias, destination, language string) string {
-	return redirectPage(alias, destination, language, false, 0)
+// previewPage renders the page a trailing "+" asks for. trackers is the markup
+// from trackerTags, or empty when nothing is configured.
+func previewPage(alias, destination, language string, trackers template.HTML) string {
+	return redirectPage(alias, destination, language, false, 0, trackers)
 }
 
-func interstitialPage(alias, destination string, seconds int16, language string) string {
-	return redirectPage(alias, destination, language, true, seconds)
+func interstitialPage(alias, destination string, seconds int16, language string, trackers template.HTML) string {
+	return redirectPage(alias, destination, language, true, seconds, trackers)
 }
 
-func redirectPage(alias, destination, language string, interstitial bool, seconds int16) string {
+func redirectPage(alias, destination, language string, interstitial bool, seconds int16, trackers template.HTML) string {
 	index := rand.IntN(len(galleryArtworks))
-	return renderGalleryPage(alias, destination, language, interstitial, seconds, galleryArtworks[index], index)
+	return renderGalleryPage(alias, destination, language, interstitial, seconds, galleryArtworks[index], index, trackers)
 }
 
-func renderGalleryPage(alias, destination, language string, interstitial bool, seconds int16, art galleryArtwork, index int) string {
+func renderGalleryPage(alias, destination, language string, interstitial bool, seconds int16, art galleryArtwork, index int, trackers template.HTML) string {
 	if language != langChinese {
 		language = langEnglish
 		art.Title, art.Artist, art.Year = art.EnglishTitle, art.EnglishArtist, art.EnglishYear
@@ -126,6 +132,7 @@ func renderGalleryPage(alias, destination, language string, interstitial bool, s
 		WaitLabel:    interstitialWaitLabel(language, seconds),
 		Interstitial: interstitial, Seconds: seconds, Ratio: float64(art.Width) / float64(art.Height),
 		Artwork: art, Copy: galleryLabels(language), Styles: galleryStyles, Script: galleryScript, Wordmark: galleryWordmark,
+		Trackers: trackers,
 	}
 	var page bytes.Buffer
 	if err := galleryTemplate.Execute(&page, data); err != nil {

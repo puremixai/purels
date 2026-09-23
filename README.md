@@ -103,8 +103,10 @@ decisions that shape it:
 - `/healthz`, `/readyz` and Prometheus `/metrics`
 - A background worker that aggregates clicks and can optionally prune expired
   links or probe destinations for reachability
-- Optional injection of a GA4, Google Tag Manager or Matomo tag into the console,
-  configurable in the console itself
+- Optional injection of GA4, Google Tag Manager, a Google tag, Matomo or
+  Microsoft Clarity into every page the deployment serves — the landing page,
+  sign-in and registration, the console, and the API's own interstitial and
+  preview pages — configurable in the console itself
 - An English and Simplified Chinese console. The language follows an explicit
   choice, then `Accept-Language`, then English
 - A `/home` console with a dashboard, breadcrumb navigation, searchable and
@@ -174,6 +176,17 @@ The second factor's master switch joined that row in migration `000019`. The
 column is added nullable and filled once from `TOTP_ENABLED` on the first boot,
 so an upgrade cannot silently switch an in-use second factor off; every console
 save writes a concrete value from then on.
+
+The external tracking ids live in their own row rather than the policy one, and
+are configured at `/home/settings/analytics`. A GTM container (`GTM-…`) and a
+Google tag (`GT-…`) are separate fields because they load through different
+scripts — `gtm.js` and `gtag.js` respectively — so a value in the wrong one would
+be accepted and then never report anything. The values reach every page the
+deployment serves, which means the console's server render reads them before
+anybody has signed in, through the unauthenticated `GET /api/v1/analytics/public`;
+the API's own interstitial and preview pages read the same configuration from an
+in-process snapshot rather than querying the database on the redirect path.
+Migration `000020` adds the two columns those providers need.
 
 The console saves only changed fields using `PATCH /api/v1/settings/runtime`
 with `{ "revision": 1, "changes": { "count_bots": true } }`. Obtain the revision
@@ -261,7 +274,8 @@ holds the scopes of its role.
 | Users | `GET /users`, `PATCH /users/{id}`, `POST /users/{id}/2fa/reset` | `users:manage` |
 | Roles | `GET /roles`, `PATCH /roles/{name}` | `roles:manage` |
 | Sign-in methods | `GET/POST /oidc/providers`, `PATCH/DELETE /oidc/providers/{id}` | `oidc:manage` |
-| Tracking | `GET /analytics` | — (any authenticated caller: every console page needs it) |
+| Tracking | `GET /analytics` | — (any authenticated caller: the settings form needs it) |
+| Tracking | `GET /analytics/public` | — (public: the console's server render reads it before sign-in) |
 | Tracking | `PUT /analytics` | `analytics:manage` |
 | CAPTCHA | `GET/PATCH /captcha` | `captcha:manage` |
 | Runtime settings | `GET/PUT/PATCH /settings/runtime` | `settings:manage` |
@@ -404,7 +418,7 @@ over HTTP, plus one browser suite. They are the CI integration gate:
 | `make smoke-lifecycle` | Link creation, editing, expiry, deletion |
 | `make smoke-totp` | Two-factor enrolment and verification |
 | `make smoke-oidc` | Provider configuration and the sign-in flow |
-| `make smoke-analytics` | Tracker configuration and what must *not* be stored |
+| `make smoke-analytics` | Tracker configuration, the anonymous read, and what must *not* be stored |
 | `make smoke-captcha` | Registration protection, mostly the refusal cases |
 | `make smoke-pages` | Every console page in a real browser, plus the language switcher |
 

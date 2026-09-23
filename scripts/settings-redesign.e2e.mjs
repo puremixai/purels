@@ -30,7 +30,11 @@ const baseRuntime = {
   rate_limit_redirect: 1000, rate_limit_register: 5, rate_limit_2fa: 10, rate_limit_oidc: 20,
   revision: 7, updated_at: "2026-09-22T00:00:00Z",
 };
-const emptyAnalytics = { ga4_measurement_id: "", gtm_container_id: "", matomo_url: "", matomo_site_id: "", updated_at: "2026-09-22T00:00:00Z" };
+const emptyAnalytics = {
+  ga4_measurement_id: "", gtm_container_id: "", google_tag_id: "",
+  matomo_url: "", matomo_site_id: "", clarity_project_id: "",
+  updated_at: "2026-09-22T00:00:00Z",
+};
 const captcha = { provider: "turnstile", enabled: false, site_key: "", has_secret: false, expected_hostname: "", expected_action: "register", updated_at: "2026-09-22T00:00:00Z" };
 
 async function check(name, action) {

@@ -68,6 +68,16 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 	// Registration CAPTCHA metadata is public by design: the browser needs the
 	// site key before it has a session. The route returns no secret.
 	r.With(limit("oidc", func(s domain.RuntimeSettings) int { return s.RateLimitOIDC })).Get("/api/v1/auth/captcha", h.PublicCaptcha)
+	// The tracking ids the public pages carry, for the console's own server
+	// render — the landing page, sign-in and registration load trackers before
+	// anybody has a session, so that render has no cookie to send. It is public
+	// for the same reason the CAPTCHA metadata is.
+	//
+	// It is deliberately not rate limited, unlike every other anonymous route
+	// here: it reads a value the process already holds and touches no database,
+	// which is the same reason /healthz and /readyz are outside a bucket. The
+	// console caches the answer anyway, so a page view is not a request.
+	r.Get("/api/v1/analytics/public", h.PublicAnalytics)
 
 	auth := httpmw.Auth{Store: h.Auth.Store}
 	r.Route("/api/v1", func(api chi.Router) {
@@ -135,12 +145,11 @@ func NewRouter(h *handler.Handler, limiter httpmw.RateLimiter) http.Handler {
 		api.With(httpmw.RequireScope(domain.ScopeOIDCManage)).Patch("/oidc/providers/{id}", h.UpdateOIDCProvider)
 		api.With(httpmw.RequireScope(domain.ScopeOIDCManage)).Delete("/oidc/providers/{id}", h.DeleteOIDCProvider)
 
-		// The tracking ids the console injects into its own pages. The read is
-		// open to every signed-in account because the console fetches it on
-		// every admin page for all of them — a scope here would silently switch
-		// tracking off for everyone without analytics:manage. The write is what
-		// decides which script runs in an administrator's browser, so it is the
-		// write that needs the capability.
+		// The tracking ids every page injects. The read is open to every
+		// signed-in account because the settings form is what consumes it, and
+		// the write is what decides which script runs in a visitor's browser —
+		// so it is the write that needs the capability. Anonymous pages read
+		// the same values through the public route above.
 		api.Get("/analytics", h.GetAnalyticsSettings)
 		api.With(httpmw.RequireScope(domain.ScopeAnalyticsManage)).Put("/analytics", h.UpdateAnalyticsSettings)
 

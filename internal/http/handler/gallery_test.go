@@ -84,7 +84,7 @@ func assertGalleryRefresh(t *testing.T, page string, seconds int16, destination 
 }
 
 func TestGalleryPreviewDoesNotAutoRedirect(t *testing.T) {
-	page := previewPage("preview-only", "https://example.com/path?a=1&b=2#section", langEnglish)
+	page := previewPage("preview-only", "https://example.com/path?a=1&b=2#section", langEnglish, "")
 	if !strings.Contains(page, `data-interstitial="false"`) || !strings.Contains(page, `data-seconds="0"`) {
 		t.Fatal("a preview must explicitly disable the automatic countdown")
 	}
@@ -130,7 +130,7 @@ func TestGalleryInterstitialHTTPContract(t *testing.T) {
 func TestGalleryInterstitialCarriesConfiguredDelays(t *testing.T) {
 	for _, seconds := range []int16{1, 2, 7, 60} {
 		t.Run(strconv.Itoa(int(seconds)), func(t *testing.T) {
-			page := interstitialPage("hold", "https://example.com/path?a=1&b=2#section", seconds, langChinese)
+			page := interstitialPage("hold", "https://example.com/path?a=1&b=2#section", seconds, langChinese, "")
 			if !strings.Contains(page, `data-interstitial="true"`) || !strings.Contains(page, `data-seconds="`+strconv.Itoa(int(seconds))+`"`) {
 				t.Fatal("the JavaScript countdown must receive the link's configured delay")
 			}
@@ -157,7 +157,7 @@ func TestGalleryRendersOneCompleteArtworkInEachLanguage(t *testing.T) {
 		seen[art.Slug] = true
 		for _, language := range []string{langChinese, langEnglish} {
 			t.Run(art.Slug+"/"+language, func(t *testing.T) {
-				page := renderGalleryPage("artwork", "https://example.com", language, false, 0, art, index)
+				page := renderGalleryPage("artwork", "https://example.com", language, false, 0, art, index, "")
 				figures := regexp.MustCompile(`(?s)<figure\b[^>]*>(.*?)</figure>`).FindAllStringSubmatch(page, -1)
 				if len(figures) != 1 {
 					t.Fatalf("expected one artwork figure, got %d", len(figures))
@@ -293,11 +293,11 @@ func TestGalleryBrowserFixtures(t *testing.T) {
 		}
 	}
 	for index, art := range galleryArtworks {
-		write(art.Slug+"-zh.html", renderGalleryPage(alias, destination, langChinese, false, 0, art, index))
-		write(art.Slug+"-en.html", renderGalleryPage(alias, destination, langEnglish, false, 0, art, index))
+		write(art.Slug+"-zh.html", renderGalleryPage(alias, destination, langChinese, false, 0, art, index, ""))
+		write(art.Slug+"-en.html", renderGalleryPage(alias, destination, langEnglish, false, 0, art, index, ""))
 	}
 	art := galleryArtworks[0]
-	write("interstitial-zh.html", renderGalleryPage(alias, destination, langChinese, true, 2, art, 0))
-	write("interstitial-en.html", renderGalleryPage(alias, destination, langEnglish, true, 2, art, 0))
-	write("interstitial-seven.html", renderGalleryPage(alias, destination, langEnglish, true, 7, art, 0))
+	write("interstitial-zh.html", renderGalleryPage(alias, destination, langChinese, true, 2, art, 0, ""))
+	write("interstitial-en.html", renderGalleryPage(alias, destination, langEnglish, true, 2, art, 0, ""))
+	write("interstitial-seven.html", renderGalleryPage(alias, destination, langEnglish, true, 7, art, 0, ""))
 }

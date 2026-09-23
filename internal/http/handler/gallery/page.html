@@ -8,6 +8,7 @@
   {{if .Interstitial}}<noscript><meta http-equiv="refresh" content="{{.Seconds}};url={{.Destination}}"></noscript>{{end}}
   <title>{{.Copy.Album}} / {{.Alias}}</title>
   <style>{{.Styles}}</style>
+  {{if .Trackers}}{{.Trackers}}{{end}}
 </head>
 <body data-interstitial="{{.Interstitial}}" data-seconds="{{.Seconds}}" style="--art-ratio: {{.Ratio}}; --art-accent: {{.Artwork.Accent}}">
   <div class="page">

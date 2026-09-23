@@ -1,16 +1,8 @@
 import { AdminShell } from "@/components/admin-shell";
-import { AnalyticsInjector } from "@/components/analytics-injector";
 
-// AnalyticsInjector sits here rather than inside AdminShell because this file
-// is the scope boundary: /login and /register are siblings of /home, not
-// children of it, so a snippet mounted here cannot reach them. It renders no
-// DOM of its own — next/script appends to the document body — so being a
-// sibling of the shell costs nothing.
+// The trackers are not mounted here: AnalyticsInjector sits in app/layout.tsx
+// so that the landing page, sign-in and registration carry them too. Mounting
+// it in both places would inject every snippet twice on console pages.
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <AnalyticsInjector />
-      <AdminShell>{children}</AdminShell>
-    </>
-  );
+  return <AdminShell>{children}</AdminShell>;
 }

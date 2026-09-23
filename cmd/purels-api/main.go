@@ -106,6 +106,16 @@ func main() {
 		ShortDomains:      cfg.ShortDomains,
 		Hasher:            hasher,
 	}
+	// The tracking ids are read once here so the interstitial and preview pages
+	// can carry them without querying the database on the redirect path. A
+	// failure is not fatal: a deployment whose row is unreadable still has to
+	// serve links, and injecting nothing is the safe half of that trade. The
+	// ticker retries, so a transient failure repairs itself.
+	analyticsService := &service.AnalyticsService{Store: store}
+	if err := analyticsService.Refresh(ctx); err != nil {
+		logger.Warn("analytics settings unavailable at boot: the API's own pages will carry no trackers until the next refresh", "error", err)
+	}
+	analyticsService.Start(ctx)
 	h := &handler.Handler{
 		Config:   cfg,
 		Settings: runtimeSettings,
@@ -127,11 +137,9 @@ func main() {
 		},
 		// Built here rather than in the service so the SSRF guard is part of
 		// the wiring: a checker without it must never be constructed.
-		Probe: &service.HealthChecker{Store: store, Client: security.NewProbeClient()},
-		Analytics: &service.AnalyticsService{
-			Store: store,
-		},
-		Captcha: captchaService,
+		Probe:     &service.HealthChecker{Store: store, Client: security.NewProbeClient()},
+		Analytics: analyticsService,
+		Captcha:   captchaService,
 	}
 	router := httpapi.NewRouter(h, httpmw.RateLimiter{Cache: cache})
 	server := &http.Server{Addr: cfg.Addr, Handler: router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}

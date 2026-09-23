@@ -234,19 +234,29 @@ type OIDCRequest struct {
 	CodeVerifier []byte
 }
 
-// AnalyticsSettings is the deployment's tracking configuration, as the console
-// sees it. An empty field means that provider is off, so there is no separate
-// enabled flag to disagree with it.
+// AnalyticsSettings is the deployment's tracking configuration. An empty field
+// means that provider is off, so there is no separate enabled flag to disagree
+// with it.
 //
-// The console reads this on every admin page to decide what to inject, which
-// makes the json tags a contract with web/src/lib/analytics-config.ts. The
-// values end up inside an inline script, so they are validated on write by the
-// service and validated again by the console before anything is interpolated.
+// Every page the deployment serves reads this to decide what to inject — the
+// console, the landing page, sign-in and registration, and the API's own
+// interstitial and preview pages — which makes the json tags a contract with
+// web/src/lib/analytics-config.ts. The values end up inside an inline script,
+// so they are validated on write by the service and validated again at each
+// render boundary before anything is interpolated.
+//
+// GTMContainerID and GoogleTagID are two fields rather than one because the
+// ids are not interchangeable: a GTM container (GTM-…) is loaded through
+// gtm.js, a Google tag (GT-…) through gtag.js. A single column would have to
+// infer the snippet from the prefix, and a mis-prefixed value would inject a
+// request that never loads.
 type AnalyticsSettings struct {
 	GA4MeasurementID string    `json:"ga4_measurement_id"`
 	GTMContainerID   string    `json:"gtm_container_id"`
+	GoogleTagID      string    `json:"google_tag_id"`
 	MatomoURL        string    `json:"matomo_url"`
 	MatomoSiteID     string    `json:"matomo_site_id"`
+	ClarityProjectID string    `json:"clarity_project_id"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 

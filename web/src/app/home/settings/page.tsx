@@ -98,8 +98,9 @@ export default function SettingsHomePage() {
       relevant.push("runtime", "analytics");
       if (runtime) messages.push(t(runtime.count_bots ? "settings.nav.botsIncluded" : "settings.nav.botsExcluded"));
       if (summary.analytics) {
-        const { ga4_measurement_id, gtm_container_id, matomo_url, matomo_site_id } = summary.analytics;
-        messages.push(t("settings.nav.integrationsConfigured", { count: [ga4_measurement_id, gtm_container_id, matomo_url && matomo_site_id].filter(Boolean).length }));
+        const { ga4_measurement_id, gtm_container_id, google_tag_id, matomo_url, matomo_site_id, clarity_project_id } = summary.analytics;
+        const configured = [ga4_measurement_id, gtm_container_id, google_tag_id, matomo_url && matomo_site_id, clarity_project_id].filter(Boolean).length;
+        messages.push(t("settings.nav.integrationsConfigured", { count: configured }));
       }
     }
     if (summary.failed.some((source) => relevant.includes(source))) messages.push(t("settings.nav.statusUnavailable"));

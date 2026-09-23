@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
+import { AnalyticsInjector } from "@/components/analytics-injector";
 import { I18nProvider } from "@/components/i18n-provider";
 import { ToastProvider } from "@/components/toast-provider";
 import { ThemeProvider } from "@/components/theme-provider";
+import { publicAnalyticsConfig } from "@/lib/analytics-config.server";
 import { tFor } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
 import { requestOrigin } from "@/lib/request-origin";
@@ -33,6 +35,10 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const locale = await getLocale();
+  // Read here rather than in the injector so every page carries the trackers
+  // from the first byte, and so one cached read serves every render. A null
+  // answer renders nothing.
+  const analytics = await publicAnalyticsConfig();
   return (
     <html className={`${GeistSans.variable} ${GeistMono.variable}`} data-theme="dark" lang={locale} suppressHydrationWarning>
       <body>
@@ -42,6 +48,7 @@ export default async function RootLayout({
           dark for a frame first, which reads as a fault rather than a delay.
         */}
         <script dangerouslySetInnerHTML={{ __html: 'try{var t=localStorage.getItem("purels-theme");if(t==="light"||t==="dark"){document.documentElement.dataset.theme=t;}}catch(e){}' }} />
+        <AnalyticsInjector config={analytics} />
         <ThemeProvider>
           <I18nProvider locale={locale}>
             <ToastProvider>{children}</ToastProvider>

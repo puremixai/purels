@@ -14,16 +14,20 @@ import { useSettingsDirty } from "./settings-draft-guard";
 const emptyDraft: AnalyticsInput = {
   ga4_measurement_id: "",
   gtm_container_id: "",
+  google_tag_id: "",
   matomo_url: "",
   matomo_site_id: "",
+  clarity_project_id: "",
 };
 
 function toDraft(settings: AnalyticsSettings): AnalyticsInput {
   return {
     ga4_measurement_id: settings.ga4_measurement_id,
     gtm_container_id: settings.gtm_container_id,
+    google_tag_id: settings.google_tag_id,
     matomo_url: settings.matomo_url,
     matomo_site_id: settings.matomo_site_id,
+    clarity_project_id: settings.clarity_project_id,
   };
 }
 
@@ -75,7 +79,13 @@ export function TrackingForm() {
 
   const dirty = (Object.keys(draft) as Array<keyof AnalyticsInput>).some((key) => draft[key] !== saved[key]);
   useSettingsDirty(dirty);
-  const configuredCount = [draft.ga4_measurement_id, draft.gtm_container_id, draft.matomo_url && draft.matomo_site_id].filter(Boolean).length;
+  const configuredCount = [
+    draft.ga4_measurement_id,
+    draft.gtm_container_id,
+    draft.google_tag_id,
+    draft.matomo_url && draft.matomo_site_id,
+    draft.clarity_project_id,
+  ].filter(Boolean).length;
 
   async function save() {
     // Checked here so the operator gets a sentence naming the field, rather than
@@ -118,7 +128,7 @@ export function TrackingForm() {
           status={<RareStatus tone={configuredCount ? "success" : "neutral"}>{t("settings.analytics.configuredCount", { count: configuredCount })}</RareStatus>}
         >
           <fieldset disabled={busy} className="min-w-0">
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
             <div className="settings-provider-card">
               <div className="settings-provider-card-header">
                 <div>
@@ -139,6 +149,19 @@ export function TrackingForm() {
               </div>
               <input className="field-control" placeholder="GTM-XXXXXXX" aria-label={t("settings.analytics.gtm")} value={draft.gtm_container_id} onChange={(e) => edit({ gtm_container_id: e.target.value })} />
             </div>
+            {/* A Google tag is not a container: it is loaded through gtag.js
+                and configured by name, so it gets its own field rather than
+                being folded into the one above. */}
+            <div className="settings-provider-card">
+              <div className="settings-provider-card-header">
+                <div>
+                  <h3 className="settings-provider-card-title">{t("settings.analytics.googleTag")}</h3>
+                  <p className="settings-provider-card-description">{t("settings.analytics.googleTagDescription")}</p>
+                </div>
+                <RareStatus tone={draft.google_tag_id ? "success" : "neutral"}>{draft.google_tag_id ? t("settings.configured") : t("settings.notConfigured")}</RareStatus>
+              </div>
+              <input className="field-control" placeholder="GT-XXXXXXXXXX" aria-label={t("settings.analytics.googleTag")} value={draft.google_tag_id} onChange={(e) => edit({ google_tag_id: e.target.value })} />
+            </div>
             <div className="settings-provider-card">
               <div className="settings-provider-card-header">
                 <div>
@@ -151,6 +174,16 @@ export function TrackingForm() {
                 <input className="field-control" placeholder="https://matomo.example.com" aria-label={t("settings.analytics.matomoUrl")} value={draft.matomo_url} onChange={(e) => edit({ matomo_url: e.target.value })} />
                 <input className="field-control" placeholder="1" aria-label={t("settings.analytics.matomoSiteId")} value={draft.matomo_site_id} onChange={(e) => edit({ matomo_site_id: e.target.value })} />
               </div>
+            </div>
+            <div className="settings-provider-card">
+              <div className="settings-provider-card-header">
+                <div>
+                  <h3 className="settings-provider-card-title">Microsoft Clarity</h3>
+                  <p className="settings-provider-card-description">{t("settings.analytics.clarityDescription")}</p>
+                </div>
+                <RareStatus tone={draft.clarity_project_id ? "success" : "neutral"}>{draft.clarity_project_id ? t("settings.configured") : t("settings.notConfigured")}</RareStatus>
+              </div>
+              <input className="field-control" placeholder="ymutupw1dp" aria-label={t("settings.analytics.clarity")} value={draft.clarity_project_id} onChange={(e) => edit({ clarity_project_id: e.target.value })} />
             </div>
           </div>
           <div className="settings-savebar">

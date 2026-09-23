@@ -1,14 +1,16 @@
 /**
- * The tracking ids the console injects into its own pages.
+ * The tracking ids the deployment injects into its pages.
  *
- * These values end up inside an inline <script> that runs on every admin page,
- * carrying the session of the most privileged account in the deployment. The Go
- * API validates them on write, but this module does not trust what comes back:
- * a row written outside the application, or a future hole in the service, must
- * not be able to turn into script execution. Everything here fails closed.
+ * These values end up inside an inline <script> that runs on every page this
+ * console serves — the landing page and sign-in included, and the API's own
+ * interstitial and preview pages carry the same snippets from the Go side. The
+ * Go API validates them on write, but this module does not trust what comes
+ * back: a row written outside the application, or a future hole in the service,
+ * must not be able to turn into script execution. Everything here fails closed.
  *
- * The four patterns mirror internal/service/analytics.go character for
- * character. A divergence in either direction is a bug — too loose here and the
+ * The patterns mirror internal/service/analytics.go character for character,
+ * and internal/http/handler/trackers.go holds the Go half of the snippets
+ * below. A divergence in either direction is a bug — too loose here and the
  * injection hole reopens, too strict and analytics silently stops working.
  */
 
@@ -19,14 +21,25 @@ import type { MessageKey } from "@/lib/i18n";
 export type AnalyticsConfig = {
   ga4MeasurementId: string;
   gtmContainerId: string;
+  googleTagId: string;
   matomoUrl: string;
   matomoSiteId: string;
+  clarityProjectId: string;
 };
 
 /** GA4 measurement ids are `G-` followed by uppercase alphanumerics. */
 const GA4_PATTERN = /^G-[A-Z0-9]{4,20}$/;
 /** GTM container ids are `GTM-` followed by uppercase alphanumerics. */
 const GTM_PATTERN = /^GTM-[A-Z0-9]{4,12}$/;
+/**
+ * Google tag ids are `GT-` followed by uppercase alphanumerics.
+ *
+ * This is a different id from the container above, not a looser spelling of it:
+ * a `GTM-` container is fetched from gtm.js, a `GT-` tag from gtag.js. They are
+ * separate fields for that reason — one regex accepting both would inject a
+ * request for something that does not exist.
+ */
+const GOOGLE_TAG_PATTERN = /^GT-[A-Z0-9]{4,20}$/;
 /**
  * A Matomo base URL: http(s), a host, an optional port, an optional path.
  * Deliberately excludes whitespace, quotes, backslashes, angle brackets and
@@ -37,6 +50,12 @@ const MATOMO_URL_PATTERN =
   /^https?:\/\/[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::\d{1,5})?(?:\/[A-Za-z0-9._~!$&()*+,;=:@%/-]*)?$/;
 /** Matomo assigns positive integer site ids. */
 const MATOMO_SITE_PATTERN = /^[1-9][0-9]{0,9}$/;
+/**
+ * A Clarity project id is the short lower-case token in the tag URL, such as
+ * `ymutupw1dp`. It is a path segment there, so anything that could change the
+ * path is refused rather than folded.
+ */
+const CLARITY_PATTERN = /^[a-z0-9]{6,20}$/;
 
 const MAX_ID_LENGTH = 64;
 const MAX_URL_LENGTH = 2048;
@@ -76,25 +95,33 @@ export function parseAnalyticsConfig(payload: unknown): AnalyticsConfig | null {
 
   const ga4 = trimmed(raw.ga4_measurement_id);
   const gtm = trimmed(raw.gtm_container_id);
+  const googleTag = trimmed(raw.google_tag_id);
   const matomoUrl = trimmed(raw.matomo_url).replace(/\/+$/, "");
   const matomoSiteId = trimmed(raw.matomo_site_id);
+  const clarity = trimmed(raw.clarity_project_id);
 
   if (!acceptable(ga4, GA4_PATTERN, MAX_ID_LENGTH)) return null;
   if (!acceptable(gtm, GTM_PATTERN, MAX_ID_LENGTH)) return null;
+  if (!acceptable(googleTag, GOOGLE_TAG_PATTERN, MAX_ID_LENGTH)) return null;
   if (!acceptable(matomoUrl, MATOMO_URL_PATTERN, MAX_URL_LENGTH)) return null;
   if (!acceptable(matomoSiteId, MATOMO_SITE_PATTERN, MAX_ID_LENGTH)) return null;
+  if (!acceptable(clarity, CLARITY_PATTERN, MAX_ID_LENGTH)) return null;
 
   // A Matomo URL without a site id, or the reverse, cannot produce a tracker.
   if ((matomoUrl === "") !== (matomoSiteId === "")) return null;
 
   // Nothing configured: render nothing at all.
-  if (ga4 === "" && gtm === "" && matomoUrl === "") return null;
+  if (ga4 === "" && gtm === "" && googleTag === "" && matomoUrl === "" && clarity === "") {
+    return null;
+  }
 
   return {
     ga4MeasurementId: ga4,
     gtmContainerId: gtm,
+    googleTagId: googleTag,
     matomoUrl,
     matomoSiteId,
+    clarityProjectId: clarity,
   };
 }
 
@@ -119,6 +146,11 @@ export function validateAnalyticsInput(input: AnalyticsInput): MessageKey | null
     return "settings.analytics.invalidGtm";
   }
 
+  const googleTag = input.google_tag_id.trim().toUpperCase();
+  if (!acceptable(googleTag, GOOGLE_TAG_PATTERN, MAX_ID_LENGTH)) {
+    return "settings.analytics.invalidGoogleTag";
+  }
+
   const matomoUrl = foldScheme(input.matomo_url.trim()).replace(/\/+$/, "");
   if (!acceptable(matomoUrl, MATOMO_URL_PATTERN, MAX_URL_LENGTH)) {
     return "settings.analytics.invalidMatomoUrl";
@@ -130,6 +162,13 @@ export function validateAnalyticsInput(input: AnalyticsInput): MessageKey | null
   }
   if (matomoSiteId !== "" && !acceptable(matomoSiteId, MATOMO_SITE_PATTERN, MAX_ID_LENGTH)) {
     return "settings.analytics.invalidMatomoSiteId";
+  }
+
+  // Folded down, not up: Clarity issues only lower-case project ids, and the id
+  // is a path segment in the tag URL.
+  const clarity = input.clarity_project_id.trim().toLowerCase();
+  if (!acceptable(clarity, CLARITY_PATTERN, MAX_ID_LENGTH)) {
+    return "settings.analytics.invalidClarity";
   }
 
   return null;

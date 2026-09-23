@@ -428,17 +428,23 @@ async function main() {
   const bobBackToUser = await call(admin, `/api/v1/users/${bob.userId}`, { method: "PATCH", body: { role: "user" } });
   record("the second account is returned to the regular-user role", bobBackToUser.status === 204, `status=${bobBackToUser.status}`);
 
-  // The tracking ids are fetched by every console page for every signed-in
-  // account, because the script they decide on is injected for all of them. So
-  // the read deliberately carries no scope while the write carries one — gating
-  // the read would silently switch tracking off for everyone without the
-  // capability.
+  // The tracking ids are read by the settings form, and the anonymous pages
+  // read the same values through the API's public route. So the authenticated
+  // read deliberately carries no scope while the write carries one — gating the
+  // read would leave the form unusable for anyone without the capability.
   const userAnalyticsRead = await call(bob, "/api/v1/analytics");
   record("a regular account can read the tracking ids", userAnalyticsRead.status === 200, `status=${userAnalyticsRead.status}`);
 
+  const anonymousAnalyticsRead = await call(newSession(), "/api/v1/analytics/public");
+  record(
+    "anyone can read the tracking ids the public pages need",
+    anonymousAnalyticsRead.status === 200,
+    `status=${anonymousAnalyticsRead.status}`,
+  );
+
   const userAnalyticsWrite = await call(bob, "/api/v1/analytics", {
     method: "PUT",
-    body: { ga4_measurement_id: "", gtm_container_id: "", matomo_url: "", matomo_site_id: "" },
+    body: { ga4_measurement_id: "", gtm_container_id: "", google_tag_id: "", matomo_url: "", matomo_site_id: "", clarity_project_id: "" },
   });
   record("a regular account cannot change the tracking ids", userAnalyticsWrite.status === 403, `status=${userAnalyticsWrite.status}`);
 
@@ -459,7 +465,7 @@ async function main() {
     const tokenAnalytics = await call(newSession(), "/api/v1/analytics", {
       method: "PUT",
       headers: bearer,
-      body: { ga4_measurement_id: "", gtm_container_id: "", matomo_url: "", matomo_site_id: "" },
+      body: { ga4_measurement_id: "", gtm_container_id: "", google_tag_id: "", matomo_url: "", matomo_site_id: "", clarity_project_id: "" },
     });
     record("an administrator's token does not carry analytics:manage", tokenAnalytics.status === 403, `status=${tokenAnalytics.status}`);
 
