@@ -86,6 +86,7 @@ export default function SettingsHomePage() {
     if (category === "settings.nav.registration") {
       relevant.push("runtime", "captcha", "oidc");
       if (runtime) messages.push(t(runtime.registration_enabled ? "settings.nav.registrationOpen" : "settings.nav.registrationClosed"));
+      if (runtime) messages.push(t(runtime.totp_enabled ? "settings.nav.totpEnabled" : "settings.nav.totpDisabled"));
       if (summary.captcha) messages.push(t(summary.captcha.enabled ? "settings.nav.captchaEnabled" : "settings.nav.captchaDisabled"));
       if (summary.oidc) messages.push(t("settings.nav.oidcEnabled", { count: summary.oidc.providers.filter((provider) => provider.enabled).length }));
     }

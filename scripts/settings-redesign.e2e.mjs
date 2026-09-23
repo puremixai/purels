@@ -22,6 +22,7 @@ mkdirSync(OUTPUT, { recursive: true });
 
 const baseRuntime = {
   alias_mode: "random", unique_urls: false, registration_enabled: false,
+  totp_enabled: false,
   count_bots: false, forward_query: true, fallback_url: "", auto_prune_expired: false,
   prune_grace_seconds: 2592000, max_links_per_user: 100, destination_denylist: ["blocked.example"],
   short_domains: ["sho.rt"], health_check_enabled: false, health_check_interval_seconds: 3600,

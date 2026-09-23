@@ -55,7 +55,6 @@ func TestSecretEncryptionKeyAcceptsBothNames(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("TOTP_ENABLED", "false")
 			t.Setenv("SECRET_ENCRYPTION_KEY", tc.current)
 			t.Setenv("TOTP_ENCRYPTION_KEY", tc.legacy)
 			if got := secretEncryptionKey(); got != tc.want {
@@ -65,8 +64,13 @@ func TestSecretEncryptionKeyAcceptsBothNames(t *testing.T) {
 	}
 }
 
-// Both features are fail-closed on the same key, and the second factor needs its
-// own switch on top of it.
+// Both features are fail-closed on the same key: TOTP enrolment and OIDC client
+// secrets are both refused when it is absent.
+//
+// The second factor's own switch is deliberately not checked here. It is a
+// runtime setting rather than a field of this struct, so the pairing between it
+// and this key is answered where both are in scope — service.AuthService and
+// service.TwoFactorService.
 func TestSecretsAvailable(t *testing.T) {
 	if (Config{}).SecretsAvailable() {
 		t.Fatal("a key-less deployment must not report secrets as available")
@@ -74,14 +78,6 @@ func TestSecretsAvailable(t *testing.T) {
 	withKey := Config{SecretEncryptionKey: "0123456789abcdef0123456789abcdef"}
 	if !withKey.SecretsAvailable() {
 		t.Fatal("a configured key must report secrets as available")
-	}
-	// A key alone is not enough: TOTP_ENABLED is the master switch, and off
-	// means nobody is challenged even for an account with a stored secret.
-	if withKey.TwoFactorAvailable() {
-		t.Fatal("the second factor must stay off while TOTP_ENABLED is false")
-	}
-	if !(&Config{TOTPEnabled: true, SecretEncryptionKey: "0123456789abcdef0123456789abcdef"}).TwoFactorAvailable() {
-		t.Fatal("TOTP_ENABLED with a key must make the second factor available")
 	}
 }
 

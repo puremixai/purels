@@ -7,19 +7,25 @@
 // bootstrap administrator — the other suites sign in as that account with a
 // password alone and would be locked out by a second factor.
 //
-// The suite needs the feature switched on to be meaningful:
+// The suite needs the feature switched on to be meaningful, and it turns the
+// switch on itself: the master switch is a runtime setting now, so this is an
+// API call rather than an environment variable and a restart, and the value it
+// found is restored when the run ends.
 //
-//   TOTP_ENABLED=true
+// Two things must still be in place before it can work at all:
+//
 //   SECRET_ENCRYPTION_KEY=<32 raw bytes, 64 hex, or base64 for 32 bytes>
 //   RATE_LIMIT_2FA=60
 //
-// The rate limit matters: a full run makes about a dozen verify calls, and the
-// default bucket of 10 per minute would turn the later ones into 429s that look
-// like failures. The real brute-force bound is the attempt counter stored with
-// the challenge, not this bucket, so raising it for a test changes nothing about
-// what is being verified.
+// The encryption key is what makes an enrolment readable again; without it the
+// switch can be on and enrolment is still refused. The rate limit matters: a
+// full run makes about a dozen verify calls, and the default bucket of 10 per
+// minute would turn the later ones into 429s that look like failures. The real
+// brute-force bound is the attempt counter stored with the challenge, not this
+// bucket, so raising it for a test changes nothing about what is being verified.
 //
-// With TOTP_ENABLED=false — the default — the suite still runs, asserting that
+// When the second factor cannot be made available — the switch could not be
+// flipped, or no key is configured — the suite still runs, asserting that
 // enrolment is refused, and skips the rest rather than reporting a failure.
 //
 // Env: API_BASE (http://localhost:8080), ADMIN_USER, ADMIN_PASS, CAPTCHA_TOKEN
@@ -53,7 +59,7 @@ function record(name, ok, detail = "") {
   results.push({ name, ok, detail, skipped: false });
 }
 
-function skip(name, detail = "TOTP_ENABLED is false") {
+function skip(name, detail = "the second factor is unavailable") {
   results.push({ name, ok: true, detail, skipped: true });
 }
 
@@ -214,8 +220,66 @@ async function loginWithPassword(session, username, password) {
   return { response, payload, challenge: payload.challenge || "" };
 }
 
+// The master switch is a runtime setting, so the suite flips it through the API
+// and puts it back afterwards. Both are held at module scope because the restore
+// has to run even when a check threw.
+let switchState = null; // { revision, enabled } as found, or null if never read
+let operator = null; // the administrator session used to flip it
+
+// Turns the deployment's second factor on when it is off, remembering the value
+// it found. Failure is not fatal: the caller still asks the API whether the
+// feature is available, and skips on that answer rather than on this one.
+async function ensureSecondFactorOn() {
+  operator = newSession();
+  const signedIn = await signIn(operator, ADMIN_USER, ADMIN_PASS);
+  if (signedIn.response.status !== 200 || !operator.csrf) {
+    // Most likely the administrator has a second factor of its own, so a
+    // password alone does not produce a session to patch with. Nothing can be
+    // flipped; the availability check below decides what happens next.
+    operator = null;
+    return;
+  }
+  const read = await call(operator, "/api/v1/settings/runtime");
+  if (read.status !== 200) {
+    operator = null;
+    return;
+  }
+  const settings = (await json(read)).settings || {};
+  switchState = { revision: settings.revision, enabled: settings.totp_enabled === true };
+  if (switchState.enabled) return;
+  const patched = await call(operator, "/api/v1/settings/runtime", {
+    method: "PATCH",
+    body: { revision: settings.revision, changes: { totp_enabled: true } },
+  });
+  if (patched.status !== 200) {
+    switchState = null;
+    return;
+  }
+  switchState.revision = (await json(patched)).settings?.revision ?? settings.revision;
+}
+
+// Puts the switch back where it was found. A no-op when the suite never changed
+// it, and it re-reads the revision first because the suite's own account
+// operations do not touch this row but a concurrent console save would.
+async function restoreSecondFactor() {
+  if (!switchState || switchState.enabled || !operator) return true;
+  const read = await call(operator, "/api/v1/settings/runtime");
+  if (read.status !== 200) return false;
+  const revision = (await json(read)).settings?.revision;
+  const patched = await call(operator, "/api/v1/settings/runtime", {
+    method: "PATCH",
+    body: { revision, changes: { totp_enabled: false } },
+  });
+  return patched.status === 200;
+}
+
 async function main() {
   const account = newSession();
+
+  // The switch is a runtime setting, so the suite turns it on itself and the
+  // finaliser puts it back. Done before anything else, because every check below
+  // depends on the answer it produces.
+  await ensureSecondFactorOn();
 
   const captcha = await publicCaptcha();
   const captchaEnabled = captcha.response.status === 200 && captcha.payload?.enabled === true;
@@ -238,9 +302,10 @@ async function main() {
   record("a new account reports the second factor as off", before.enabled === false && before.pending === false, JSON.stringify(before));
 
   if (!before.available) {
-    // The default configuration. Enrolment must be refused rather than
-    // accepted-and-unreadable: a secret the server cannot decrypt would lock the
-    // account out on the next sign-in.
+    // Either the switch could not be turned on, or no SECRET_ENCRYPTION_KEY is
+    // configured. Enrolment must be refused rather than accepted-and-unreadable:
+    // a secret the server cannot decrypt would lock the account out on the next
+    // sign-in.
     record("the deployment reports the second factor as unavailable", before.available === false, `available=${before.available}`);
     const enroll = await call(account, "/api/v1/auth/2fa/enroll", { method: "POST" });
     record("enrolment is refused while the feature is off", enroll.status === 409, `status=${enroll.status}`);
@@ -272,7 +337,7 @@ async function main() {
       "the reset clears the secret and the recovery codes",
       "an account reset by an administrator is no longer challenged",
     ]) {
-      skip(name);
+      skip(name, "the second factor could not be switched on, or SECRET_ENCRYPTION_KEY is not set");
     }
     return;
   }
@@ -428,7 +493,15 @@ main()
   .catch((err) => {
     record("the suite ran to completion", false, err.message);
   })
-  .then(() => {
+  .then(async () => {
+    // Before the account goes, put the deployment's switch back where the run
+    // found it — including on the failure path, which is why this is here and
+    // not at the end of main().
+    if (switchState && !switchState.enabled) {
+      const restored = await restoreSecondFactor();
+      record("the second factor switch is put back where the run found it", restored, restored ? "off" : "restore failed — turn it off in the console");
+    }
+
     const purged = purgeAccount(ACCOUNT);
     record("the test account is removed", purged, purged ? ACCOUNT : "psql unavailable — remove it by hand");
 
@@ -441,6 +514,6 @@ main()
     }
     const ran = results.length - skipped;
     console.log(`\n${ran - failed}/${ran} checks passed${skipped ? `, ${skipped} skipped` : ""}`);
-    if (skipped) console.log("Set TOTP_ENABLED=true and SECRET_ENCRYPTION_KEY to run the full suite.");
+    if (skipped) console.log("Set SECRET_ENCRYPTION_KEY to run the full suite.");
     process.exit(failed ? 1 : 0);
   });

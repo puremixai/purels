@@ -70,11 +70,13 @@ docker compose -f deploy/compose.yaml down
 | `SECRET_ENCRYPTION_KEY` | 空 | 加密 TOTP 密钥和 OIDC 客户端密钥；启用这些功能前必须配置 |
 | `IP_HASH_MODE` / `IP_HASH_KEY` | `pseudonymised` / 空 | 点击记录中的地址衍生值及可选 HMAC 密钥 |
 | `STATS_TZ` | `UTC` | 统计日边界；API 与 worker 要一致 |
-| `TOTP_ENABLED` | `false` | 是否允许 TOTP 双因素认证 |
+| `TOTP_ENABLED` | `false` | 内置双因素认证首次启动的默认值；之后以控制台中的运行时设置为准 |
 
 ### 控制台中的运行时设置
 
-`000018` 迁移增加了数据库中的运行时设置。首次启动 API 或 worker 时，这些设置从对应的环境变量写入数据库；此后数据库值为准，修改环境变量不会覆盖已经保存的设置。它们包括别名生成、重复网址处理、公开注册、机器人统计、查询参数转发、找不到短码时的回退地址、过期清理、用户链接上限、目标主机黑名单、额外短域名、目标健康检查，以及各类按 IP 限流。需要 `settings:manage` 权限；迁移会为 `admin` 角色补上此权限。API 会立即读取变更，worker 在短轮询后读取。
+`000018` 迁移增加了数据库中的运行时设置。首次启动 API 或 worker 时，这些设置从对应的环境变量写入数据库；此后数据库值为准，修改环境变量不会覆盖已经保存的设置。它们包括别名生成、重复网址处理、公开注册、内置双因素认证、机器人统计、查询参数转发、找不到短码时的回退地址、过期清理、用户链接上限、目标主机黑名单、额外短域名、目标健康检查，以及各类按 IP 限流。需要 `settings:manage` 权限；迁移会为 `admin` 角色补上此权限。API 会立即读取变更，worker 在短轮询后读取。
+
+内置双因素认证的开关在 `000019` 迁移中并入运行时设置：该列以可空方式添加，首次启动时用 `TOTP_ENABLED` 填充一次，因此升级不会把已经在用的双因素认证悄悄关掉；此后由控制台写入具体值。
 
 控制台入口是 `/home`；站点设置在 `/home/settings`，按链接、注册与登录、用户与权限、流量防护、统计与集成分组，并可在当前账号有权访问的设置中搜索。个人双因素认证及 API 令牌在 `/home/account`。旧版设置路径仍有兼容跳转，`/admin` 也会跳转到 `/home`。
 
@@ -84,7 +86,7 @@ docker compose -f deploy/compose.yaml down
 {"revision":1,"changes":{"count_bots":true}}
 ```
 
-若期间已有其他人保存设置，过期的 `revision` 会收到 `409 conflict`，需要重新读取并重试。省略的字段保持原值；兼容的 `PUT` 接口会替换整份设置。OIDC、角色、用户、注册验证和外部埋点仍使用各自的配置接口与权限。
+若期间已有其他人保存设置，过期的 `revision` 会收到 `409 conflict`，需要重新读取并重试。省略的字段保持原值；兼容的 `PUT` 接口会替换整份设置，但整份文档必须包含 `totp_enabled`——该开关是在这个接口发布之后才加入的，文档中缺少它会被当成 `false`，从而静默关闭双因素认证，因此这类请求会直接返回 `400`。OIDC、角色、用户、注册验证和外部埋点仍使用各自的配置接口与权限。
 
 ## 部署注意事项
 
@@ -125,7 +127,7 @@ API 在 Cloudflare 后读取 `CF-Connecting-IP`，否则使用代理追加的 `X
 | `cmd/purels-worker` | 点击汇总、可选的过期清理与目标健康检查 |
 | `internal/` | 配置、领域模型、服务、数据库、缓存、HTTP 与 worker 实现 |
 | `web/` | Next.js 控制台 |
-| `migrations/` | **18 组** golang-migrate 数据库迁移，由 Compose 中的一次性容器执行 |
+| `migrations/` | **19 组** golang-migrate 数据库迁移，由 Compose 中的一次性容器执行 |
 | `deploy/` | Compose 与 Caddy 配置 |
 | `scripts/` | HTTP 与浏览器冒烟测试 |
 

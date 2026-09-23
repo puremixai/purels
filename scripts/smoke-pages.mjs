@@ -40,7 +40,7 @@ const PAGES = [
   { name: "link-settings", path: "/home/settings/links", expect: ["Link settings", "Creation and domains", "Code generation", "Link limit per user", "Available short domains"] },
   { name: "redirect-settings", path: "/home/settings/links/redirects", expect: ["Redirects and destinations", "Forward query parameters", "Fallback URL", "Destination host denylist"] },
   { name: "maintenance-settings", path: "/home/settings/links/maintenance", expect: ["Checks and cleanup", "Enable destination health checks", "Check interval", "Retention after expiry"] },
-  { name: "registration-settings", path: "/home/settings/registration", expect: ["Registration and sign-in", "Allow local account registration", "Cloudflare Turnstile", "Site key"] },
+  { name: "registration-settings", path: "/home/settings/registration", expect: ["Registration and sign-in", "Local accounts and second factor", "Allow local account registration", "Enable the built-in second factor (TOTP)", "Cloudflare Turnstile", "Site key"] },
   { name: "traffic-settings", path: "/home/settings/traffic", expect: ["Traffic protection", "Enable rate limiting", "Authentication requests", "API and redirects"] },
   { name: "roles", path: "/home/settings/roles", expect: ["Roles & permissions", "Manage users", "Manage role permissions", "Manage every link"] },
   { name: "oidc", path: "/home/settings/oidc", expect: ["Sign-in methods", "Add a sign-in method", "Issuer", "Client ID", "Scopes"] },

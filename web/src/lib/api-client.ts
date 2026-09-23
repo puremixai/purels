@@ -282,6 +282,8 @@ export type RuntimeSettingsInput = {
   alias_mode: "random" | "sequential";
   unique_urls: boolean;
   registration_enabled: boolean;
+  /** Master switch for the built-in second factor. Off means nobody is ever challenged, even an account that has enrolled. */
+  totp_enabled: boolean;
   count_bots: boolean;
   forward_query: boolean;
   fallback_url: string;

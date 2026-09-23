@@ -93,19 +93,30 @@ services:
       # figure; the other two break COUNT(DISTINCT ip_hash) across the switch,
       # because the same visitor hashes differently before and after.
       IP_HASH_MODE: pseudonymised
-      # Turns the digest into an HMAC. Empty keeps the historical plain-SHA-256
-      # digest, so the counts already recorded stay comparable; the API logs a
-      # warning at boot when it is empty and the mode is not "none".
+      # Turns the digest into an HMAC. Setting it is recommended, and the value
+      # must then be kept: generate one with `openssl rand -base64 32`. Empty
+      # keeps the historical plain-SHA-256 digest, which is reversible by brute
+      # force over the IPv4 space, so the API logs a warning at boot when it is
+      # empty and the mode is not "none". Changing or clearing it later breaks
+      # COUNT(DISTINCT ip_hash) across the switch, because the same visitor
+      # hashes differently before and after.
       IP_HASH_KEY: ""
       # true makes the server probe link destinations on a schedule. Off by
       # default: it is outbound traffic that an upgrade should not start on its
       # own. The manual check button works either way.
       HEALTH_CHECK_ENABLED: "false"
       HEALTH_CHECK_INTERVAL: 24h
-      # TOTP two-factor authentication. Off by default. Turning it on needs
-      # SECRET_ENCRYPTION_KEY below: the secret is stored encrypted (verifying a
-      # code needs the original value), and without a key enrolment is refused
-      # so the deployment cannot accumulate secrets it cannot read back.
+      # The built-in second factor's master switch. This value is a first-boot
+      # default only: it seeds the runtime setting on the first boot after the
+      # migration that adds the column, and is not read again. From then on the
+      # switch is a database value an operator changes in the console
+      # (Settings → Registration and sign-in), because turning the second factor
+      # on or off should not need a restart.
+      #
+      # Either way it needs SECRET_ENCRYPTION_KEY below: the secret is stored
+      # encrypted (verifying a code needs the original value), and without a key
+      # enrolment is refused so the deployment cannot accumulate secrets it
+      # cannot read back.
       TOTP_ENABLED: "false"
       # How long the half-session between a correct password and a correct code
       # stays usable.

@@ -26,6 +26,7 @@ func RuntimeDefaults(cfg Config) domain.RuntimeSettingsInput {
 		UniqueURLs:                 cfg.UniqueURLs,
 		RegistrationEnabled:        cfg.RegistrationEnabled,
 		CountBots:                  cfg.CountBots,
+		TOTPEnabled:                cfg.TOTPEnabled,
 		ForwardQuery:               cfg.ForwardQuery,
 		FallbackURL:                cfg.FallbackURL,
 		AutoPruneExpired:           cfg.AutoPruneExpired,

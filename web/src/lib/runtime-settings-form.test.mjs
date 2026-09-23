@@ -7,6 +7,7 @@ function fixture() {
     alias_mode: "random",
     unique_urls: true,
     registration_enabled: true,
+    totp_enabled: true,
     count_bots: true,
     forward_query: true,
     fallback_url: "https://example.com/not-found",
@@ -29,8 +30,8 @@ function fixture() {
 
 test("every runtime policy field belongs to exactly one settings group", () => {
   const fields = Object.values(runtimeGroups).flat();
-  assert.equal(fields.length, 20);
-  assert.equal(new Set(fields).size, 20, "a field cannot be saved from multiple groups");
+  assert.equal(fields.length, 21);
+  assert.equal(new Set(fields).size, 21, "a field cannot be saved from multiple groups");
   assert.deepEqual([...fields].sort(), Object.keys(fixture()).sort());
 });
 
@@ -53,7 +54,7 @@ test("saving a group ignores fields belonging to all other groups", () => {
     creation: { max_links_per_user: "2000" },
     redirects: { fallback_url: "https://example.com/new" },
     maintenance: { health_check_interval_seconds: "60" },
-    registration: { registration_enabled: false },
+    registration: { registration_enabled: false, totp_enabled: false },
     traffic: { rate_limit_login: "42" },
     statistics: { count_bots: false },
   };
@@ -61,7 +62,7 @@ test("saving a group ignores fields belonging to all other groups", () => {
     creation: { max_links_per_user: 2000 },
     redirects: { fallback_url: "https://example.com/new" },
     maintenance: { health_check_interval_seconds: 60 },
-    registration: { registration_enabled: false },
+    registration: { registration_enabled: false, totp_enabled: false },
     traffic: { rate_limit_login: 42 },
     statistics: { count_bots: false },
   };

@@ -63,6 +63,17 @@ func runtimeSettingsTestStore(t *testing.T) *Store {
 	if _, err := pool.Exec(ctx, tableDDL); err != nil {
 		t.Fatal(err)
 	}
+	// The later migrations are replayed too, because the queries under test read
+	// every column they add. Keeping the schema one migration behind the store
+	// would make these tests fail for a reason that cannot happen in production,
+	// where the API waits for `migrate` to finish.
+	alter, err := os.ReadFile(filepath.Join("..", "..", "..", "migrations", "000019_runtime_settings_totp.up.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, string(alter)); err != nil {
+		t.Fatal(err)
+	}
 	return &Store{Pool: pool}
 }
 
@@ -71,7 +82,7 @@ func TestRuntimeSettingsCompareAndSwapIsAtomic(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	base := domain.RuntimeSettingsInput{
-		AliasMode: "random", UniqueURLs: true, RegistrationEnabled: true,
+		AliasMode: "random", UniqueURLs: true, RegistrationEnabled: true, TOTPEnabled: true,
 		RateLimitAPI: 120, HealthCheckIntervalSeconds: 86400,
 		DestinationDenylist: []string{"blocked.example.com"}, ShortDomains: []string{"go.example.com"},
 	}
@@ -131,6 +142,9 @@ func TestRuntimeSettingsCompareAndSwapIsAtomic(t *testing.T) {
 	if !after.UniqueURLs || after.ShortDomains[0] != "go.example.com" || after.DestinationDenylist[0] != "blocked.example.com" {
 		t.Fatal("unrelated fields changed")
 	}
+	if !after.TOTPEnabled {
+		t.Fatal("the second factor's switch did not survive a write")
+	}
 
 	// The legacy full-document writer must still work and invalidate an older
 	// PATCH revision, even though legacy clients do not send a revision.
@@ -146,5 +160,61 @@ func TestRuntimeSettingsCompareAndSwapIsAtomic(t *testing.T) {
 	latest, err := store.GetRuntimeSettings(ctx)
 	if err != nil || latest.FallbackURL != legacy.FallbackURL || latest.Revision != saved.Revision {
 		t.Fatalf("rejected CAS changed the database: settings=%+v err=%v", latest, err)
+	}
+}
+
+// A deployment that predates migration 000019 has a row already, and
+// EnsureRuntimeSettings inserts with ON CONFLICT (id) DO NOTHING — so the new
+// column stays NULL until the first boot adopts TOTP_ENABLED into it. This is
+// the test that an upgrade cannot silently switch the second factor off, and
+// that the adoption happens exactly once.
+func TestAdoptTOTPDefaultFillsTheColumnOnlyOnce(t *testing.T) {
+	store := runtimeSettingsTestStore(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := store.EnsureRuntimeSettings(ctx, domain.RuntimeSettingsInput{AliasMode: "random"}); err != nil {
+		t.Fatal(err)
+	}
+	// Recreate the upgrade state: the row predates the column, so it is NULL
+	// even though EnsureRuntimeSettings has just run.
+	if _, err := store.Pool.Exec(ctx, "UPDATE runtime_settings SET totp_enabled = NULL WHERE id = 1"); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.GetRuntimeSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.TOTPEnabled {
+		t.Fatal("a NULL column must read as off before it is adopted")
+	}
+
+	if err := store.AdoptTOTPDefault(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+	adopted, err := store.GetRuntimeSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !adopted.TOTPEnabled {
+		t.Fatal("AdoptTOTPDefault did not fill the column")
+	}
+	// Adopting a bootstrap default is not an edit an operator made, so it must
+	// not move the revision: a console with an in-flight save would be rejected
+	// for no reason.
+	if adopted.Revision != before.Revision {
+		t.Fatalf("adoption moved the revision from %d to %d", before.Revision, adopted.Revision)
+	}
+
+	// The next boot must not overwrite a value that is now concrete, whether the
+	// operator chose it or the previous boot adopted it.
+	if err := store.AdoptTOTPDefault(ctx, false); err != nil {
+		t.Fatal(err)
+	}
+	after, err := store.GetRuntimeSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !after.TOTPEnabled {
+		t.Fatal("AdoptTOTPDefault overwrote a concrete value")
 	}
 }

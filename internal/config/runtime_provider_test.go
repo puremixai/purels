@@ -32,6 +32,14 @@ type runtimeSettingsStoreStub struct {
 	settings  domain.RuntimeSettings
 	beforeCAS func()
 	writes    int
+	// adopted records the value the provider passed to AdoptTOTPDefault, which
+	// is nil when it was never called.
+	adopted *bool
+}
+
+func (s *runtimeSettingsStoreStub) AdoptTOTPDefault(_ context.Context, enabled bool) error {
+	s.adopted = &enabled
+	return nil
 }
 
 func (s *runtimeSettingsStoreStub) GetRuntimeSettings(context.Context) (domain.RuntimeSettings, error) {
@@ -110,6 +118,29 @@ func TestRuntimeProviderPatchValidatesMergedSettingsBeforeWriting(t *testing.T) 
 	_, err := provider.Patch(context.Background(), domain.RuntimeSettingsPatch{Revision: 1, Changes: map[string]json.RawMessage{"health_check_interval_seconds": json.RawMessage(`0`)}})
 	if err == nil || store.writes != 0 {
 		t.Fatalf("invalid merged settings were saved: err=%v writes=%d", err, store.writes)
+	}
+}
+
+// The second factor's switch reaches the database the same way every other
+// runtime setting does, so this is the test that the console's toggle is not
+// silently dropped by the patch merge.
+func TestRuntimeProviderPatchFlipsTheSecondFactor(t *testing.T) {
+	store := &runtimeSettingsStoreStub{settings: domain.RuntimeSettings{
+		RuntimeSettingsInput: RuntimeDefaults(Config{TOTPEnabled: true, RateLimitAPI: 987}),
+		Revision:             2,
+	}}
+	provider := &RuntimeProvider{store: store}
+	got, err := provider.Patch(context.Background(), domain.RuntimeSettingsPatch{Revision: 2, Changes: map[string]json.RawMessage{
+		"totp_enabled": json.RawMessage(`false`),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.TOTPEnabled {
+		t.Fatal("the patch did not turn the second factor off")
+	}
+	if got.RateLimitAPI != 987 {
+		t.Fatal("a patch to one group changed another")
 	}
 }
 

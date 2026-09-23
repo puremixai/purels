@@ -40,15 +40,31 @@ const (
 type TwoFactorService struct {
 	Store  *postgres.Store
 	Config config.Config
+	// Settings carries the deployment's runtime switches, of which the second
+	// factor's master switch is one. Nil falls back to the boot-time
+	// configuration, for callers that have no database.
+	Settings domain.RuntimeSettingsReader
 	// Box holds the key the secrets are stored under. Its zero value refuses
 	// every operation, which is what makes a missing key fail closed instead of
 	// silently skipping the second factor.
 	Box security.SecretBox
 }
 
+// available reports whether the second factor can be used at all. Both halves are
+// required, and every entry point reads this: a switch turned on without a
+// usable key would otherwise start challenging accounts whose secrets can no
+// longer be decrypted, locking out everyone who enrolled.
+func (s *TwoFactorService) available() bool {
+	enabled := s.Config.TOTPEnabled
+	if s.Settings != nil {
+		enabled = s.Settings.Current().TOTPEnabled
+	}
+	return enabled && s.Config.SecretsAvailable()
+}
+
 // Status describes the second factor for one account.
 func (s *TwoFactorService) Status(ctx context.Context, userID string) (domain.MFAStatus, error) {
-	status := domain.MFAStatus{Available: s.Config.TwoFactorAvailable()}
+	status := domain.MFAStatus{Available: s.available()}
 	state, err := s.Store.GetMFAState(ctx, userID)
 	if err != nil {
 		if errors.Is(err, postgres.ErrNotFound) {
@@ -73,7 +89,7 @@ func (s *TwoFactorService) Status(ctx context.Context, userID string) (domain.MF
 // account is not yet protected and an abandoned enrolment is inert — an
 // unconfirmed secret never takes part in a login decision.
 func (s *TwoFactorService) Enroll(ctx context.Context, user domain.User) (domain.MFAEnrollment, error) {
-	if !s.Config.TwoFactorAvailable() {
+	if !s.available() {
 		return domain.MFAEnrollment{}, ErrTwoFactorUnavailable
 	}
 	secret, err := security.NewTOTPSecret()
@@ -105,7 +121,7 @@ func (s *TwoFactorService) Enroll(ctx context.Context, user domain.User) (domain
 // Confirm completes an enrolment and returns the recovery codes, which are
 // shown to the operator exactly once — only their hashes are kept.
 func (s *TwoFactorService) Confirm(ctx context.Context, userID, code string) ([]string, error) {
-	if !s.Config.TwoFactorAvailable() {
+	if !s.available() {
 		return nil, ErrTwoFactorUnavailable
 	}
 	state, err := s.Store.GetMFAState(ctx, userID)
@@ -135,7 +151,7 @@ func (s *TwoFactorService) Confirm(ctx context.Context, userID, code string) ([]
 // Disable turns the second factor off. It demands the password as well as a
 // code so a stolen session cannot quietly remove it.
 func (s *TwoFactorService) Disable(ctx context.Context, user domain.User, password, code string) error {
-	if !s.Config.TwoFactorAvailable() {
+	if !s.available() {
 		return ErrTwoFactorUnavailable
 	}
 	_, passwordHash, enabled, err := s.Store.FindUser(ctx, user.Username)

@@ -13,10 +13,13 @@ const runtimeSettingsColumns = `alias_mode, unique_urls, registration_enabled, c
 	max_links_per_user, destination_denylist, short_domains, health_check_enabled,
 	health_check_interval_seconds, rate_limit_enabled, rate_limit_login, rate_limit_api,
 	rate_limit_redirect, rate_limit_register, rate_limit_2fa, rate_limit_oidc,
-	revision, updated_at`
+	totp_enabled, revision, updated_at`
 
 func scanRuntimeSettings(row rowScanner) (domain.RuntimeSettings, error) {
 	var settings domain.RuntimeSettings
+	// Nullable only between migration 000019 and the first boot that adopts
+	// TOTP_ENABLED into it; see AdoptTOTPDefault.
+	var totpEnabled *bool
 	err := row.Scan(
 		&settings.AliasMode,
 		&settings.UniqueURLs,
@@ -38,9 +41,11 @@ func scanRuntimeSettings(row rowScanner) (domain.RuntimeSettings, error) {
 		&settings.RateLimitRegister,
 		&settings.RateLimit2FA,
 		&settings.RateLimitOIDC,
+		&totpEnabled,
 		&settings.Revision,
 		&settings.UpdatedAt,
 	)
+	settings.TOTPEnabled = totpEnabled != nil && *totpEnabled
 	if settings.DestinationDenylist == nil {
 		settings.DestinationDenylist = []string{}
 	}
@@ -57,7 +62,7 @@ func (s *Store) EnsureRuntimeSettings(ctx context.Context, input domain.RuntimeS
 		INSERT INTO runtime_settings (
 			id, `+runtimeSettingsColumns+`
 		) VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-			$14, $15, $16, $17, $18, $19, $20, 1, now())
+			$14, $15, $16, $17, $18, $19, $20, $21, 1, now())
 		ON CONFLICT (id) DO NOTHING`,
 		input.AliasMode,
 		input.UniqueURLs,
@@ -79,7 +84,25 @@ func (s *Store) EnsureRuntimeSettings(ctx context.Context, input domain.RuntimeS
 		input.RateLimitRegister,
 		input.RateLimit2FA,
 		input.RateLimitOIDC,
+		input.TOTPEnabled,
 	)
+	return normalizeDBError(err)
+}
+
+// AdoptTOTPDefault fills totp_enabled the first time this deployment boots after
+// migration 000019, using the value TOTP_ENABLED still supplies. The column is
+// added nullable precisely so that an upgrade cannot switch an existing
+// deployment's second factor off, and this is the one place that resolves the
+// NULL; every later read finds a concrete value, and every console save writes
+// one.
+//
+// It deliberately leaves revision and updated_at alone: this is a bootstrap
+// default being adopted, not an edit an operator made, and bumping the revision
+// would invalidate a console's in-flight save for no reason.
+func (s *Store) AdoptTOTPDefault(ctx context.Context, enabled bool) error {
+	_, err := s.Pool.Exec(ctx,
+		`UPDATE runtime_settings SET totp_enabled = $1 WHERE id = 1 AND totp_enabled IS NULL`,
+		enabled)
 	return normalizeDBError(err)
 }
 
@@ -117,8 +140,8 @@ func (s *Store) updateRuntimeSettings(ctx context.Context, input domain.RuntimeS
 			short_domains=$11, health_check_enabled=$12, health_check_interval_seconds=$13,
 			rate_limit_enabled=$14, rate_limit_login=$15, rate_limit_api=$16,
 			rate_limit_redirect=$17, rate_limit_register=$18, rate_limit_2fa=$19,
-			rate_limit_oidc=$20, revision=revision+1, updated_at=now()
-		WHERE id=1 AND ($21::bigint=0 OR revision=$21)
+			rate_limit_oidc=$20, totp_enabled=$21, revision=revision+1, updated_at=now()
+		WHERE id=1 AND ($22::bigint=0 OR revision=$22)
 		RETURNING `+runtimeSettingsColumns,
 		input.AliasMode,
 		input.UniqueURLs,
@@ -140,6 +163,7 @@ func (s *Store) updateRuntimeSettings(ctx context.Context, input domain.RuntimeS
 		input.RateLimitRegister,
 		input.RateLimit2FA,
 		input.RateLimitOIDC,
+		input.TOTPEnabled,
 		revision,
 	))
 	if errors.Is(err, pgx.ErrNoRows) {

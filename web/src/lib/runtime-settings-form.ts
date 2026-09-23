@@ -5,7 +5,7 @@ export const runtimeGroups = {
   creation: ["alias_mode", "unique_urls", "max_links_per_user", "short_domains"],
   redirects: ["forward_query", "fallback_url", "destination_denylist"],
   maintenance: ["health_check_enabled", "health_check_interval_seconds", "auto_prune_expired", "prune_grace_seconds"],
-  registration: ["registration_enabled"],
+  registration: ["registration_enabled", "totp_enabled"],
   traffic: ["rate_limit_enabled", "rate_limit_login", "rate_limit_register", "rate_limit_2fa", "rate_limit_oidc", "rate_limit_api", "rate_limit_redirect"],
   statistics: ["count_bots"],
 } as const satisfies Record<string, readonly (keyof RuntimeSettingsInput)[]>;

@@ -11,12 +11,19 @@ import (
 
 // RuntimeSettingsInput is the full set of deployment options that the
 // administrator may change from the console. Secrets and process/infrastructure
-// settings deliberately do not appear here.
+// settings deliberately do not appear here — which is why the encryption key
+// that makes the second factor possible is absent while the switch that decides
+// whether it is used is present.
 type RuntimeSettingsInput struct {
-	AliasMode                  string   `json:"alias_mode"`
-	UniqueURLs                 bool     `json:"unique_urls"`
-	RegistrationEnabled        bool     `json:"registration_enabled"`
-	CountBots                  bool     `json:"count_bots"`
+	AliasMode           string `json:"alias_mode"`
+	UniqueURLs          bool   `json:"unique_urls"`
+	RegistrationEnabled bool   `json:"registration_enabled"`
+	CountBots           bool   `json:"count_bots"`
+	// TOTPEnabled is the master switch for the built-in second factor. Off means
+	// "never challenge anyone", even for an account that already has a confirmed
+	// secret. It is the runtime counterpart of the TOTP_ENABLED environment
+	// variable, which now only seeds this field on the first boot.
+	TOTPEnabled                bool     `json:"totp_enabled"`
 	ForwardQuery               bool     `json:"forward_query"`
 	FallbackURL                string   `json:"fallback_url"`
 	AutoPruneExpired           bool     `json:"auto_prune_expired"`

@@ -13,7 +13,7 @@ import { useSettingsDirty } from "./settings-draft-guard";
 
 const labels: Record<keyof RuntimeSettingsInput, MessageKey> = {
   alias_mode: "settings.runtime.aliasMode", unique_urls: "settings.runtime.uniqueUrls",
-  registration_enabled: "settings.runtime.registration", count_bots: "settings.runtime.countBots",
+  registration_enabled: "settings.runtime.registration", totp_enabled: "settings.runtime.totpEnabled", count_bots: "settings.runtime.countBots",
   forward_query: "settings.runtime.forwardQuery", fallback_url: "settings.runtime.fallbackUrl",
   auto_prune_expired: "settings.runtime.autoPrune", prune_grace_seconds: "settings.runtime.pruneGrace",
   max_links_per_user: "settings.runtime.maxLinks", destination_denylist: "settings.runtime.denylist",

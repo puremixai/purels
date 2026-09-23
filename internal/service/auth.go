@@ -24,6 +24,10 @@ type AuthService struct {
 	Store   *postgres.Store
 	Config  config.Config
 	Captcha RegistrationCaptcha
+	// Settings carries the deployment's runtime switches, of which the second
+	// factor is one. Nil falls back to the boot-time configuration, which is what
+	// unit tests that construct this service without a database rely on.
+	Settings domain.RuntimeSettingsReader
 	// Hasher turns the caller's address into the digest stored on the session.
 	// Its zero value is the default mode, so an unconfigured service still
 	// records one.
@@ -32,6 +36,16 @@ type AuthService struct {
 	// which is what makes a missing key fail closed rather than let a second
 	// factor be skipped.
 	Box security.SecretBox
+}
+
+// twoFactorEnabled reports the switch alone. It is never the whole answer: a
+// caller that acts on it must also have a usable key, which SecretsAvailable
+// reports. See startSecondFactor for why the two cannot be separated.
+func (a *AuthService) twoFactorEnabled() bool {
+	if a.Settings != nil {
+		return a.Settings.Current().TOTPEnabled
+	}
+	return a.Config.TOTPEnabled
 }
 
 // ErrInvalidCredentials covers a wrong username, a wrong password and a disabled
@@ -101,7 +115,7 @@ func (a *AuthService) CompleteLogin(ctx context.Context, user domain.User, userA
 // challenging people whose secrets can no longer be decrypted, because that
 // would lock out every account that ever enrolled.
 func (a *AuthService) startSecondFactor(ctx context.Context, userID string) (string, bool, error) {
-	if !a.Config.TwoFactorAvailable() {
+	if !a.twoFactorEnabled() || !a.Config.SecretsAvailable() {
 		return "", false, nil
 	}
 	state, err := a.Store.GetMFAState(ctx, userID)

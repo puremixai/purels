@@ -145,8 +145,9 @@ func (m MFAState) Enrolled() bool { return m.ConfirmedAt != nil && len(m.Secret)
 
 // MFAStatus is what the console needs to render the security page.
 type MFAStatus struct {
-	// Available is the deployment's side of the feature: TOTP_ENABLED with a
-	// usable key. False means enrolment is refused, not merely hidden.
+	// Available is the deployment's side of the feature: the second factor's
+	// master switch, which is a runtime setting, with a usable encryption key.
+	// False means enrolment is refused, not merely hidden.
 	Available bool `json:"available"`
 	// Enabled is this account's side: a confirmed secret is stored.
 	Enabled bool `json:"enabled"`

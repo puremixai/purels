@@ -83,6 +83,7 @@ func TestRuntimeDefaultsUseDeploymentConfig(t *testing.T) {
 		UniqueURLs:          false,
 		RegistrationEnabled: false,
 		CountBots:           true,
+		TOTPEnabled:         true,
 		ForwardQuery:        false,
 		FallbackURL:         "https://example.com/missing",
 		AutoPruneExpired:    true,
@@ -103,6 +104,11 @@ func TestRuntimeDefaultsUseDeploymentConfig(t *testing.T) {
 	got := RuntimeDefaults(cfg)
 	if got.AliasMode != "sequential" || got.MaxLinksPerUser != 77 || got.PruneGraceSeconds != 48*60*60 {
 		t.Fatalf("runtime defaults lost deployment values: %#v", got)
+	}
+	// TOTP_ENABLED only seeds the column, so a lost value here would leave the
+	// first boot after the migration with the second factor off.
+	if !got.TOTPEnabled {
+		t.Fatal("runtime defaults lost the second factor's first-boot switch")
 	}
 	if !reflect.DeepEqual(got.ShortDomains, cfg.ShortDomains) || !reflect.DeepEqual(got.DestinationDenylist, cfg.DestinationDenylist) {
 		t.Fatalf("runtime defaults lost list values: %#v", got)

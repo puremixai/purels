@@ -25,6 +25,7 @@ type runtimeSettingsStore interface {
 	GetRuntimeSettings(context.Context) (domain.RuntimeSettings, error)
 	UpdateRuntimeSettings(context.Context, domain.RuntimeSettingsInput) (domain.RuntimeSettings, error)
 	CompareAndSwapRuntimeSettings(context.Context, domain.RuntimeSettingsInput, int64) (domain.RuntimeSettings, error)
+	AdoptTOTPDefault(context.Context, bool) error
 }
 
 func NewRuntimeProvider(ctx context.Context, store *postgres.Store, defaults domain.RuntimeSettingsInput) (*RuntimeProvider, error) {
@@ -33,6 +34,11 @@ func NewRuntimeProvider(ctx context.Context, store *postgres.Store, defaults dom
 		return nil, err
 	}
 	if err := store.EnsureRuntimeSettings(ctx, normalized); err != nil {
+		return nil, err
+	}
+	// A column a migration added as NULL is resolved from the environment once,
+	// before the first read, so nothing downstream has to know about it.
+	if err := store.AdoptTOTPDefault(ctx, normalized.TOTPEnabled); err != nil {
 		return nil, err
 	}
 	provider := &RuntimeProvider{store: store}

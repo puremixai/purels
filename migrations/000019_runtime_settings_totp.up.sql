@@ -1,0 +1,18 @@
+-- The built-in second factor's master switch moves out of TOTP_ENABLED and into
+-- the runtime settings row, so an operator can turn it on from the console
+-- instead of editing the deployment's environment and restarting.
+--
+-- The column is deliberately NULLABLE. The runtime settings row is seeded from
+-- the environment only once, on the first boot after migration 000018, and
+-- EnsureRuntimeSettings inserts with ON CONFLICT (id) DO NOTHING — so a row that
+-- already exists is never rewritten from the environment again. Adding this
+-- column as NOT NULL DEFAULT false would therefore take a deployment that runs
+-- with TOTP_ENABLED=true today and silently switch its second factor off, which
+-- is exactly the kind of upgrade-time behaviour change the rest of these
+-- settings avoid.
+--
+-- NULL means "not adopted yet". The first boot after this migration fills it in
+-- once from TOTP_ENABLED, and every console save writes a concrete value, so it
+-- is never NULL again. The semantics are those of a column that had existed
+-- since 000018.
+ALTER TABLE runtime_settings ADD COLUMN IF NOT EXISTS totp_enabled boolean;

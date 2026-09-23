@@ -118,6 +118,7 @@ const settingsSearchEntries: readonly SettingsSearchEntry[] = [
   linkSearch("auto_prune_expired", "settings.runtime.autoPrune", "/maintenance"),
   linkSearch("prune_grace_seconds", "settings.runtime.pruneGrace", "/maintenance"),
   { href: "/home/settings/registration#registration_enabled", labelKey: "settings.runtime.registration", categoryKey: "settings.nav.registration", scope: "settings:manage", keywords: "registration_enabled" },
+  { href: "/home/settings/registration#totp_enabled", labelKey: "settings.runtime.totpEnabled", categoryKey: "settings.nav.registration", scope: "settings:manage", keywords: "totp_enabled TOTP 2FA two-factor" },
   ...(["title", "siteKey", "secretKey", "expectedHostname", "expectedAction"] as const).map((field): SettingsSearchEntry => ({
     href: "/home/settings/registration#captcha", labelKey: `settings.captcha.${field}`, categoryKey: "settings.nav.registration", scope: "captcha:manage", keywords: "Turnstile CAPTCHA",
   })),

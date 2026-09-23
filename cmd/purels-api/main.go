@@ -61,6 +61,16 @@ func main() {
 	if err != nil {
 		logger.Warn("storing encrypted secrets is unavailable", "error", err)
 	}
+	// The second factor needs two things that live in different places: a
+	// runtime switch in the database and a key in the environment. Neither file
+	// alone can say whether it is actually in force, so the pairing is checked
+	// here, once the database has been read, and reported on the effective
+	// values rather than on either half.
+	if totpEnabled := runtimeSettings.Current().TOTPEnabled; totpEnabled && !cfg.SecretsAvailable() {
+		logger.Warn("the second factor is enabled but SECRET_ENCRYPTION_KEY is not set: enrolment is refused and nobody will be challenged")
+	} else if !totpEnabled && cfg.SecretsAvailable() {
+		logger.Warn("an encryption key is configured but the second factor is off: nobody will be challenged. The key still covers OIDC client secrets")
+	}
 
 	turnstile := service.NewTurnstileVerifier()
 	captchaService := &service.CaptchaService{
@@ -70,7 +80,7 @@ func main() {
 		Box:      box,
 		Verifier: turnstile,
 	}
-	authService := &service.AuthService{Store: store, Config: cfg, Hasher: hasher, Box: box, Captcha: captchaService}
+	authService := &service.AuthService{Store: store, Config: cfg, Settings: runtimeSettings, Hasher: hasher, Box: box, Captcha: captchaService}
 	if err := authService.Bootstrap(ctx); err != nil {
 		logger.Error("bootstrap failed", "error", err)
 		os.Exit(1)
@@ -97,7 +107,7 @@ func main() {
 		Audit:    &service.AuditService{Store: store, Hasher: hasher},
 		Users:    &service.UserService{Store: store},
 		Roles:    &service.RoleService{Store: store},
-		MFA:      &service.TwoFactorService{Store: store, Config: cfg, Box: box},
+		MFA:      &service.TwoFactorService{Store: store, Config: cfg, Settings: runtimeSettings, Box: box},
 		OIDC: &service.OIDCService{
 			Store: store, Config: cfg, Box: box,
 			// Built by the service so the timeout that bounds a call to an

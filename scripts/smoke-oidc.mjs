@@ -672,7 +672,7 @@ async function main() {
     const mfaNames = flowNames.slice(flowNames.indexOf("the external account can bind a second factor"));
     const mfaStatus = await json(await call(visitor, "/api/v1/auth/2fa"));
     if (!mfaStatus.available) {
-      for (const name of mfaNames) skip(name, "TOTP_ENABLED is false");
+      for (const name of mfaNames) skip(name, "the second factor is off for this deployment");
     } else {
       const enrolled = await json(await call(visitor, "/api/v1/auth/2fa/enroll", { method: "POST" }));
       const secret = enrolled.secret || "";

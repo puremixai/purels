@@ -163,16 +163,26 @@ and API tokens live under `/home/account`. Existing settings URLs remain
 compatible.
 
 The following site policies require the `settings:manage` scope: alias generation,
-duplicate URL handling, registration, bot counting, query forwarding, fallback
-URL, expiry pruning, per-user link quota, destination denylist, extra short
-domains, destination health checks and all per-IP rate-limit buckets. Changes
-are picked up by the API immediately and by the worker on its short poll; the
-admin role receives this scope in migration `000018`.
+duplicate URL handling, registration, the built-in second factor, bot counting,
+query forwarding, fallback URL, expiry pruning, per-user link quota, destination
+denylist, extra short domains, destination health checks and all per-IP
+rate-limit buckets. Changes are picked up by the API immediately and by the
+worker on its short poll; the admin role receives this scope in migration
+`000018`.
+
+The second factor's master switch joined that row in migration `000019`. The
+column is added nullable and filled once from `TOTP_ENABLED` on the first boot,
+so an upgrade cannot silently switch an in-use second factor off; every console
+save writes a concrete value from then on.
 
 The console saves only changed fields using `PATCH /api/v1/settings/runtime`
 with `{ "revision": 1, "changes": { "count_bots": true } }`. Obtain the revision
 from GET first. An atomic revision check returns `409 conflict` for a stale
-edit; omitted fields retain their values. Legacy PUT remains a full replacement.
+edit; omitted fields retain their values. Legacy PUT remains a full replacement,
+and a full document must now include `totp_enabled`: the switch was added after
+that endpoint shipped, so a body without it would otherwise read as "off" and
+turn the second factor off in silence. A PUT that omits it is refused with
+`400`.
 Registration verification, OIDC, roles, users and external tracking retain their
 own permissions and independent save operations. External tracking scripts run
 in the console only; bot counting controls the built-in short-link reports.

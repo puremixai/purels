@@ -96,11 +96,14 @@ type Config struct {
 	// link's last result must be before it is checked again.
 	HealthCheckInterval time.Duration
 
-	// TOTPEnabled is the master switch for the built-in second factor. Off by
-	// default, and off means "never challenge anyone" even for an account that
-	// already has a confirmed secret — which is what lets a deployment that
-	// enforces MFA on the OIDC side turn the local one off without unbinding
-	// every account.
+	// TOTPEnabled is the first-boot default for the built-in second factor's
+	// master switch, which lives in the runtime settings so an operator can
+	// change it from the console. It seeds the column once, on the first boot
+	// after migration 000019; after that the database is authoritative and this
+	// value is read no further. Off means "never challenge anyone" even for an
+	// account that already has a confirmed secret — which is what lets a
+	// deployment that enforces MFA on the OIDC side turn the local one off
+	// without unbinding every account.
 	TOTPEnabled bool
 	// SecretEncryptionKey is the AES-256-GCM key stored secrets are kept under:
 	// TOTP enrolment secrets, and OIDC client secrets. Empty means storing one
@@ -153,18 +156,16 @@ type Config struct {
 // the alias sequence instead of random strings.
 func (c Config) SequentialAliases() bool { return c.AliasMode == "sequential" }
 
-// TwoFactorAvailable reports whether the built-in second factor can be used at
-// all. Both halves are required, and both the login challenge and enrolment read
-// this: a switch-on without a key would otherwise start challenging accounts
-// whose secrets can no longer be decrypted, locking out everyone who enrolled.
-func (c Config) TwoFactorAvailable() bool {
-	return c.TOTPEnabled && c.SecretsAvailable()
-}
-
 // SecretsAvailable reports whether stored secrets can be encrypted at all. Both
 // TOTP enrolment and OIDC client secrets need it, and both refuse to store
 // anything without it, so this is the one place the fail-closed posture is
 // expressed.
+//
+// The second factor's own switch is a runtime setting rather than a field here,
+// so "is two-factor available" is answered where both halves are in scope:
+// service.TwoFactorService.available and AuthService.startSecondFactor. Both are
+// required — a switch turned on without this key would start challenging accounts
+// whose secrets can no longer be decrypted, locking out everyone who enrolled.
 func (c Config) SecretsAvailable() bool { return c.SecretEncryptionKey != "" }
 
 // Location is the statistics timezone, never nil so callers can use it directly.
@@ -310,9 +311,13 @@ func oidcRedirectBase(publicURL string) string {
 // SECRET_ENCRYPTION_KEY is the name to use. TOTP_ENCRYPTION_KEY is the name it
 // had while TOTP was all it covered, and is still read so an existing deployment
 // keeps decrypting its enrolments: the ciphertext records nothing about which
-// name wrote it, so the two names must hold the same bytes. Neither warning
-// below is fatal — refusing to boot over an optional feature would take a
-// working service down.
+// name wrote it, so the two names must hold the same bytes. Neither warning here
+// is fatal — refusing to boot over an optional feature would take a working
+// service down.
+//
+// Whether the key is actually put to use is not decided here. The second
+// factor's switch is a runtime setting, so the pairing between it and this key
+// is checked once the database has been read, in cmd/purels-api.
 func secretEncryptionKey() string {
 	key := strings.TrimSpace(os.Getenv("SECRET_ENCRYPTION_KEY"))
 	if key == "" {
@@ -320,13 +325,6 @@ func secretEncryptionKey() string {
 			slog.Warn("TOTP_ENCRYPTION_KEY is deprecated; use SECRET_ENCRYPTION_KEY")
 			key = legacy
 		}
-	}
-	totpEnabled := boolEnv("TOTP_ENABLED", false)
-	switch {
-	case totpEnabled && key == "":
-		slog.Warn("TOTP_ENABLED is set but SECRET_ENCRYPTION_KEY is empty: the second factor stays off and enrolment is refused")
-	case !totpEnabled && key != "":
-		slog.Warn("an encryption key is configured but TOTP_ENABLED is false: nobody will be challenged")
 	}
 	if key != "" {
 		// Validated here rather than at first use, so a wrong key is a boot-time
