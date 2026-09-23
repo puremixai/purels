@@ -52,6 +52,15 @@ func main() {
 	// One hasher for every write site, so the three ip_hash columns cannot drift
 	// apart as the setting changes.
 	hasher := security.IPHasher{Mode: cfg.IPHashMode, Key: cfg.IPHashKey}
+	// The warning belongs here rather than in config.Load, because it is a claim
+	// about what gets written to ip_hash and this is the only process with a
+	// write site. The worker loads the same config and never hashes an address,
+	// so warning there reported a gap that did not exist for it. It is also not
+	// fatal: an unkeyed digest is weaker than a keyed one, not wrong, and every
+	// count already recorded was written that way.
+	if cfg.IPHashMode != security.IPModeNone && len(cfg.IPHashKey) == 0 {
+		logger.Warn("IP_HASH_KEY is not set: ip_hash holds a plain SHA-256 digest, which is reversible by brute force over the IPv4 space")
+	}
 
 	// Built once and shared: the login path and the enrolment path have to
 	// agree on the key, and a box that failed to build stays unusable so

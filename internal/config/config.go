@@ -336,18 +336,21 @@ func secretEncryptionKey() string {
 	return key
 }
 
-// ipHashModeEnv resolves IP_HASH_MODE and warns about the two ways it can be
-// set wrong. Both warnings are deliberately non-fatal: the first because a
-// misspelling has a safe reading, the second because a missing key only weakens
-// a digest that was already weak before this setting existed.
+// ipHashModeEnv resolves IP_HASH_MODE and warns when the value was not
+// recognised. That warning stays here rather than moving to the process that
+// hashes, because it is about the value itself and this is where the raw
+// environment string is still in scope.
+//
+// The missing-key warning is not here. It is a claim about what gets written to
+// the ip_hash columns, and only the API has a write site — the worker loads the
+// same config and hashes nothing — so reporting it here would warn the worker
+// about a gap that does not exist for it. cmd/purels-api reports it next to the
+// hasher it builds, which is the only place it can be acted on.
 func ipHashModeEnv() string {
 	raw := strings.TrimSpace(os.Getenv("IP_HASH_MODE"))
 	mode := security.NormalizeIPMode(raw)
 	if raw != "" && !strings.EqualFold(raw, mode) {
 		slog.Warn("unknown IP_HASH_MODE, using the default", "ip_hash_mode", raw, "using", mode)
-	}
-	if mode != security.IPModeNone && os.Getenv("IP_HASH_KEY") == "" {
-		slog.Warn("IP_HASH_KEY is not set: ip_hash holds a plain SHA-256 digest, which is reversible by brute force over the IPv4 space")
 	}
 	return mode
 }
